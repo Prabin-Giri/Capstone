@@ -3,6 +3,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import NotFound from './pages/NotFound';
 import StudentDashboard from './pages/student/Dashboard';
 import AssignmentDetails from './pages/student/AssignmentDetails';
+import SubmissionResults from './pages/student/SubmissionResults';
 // import FacultyDashboard from './pages/faculty/Dashboard'; // Placeholder
 
 // Simple placeholder components for now
@@ -19,6 +20,7 @@ function App() {
         <Route path="/student" element={<DashboardLayout />}>
           <Route index element={<StudentDashboard />} />
           <Route path="classes/:classId/assignments/:assignmentId" element={<AssignmentDetails />} />
+          <Route path="classes/:classId/assignments/:assignmentId/results/:submissionId" element={<SubmissionResults />} />
           {/* Add more student routes here */}
         </Route>
 
