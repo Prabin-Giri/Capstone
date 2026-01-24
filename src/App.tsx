@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import DashboardLayout from './layouts/DashboardLayout';
 import NotFound from './pages/NotFound';
 import StudentDashboard from './pages/student/Dashboard';
+import AssignmentDetails from './pages/student/AssignmentDetails';
 // import FacultyDashboard from './pages/faculty/Dashboard'; // Placeholder
 
 // Simple placeholder components for now
@@ -17,6 +18,7 @@ function App() {
         {/* Student Routes */}
         <Route path="/student" element={<DashboardLayout />}>
           <Route index element={<StudentDashboard />} />
+          <Route path="classes/:classId/assignments/:assignmentId" element={<AssignmentDetails />} />
           {/* Add more student routes here */}
         </Route>
 
