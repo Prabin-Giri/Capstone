@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getRole, AUTH_ROLES, type AuthRole } from '../../lib/auth';
 import './Layout.css';
 
 const Sidebar: React.FC = () => {
+    const [role, setRole] = useState<AuthRole | null>(null);
+
+    useEffect(() => {
+        setRole(getRole());
+    }, []);
+
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
@@ -10,12 +17,17 @@ const Sidebar: React.FC = () => {
             </div>
 
             <nav className="sidebar-nav">
-                <Link to="/student" className="nav-link">
-                    Student Dashboard
-                </Link>
-                <Link to="/faculty" className="nav-link">
-                    Faculty Dashboard
-                </Link>
+                {role === AUTH_ROLES.STUDENT && (
+                    <Link to="/student" className="nav-link">
+                        Student Dashboard
+                    </Link>
+                )}
+
+                {role === AUTH_ROLES.FACULTY && (
+                    <Link to="/faculty" className="nav-link">
+                        Faculty Dashboard
+                    </Link>
+                )}
             </nav>
         </aside>
     );

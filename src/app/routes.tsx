@@ -1,5 +1,8 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
+import ProtectedRoute from '../components/layout/ProtectedRoute';
+import LandingPage from '../pages/LandingPage';
+import Login from '../pages/auth/Login';
 import StudentDashboard from '../pages/student/StudentDashboard';
 import ClassAssignments from '../pages/student/ClassAssignments';
 import AssignmentDetails from '../pages/student/AssignmentDetails';
@@ -7,19 +10,25 @@ import SubmitAssignment from '../pages/student/SubmitAssignment';
 import SubmissionResults from '../pages/student/SubmissionResults';
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import NotFound from '../pages/NotFound';
+import { AUTH_ROLES } from '../lib/auth';
 
 export const router = createBrowserRouter([
+    {
+        path: '/',
+        element: <LandingPage />,
+    },
+    {
+        path: '/login/:role',
+        element: <Login />,
+    },
     {
         path: '/',
         element: <AppShell />,
         errorElement: <NotFound />,
         children: [
             {
-                index: true,
-                element: <Navigate to="/student" replace />
-            },
-            {
                 path: 'student',
+                element: <ProtectedRoute requiredRole={AUTH_ROLES.STUDENT} />,
                 children: [
                     { index: true, element: <StudentDashboard /> },
                     { path: 'classes/:classId/assignments', element: <ClassAssignments /> },
@@ -30,7 +39,10 @@ export const router = createBrowserRouter([
             },
             {
                 path: 'faculty',
-                element: <FacultyDashboard />
+                element: <ProtectedRoute requiredRole={AUTH_ROLES.FACULTY} />,
+                children: [
+                    { index: true, element: <FacultyDashboard /> },
+                ]
             }
         ]
     },
