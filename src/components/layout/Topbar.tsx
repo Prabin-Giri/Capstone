@@ -5,7 +5,7 @@ const Topbar: React.FC = () => {
     return (
         <header className="topbar">
             <div className="page-title">
-                Dashboard
+                Student Dashboard
             </div>
             <div className="user-profile">
                 <div className="avatar-circle">

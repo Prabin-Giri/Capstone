@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentDashboard.css';
 
-// Mock Data (Static)
+// Mock Data (Polished)
 const MOCK_CLASSES = [
     {
         id: 'cs101',
@@ -26,7 +26,7 @@ const MOCK_CLASSES = [
         code: 'SE 300',
         term: 'Fall 2025',
         activeAssignments: 0,
-        nextDeadline: '-',
+        nextDeadline: null,
     },
 ];
 
@@ -45,7 +45,14 @@ const StudentDashboard: React.FC = () => {
                     <div
                         key={cls.id}
                         className="class-card"
-                        onClick={() => navigate(`/student/classes/${cls.id}/assignments/a1`)} // Mock linking to assignment a1
+                        onClick={() => navigate(`/student/classes/${cls.id}/assignments`)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                navigate(`/student/classes/${cls.id}/assignments`);
+                            }
+                        }}
                     >
                         <div className="class-header">
                             <h3 className="class-name">{cls.name}</h3>
@@ -56,11 +63,13 @@ const StudentDashboard: React.FC = () => {
                         <div className="class-stats">
                             <div className="stat-item">
                                 <span className="stat-value">{cls.activeAssignments}</span>
-                                <span className="stat-label">Active</span>
+                                <span className="stat-label">open</span>
                             </div>
                             <div className="stat-item">
-                                <span className="stat-value">{cls.nextDeadline}</span>
-                                <span className="stat-label">Next Due</span>
+                                <span className="stat-value">
+                                    {cls.nextDeadline || 'No upcoming due dates'}
+                                </span>
+                                <span className="stat-label">Next Assignment Due</span>
                             </div>
                         </div>
                     </div>
