@@ -1,0 +1,122 @@
+/* App Shell Layout */
+.app-shell {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background-color: #f9fafb;
+    /* gray-50 */
+    overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 16rem;
+    /* 64 * 0.25rem = 16rem (w-64) */
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    /* gray-200 */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+    /* gray-100 */
+}
+
+.brand-title {
+    font-size: 1.25rem;
+    /* xl */
+    font-weight: 700;
+    /* bold */
+    color: #4f46e5;
+    /* indigo-600 */
+    margin: 0;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    /* sm */
+    font-weight: 500;
+    color: #4b5563;
+    /* gray-600 */
+    border-radius: 0.25rem;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+    background-color: #f9fafb;
+    /* gray-50 */
+}
+
+/* Main Layout Area */
+.main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Topbar */
+.topbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    /* gray-200 */
+    height: 4rem;
+    /* h-16 */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+}
+
+.page-title {
+    font-size: 1.125rem;
+    /* lg */
+    font-weight: 600;
+    /* semibold */
+    color: #1f2937;
+    /* gray-800 */
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.avatar-circle {
+    height: 2rem;
+    width: 2rem;
+    background-color: #e0e7ff;
+    /* indigo-100 */
+    border-radius: 9999px;
+    /* full */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4338ca;
+    /* indigo-700 */
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+/* Main Content */
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    /* padding is handled by pages usually, but we can reset margin here */
+}
