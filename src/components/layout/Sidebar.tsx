@@ -19,7 +19,7 @@ const Sidebar: React.FC = () => {
             <nav className="sidebar-nav">
                 {role === AUTH_ROLES.STUDENT && (
                     <Link to="/student" className="nav-link">
-                        Student Dashboard
+                        Dashboard
                     </Link>
                 )}
 

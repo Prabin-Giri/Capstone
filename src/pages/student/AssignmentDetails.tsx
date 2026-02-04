@@ -1,67 +1,49 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { ASSIGNMENT_STATUS } from '../../lib/constants';
+import { assignments, classes } from '../../lib/mockData';
 import './AssignmentDetails.css';
 
-// Mock Data
-const MOCK_ASSIGNMENT = {
-    id: 'a1',
-    title: 'Binary Search Implementation',
-    status: ASSIGNMENT_STATUS.OPEN,
-    dueDate: 'Oct 12, 11:59 PM',
-    points: 100,
-    description: 'Implement the binary search algorithm in Python. Your function should take a sorted list and a target value, returning the index of the target or -1 if not found.',
-    rubric: [
-        { criteria: 'Correctness (Public Tests)', points: 40 },
-        { criteria: 'Edge Cases', points: 20 },
-        { criteria: 'Time Complexity O(log n)', points: 20 },
-        { criteria: 'Code Style', points: 20 },
-    ]
-};
-
 const AssignmentDetails: React.FC = () => {
-    // const { assignmentId } = useParams();
+    const { classId, assignmentId } = useParams();
+    const assignment = assignments.find(
+        (item) => item.id === assignmentId && item.classId === classId
+    );
+    const selectedClass = classes.find((cls) => cls.id === classId);
 
-    // In a real app, use assignmentId to fetch data
-    const data = MOCK_ASSIGNMENT;
+    if (!assignment || !selectedClass) {
+        const backLink = classId ? `/student/classes/${classId}/assignments` : '/student';
+        return (
+            <div className="assignment-details">
+                <div className="section">
+                    <h1 className="details-title">Assignment not found</h1>
+                    <p className="description-text">We could not find that assignment.</p>
+                    <Link to={backLink} className="btn-primary">
+                        Back to Assignments
+                    </Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="assignment-details">
             <div className="details-header">
                 <div>
-                    <h1 className="details-title">{data.title}</h1>
+                    <h1 className="details-title">{assignment.title}</h1>
                     <div className="details-meta">
-                        <span>Due: {data.dueDate}</span>
-                        <span>{data.points} Points</span>
+                        <span>{selectedClass.name}</span>
+                        <span>Due: {assignment.dueDate}</span>
                     </div>
                 </div>
-                <StatusBadge status={data.status} />
+                <StatusBadge status={assignment.status} />
             </div>
 
             <div className="section">
-                <h2 className="section-title">Instructions</h2>
-                <p className="description-text">{data.description}</p>
-            </div>
-
-            <div className="section">
-                <h2 className="section-title">Grading Rubric</h2>
-                <table className="rubric-table">
-                    <thead>
-                        <tr>
-                            <th>Criteria</th>
-                            <th style={{ textAlign: 'right' }}>Points</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.rubric.map((item, index) => (
-                            <tr key={index}>
-                                <td>{item.criteria}</td>
-                                <td style={{ textAlign: 'right' }}>{item.points}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <h2 className="section-title">Overview</h2>
+                <p className="description-text">
+                    Assignment details will appear here in the next step of the student flow.
+                </p>
             </div>
 
             <div className="action-bar">

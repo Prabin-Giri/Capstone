@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/layout/ProtectedRoute';
 import LandingPage from '../pages/LandingPage';
 import Login from '../pages/auth/Login';
 import StudentDashboard from '../pages/student/StudentDashboard';
+import ClassOverview from '../pages/student/ClassOverview';
 import ClassAssignments from '../pages/student/ClassAssignments';
 import AssignmentDetails from '../pages/student/AssignmentDetails';
 import SubmitAssignment from '../pages/student/SubmitAssignment';
@@ -31,10 +32,11 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute requiredRole={AUTH_ROLES.STUDENT} />,
                 children: [
                     { index: true, element: <StudentDashboard /> },
+                    { path: 'classes/:classId', element: <ClassOverview /> },
                     { path: 'classes/:classId/assignments', element: <ClassAssignments /> },
-                    { path: 'assignments/:assignmentId', element: <AssignmentDetails /> },
-                    { path: 'assignments/:assignmentId/submit', element: <SubmitAssignment /> },
-                    { path: 'submissions/:submissionId', element: <SubmissionResults /> },
+                    { path: 'classes/:classId/assignments/:assignmentId', element: <AssignmentDetails /> },
+                    { path: 'classes/:classId/assignments/:assignmentId/submit', element: <SubmitAssignment /> },
+                    { path: 'classes/:classId/assignments/:assignmentId/submissions/:submissionId', element: <SubmissionResults /> },
                 ]
             },
             {
