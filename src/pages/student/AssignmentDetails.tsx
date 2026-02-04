@@ -1,18 +1,18 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { assignments, classes } from '../../lib/mockData';
+import { assignments, courses } from '../../lib/mockData';
 import './AssignmentDetails.css';
 
 const AssignmentDetails: React.FC = () => {
-    const { classId, assignmentId } = useParams();
+    const { courseId, assignmentId } = useParams();
     const assignment = assignments.find(
-        (item) => item.id === assignmentId && item.classId === classId
+        (item) => item.id === assignmentId && item.courseId === courseId
     );
-    const selectedClass = classes.find((cls) => cls.id === classId);
+    const selectedCourse = courses.find((course) => course.id === courseId);
 
-    if (!assignment || !selectedClass) {
-        const backLink = classId ? `/student/classes/${classId}/assignments` : '/student';
+    if (!assignment || !selectedCourse) {
+        const backLink = courseId ? `/student/courses/${courseId}/assignments` : '/student';
         return (
             <div className="assignment-details">
                 <div className="section">
@@ -32,7 +32,7 @@ const AssignmentDetails: React.FC = () => {
                 <div>
                     <h1 className="details-title">{assignment.title}</h1>
                     <div className="details-meta">
-                        <span>{selectedClass.name}</span>
+                        <span>{selectedCourse.name}</span>
                         <span>Due: {assignment.dueDate}</span>
                     </div>
                 </div>

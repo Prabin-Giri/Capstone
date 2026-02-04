@@ -5,9 +5,7 @@ import './Layout.css';
 const Topbar: React.FC = () => {
     return (
         <header className="topbar">
-            <div className="page-title">
-                Dashboard
-            </div>
+            <div className="page-title">Dashboard</div>
             <div className="user-profile">
                 <button
                     onClick={logout}

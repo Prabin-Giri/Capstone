@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { assignments, classes } from '../../lib/mockData';
+import { assignments, courses } from '../../lib/mockData';
 import './ClassAssignments.css';
 
 const ClassAssignments: React.FC = () => {
-    const { classId } = useParams();
+    const { courseId } = useParams();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
 
@@ -13,14 +13,14 @@ const ClassAssignments: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    const selectedClass = classes.find((cls) => cls.id === classId);
+    const selectedCourse = courses.find((course) => course.id === courseId);
 
-    if (!selectedClass) {
+    if (!selectedCourse) {
         return (
             <div className="class-assignments">
                 <div className="state-card">
-                    <h1 className="assignments-title">Class not found</h1>
-                    <p className="assignments-subtitle">We could not find that class.</p>
+                    <h1 className="assignments-title">Course not found</h1>
+                    <p className="assignments-subtitle">We could not find that course.</p>
                     <Link to="/student" className="link-primary">
                         Back to Dashboard
                     </Link>
@@ -29,18 +29,20 @@ const ClassAssignments: React.FC = () => {
         );
     }
 
-    const classAssignments = assignments.filter((assignment) => assignment.classId === selectedClass.id);
+    const courseAssignments = assignments.filter(
+        (assignment) => assignment.courseId === selectedCourse.id
+    );
 
     const header = (
         <div className="assignments-header">
             <div>
                 <h1 className="assignments-title">Assignments</h1>
                 <p className="assignments-subtitle">
-                    {selectedClass.name} &bull; {selectedClass.term}
+                    {selectedCourse.name} &bull; {selectedCourse.term}
                 </p>
             </div>
-            <Link to={`/student/classes/${selectedClass.id}`} className="link-primary">
-                Class Overview
+            <Link to={`/student/courses/${selectedCourse.id}`} className="link-primary">
+                Course Home
             </Link>
         </div>
     );
@@ -54,7 +56,7 @@ const ClassAssignments: React.FC = () => {
         );
     }
 
-    if (classAssignments.length === 0) {
+    if (courseAssignments.length === 0) {
         return (
             <div className="class-assignments">
                 {header}
@@ -77,13 +79,13 @@ const ClassAssignments: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {classAssignments.map((assignment) => (
+                        {courseAssignments.map((assignment) => (
                             <tr
                                 key={assignment.id}
                                 className="assignment-row"
                                 onClick={() =>
                                     navigate(
-                                        `/student/classes/${selectedClass.id}/assignments/${assignment.id}`
+                                        `/student/courses/${selectedCourse.id}/assignments/${assignment.id}`
                                     )
                                 }
                                 role="button"
@@ -92,7 +94,7 @@ const ClassAssignments: React.FC = () => {
                                     if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault();
                                         navigate(
-                                            `/student/classes/${selectedClass.id}/assignments/${assignment.id}`
+                                            `/student/courses/${selectedCourse.id}/assignments/${assignment.id}`
                                         );
                                     }
                                 }}
@@ -111,7 +113,7 @@ const ClassAssignments: React.FC = () => {
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             navigate(
-                                                `/student/classes/${selectedClass.id}/assignments/${assignment.id}`
+                                                `/student/courses/${selectedCourse.id}/assignments/${assignment.id}`
                                             );
                                         }}
                                     >

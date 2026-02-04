@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ASSIGNMENT_STATUS } from '../../lib/constants';
-import { assignments, classes } from '../../lib/mockData';
+import { assignments, courses } from '../../lib/mockData';
 import './StudentDashboard.css';
 
 const StudentDashboard: React.FC = () => {
@@ -15,29 +15,31 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             <div className="class-grid">
-                {classes.map((cls) => {
-                    const classAssignments = assignments.filter((assignment) => assignment.classId === cls.id);
-                    const openAssignments = classAssignments.filter(
+                {courses.map((course) => {
+                    const courseAssignments = assignments.filter(
+                        (assignment) => assignment.courseId === course.id
+                    );
+                    const openAssignments = courseAssignments.filter(
                         (assignment) => assignment.status === ASSIGNMENT_STATUS.OPEN
                     );
                     const nextDue = openAssignments[0]?.dueDate || 'No upcoming due dates';
 
                     return (
                         <div
-                            key={cls.id}
+                            key={course.id}
                             className="class-card"
-                            onClick={() => navigate(`/student/classes/${cls.id}`)}
+                            onClick={() => navigate(`/student/courses/${course.id}`)}
                             role="button"
                             tabIndex={0}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
-                                    navigate(`/student/classes/${cls.id}`);
+                                    navigate(`/student/courses/${course.id}`);
                                 }
                             }}
                         >
                             <div className="class-header">
-                                <h3 className="class-name">{cls.name}</h3>
-                                <span className="class-code">{cls.term}</span>
+                                <h3 className="class-name">{course.name}</h3>
+                                <span className="class-code">{course.id}</span>
                             </div>
 
                             <div className="class-stats">

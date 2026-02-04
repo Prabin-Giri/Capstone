@@ -3,63 +3,234 @@
     display: flex;
     height: 100vh;
     width: 100vw;
-    background-color: #f9fafb;
-    /* gray-50 */
+    background-color: var(--bg-body);
     overflow: hidden;
 }
 
-/* Sidebar */
-.sidebar {
-    width: 16rem;
-    /* 64 * 0.25rem = 16rem (w-64) */
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
-    /* gray-200 */
+.app-body {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+}
+
+/* Global Sidebar */
+.global-sidebar {
+    width: var(--global-sidebar-width);
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
-.sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #f3f4f6;
-    /* gray-100 */
+.global-sidebar-header {
+    padding: 0.5rem 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.2rem;
 }
 
 .brand-title {
-    font-size: 1.25rem;
-    /* xl */
+    font-size: 1.125rem;
     font-weight: 700;
-    /* bold */
-    color: #4f46e5;
-    /* indigo-600 */
+    color: var(--primary-color);
     margin: 0;
 }
 
-.sidebar-nav {
+.global-nav {
     flex: 1;
-    padding: 1rem;
+    padding: 1rem 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.35rem;
 }
 
-.nav-link {
+.global-nav-link {
     display: block;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    /* sm */
-    font-weight: 500;
-    color: #4b5563;
-    /* gray-600 */
-    border-radius: 0.25rem;
-    text-decoration: none;
-    transition: background-color 0.2s;
+    padding: 0.35rem 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-radius: 0.4rem;
+    text-align: center;
+    transition: background-color 0.2s, color 0.2s;
 }
 
-.nav-link:hover {
-    background-color: #f9fafb;
-    /* gray-50 */
+.global-nav-text {
+    display: inline-block;
+    padding: 0.4rem 0.9rem;
+    border-radius: 9999px;
+    color: inherit;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.global-nav-link:hover .global-nav-text {
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+}
+
+.global-nav-link.active .global-nav-text {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+}
+
+.global-nav-link.disabled {
+    color: var(--text-tertiary);
+    cursor: default;
+}
+
+.global-nav-link.disabled .global-nav-text {
+    background-color: transparent;
+    color: var(--text-tertiary);
+}
+
+.global-nav-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 0.5rem 0;
+}
+
+/* Course Sidebar */
+.course-sidebar {
+    width: var(--course-sidebar-width);
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-shrink: 0;
+    animation: course-sidebar-drawer 520ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transform-origin: left center;
+    will-change: transform, opacity;
+}
+
+.course-nav {
+    padding: 0 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.course-page-layout {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    min-height: 100%;
+    flex: 1;
+}
+
+.course-page-content {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--bg-body);
+    min-height: 100%;
+}
+
+.course-page-layout .course-sidebar {
+    align-self: stretch;
+}
+
+@keyframes course-sidebar-drawer {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.page-transition {
+    animation: page-enter 220ms ease;
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .course-sidebar,
+    .page-transition {
+        animation: none;
+    }
+}
+.course-page-content > .breadcrumbs {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+
+.course-context {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: center;
+    padding: 1.25rem 1rem 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+.course-context-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: 10rem;
+    overflow-wrap: anywhere;
+}
+
+.course-context-id {
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.course-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+    width: 100%;
+    border-radius: 0.4rem;
+}
+
+.course-label {
+    display: block;
+    padding: 0.4rem 0.9rem;
+    border-radius: 9999px;
+    background-color: transparent;
+    color: inherit;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.course-nav-link:hover .course-label {
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+}
+
+.course-nav-link.active .course-label {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
 }
 
 /* Main Layout Area */
@@ -68,6 +239,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
 }
 
 /* Topbar */
@@ -75,8 +247,7 @@
     background-color: #ffffff;
     border-bottom: 1px solid #e5e7eb;
     /* gray-200 */
-    height: 4rem;
-    /* h-16 */
+    height: var(--header-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -119,4 +290,32 @@
     flex: 1;
     overflow-y: auto;
     /* padding is handled by pages usually, but we can reset margin here */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.breadcrumb-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.breadcrumb-link:hover {
+    color: var(--text-primary);
+}
+
+.breadcrumb-separator {
+    color: var(--text-tertiary);
 }

@@ -9,6 +9,7 @@ import ClassAssignments from '../pages/student/ClassAssignments';
 import AssignmentDetails from '../pages/student/AssignmentDetails';
 import SubmitAssignment from '../pages/student/SubmitAssignment';
 import SubmissionResults from '../pages/student/SubmissionResults';
+import CourseGrades from '../pages/student/CourseGrades';
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import NotFound from '../pages/NotFound';
 import { AUTH_ROLES } from '../lib/auth';
@@ -32,11 +33,12 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute requiredRole={AUTH_ROLES.STUDENT} />,
                 children: [
                     { index: true, element: <StudentDashboard /> },
-                    { path: 'classes/:classId', element: <ClassOverview /> },
-                    { path: 'classes/:classId/assignments', element: <ClassAssignments /> },
-                    { path: 'classes/:classId/assignments/:assignmentId', element: <AssignmentDetails /> },
-                    { path: 'classes/:classId/assignments/:assignmentId/submit', element: <SubmitAssignment /> },
-                    { path: 'classes/:classId/assignments/:assignmentId/submissions/:submissionId', element: <SubmissionResults /> },
+                    { path: 'courses/:courseId', element: <ClassOverview /> },
+                    { path: 'courses/:courseId/assignments', element: <ClassAssignments /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId', element: <AssignmentDetails /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId/submit', element: <SubmitAssignment /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId/submissions/:submissionId', element: <SubmissionResults /> },
+                    { path: 'courses/:courseId/grades', element: <CourseGrades /> },
                 ]
             },
             {

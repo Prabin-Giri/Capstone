@@ -13,7 +13,7 @@ const MOCK_RESULTS = [
 
 const SubmissionResults: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { classId, assignmentId } = useParams();
+    const { courseId, assignmentId } = useParams();
     const [status, setStatus] = useState<string>(SUBMISSION_STATUS.QUEUED);
 
     useEffect(() => {
@@ -28,7 +28,7 @@ const SubmissionResults: React.FC = () => {
     return (
         <div className="submission-results">
             <div className="mb-4">
-                <Link to={`/student/classes/${classId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
+                <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                     &larr; Back to Assignment
                 </Link>
             </div>

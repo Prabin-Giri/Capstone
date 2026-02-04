@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import './SubmitAssignment.css';
 
 const SubmitAssignment: React.FC = () => {
-    const { classId, assignmentId } = useParams();
+    const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -19,7 +19,9 @@ const SubmitAssignment: React.FC = () => {
 
         // Mock submission process
         const mockSubmissionId = 'sub-123';
-        navigate(`/student/classes/${classId}/assignments/${assignmentId}/submissions/${mockSubmissionId}`);
+        navigate(
+            `/student/courses/${courseId}/assignments/${assignmentId}/submissions/${mockSubmissionId}`
+        );
     };
 
     return (
