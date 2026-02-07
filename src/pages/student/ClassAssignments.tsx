@@ -1,26 +1,54 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { assignments, courses } from '../../lib/mockData';
+import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
+import type { Course, Assignment, Submission } from '../../lib/api';
 import './ClassAssignments.css';
+
+const STUDENT_ID = 'student-001'; // In a real app, get from auth context
 
 const ClassAssignments: React.FC = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [course, setCourse] = useState<Course | null>(null);
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [submissions, setSubmissions] = useState<Map<string, Submission>>(new Map());
 
     useEffect(() => {
-        const timer = setTimeout(() => setIsLoading(false), 300);
-        return () => clearTimeout(timer);
-    }, []);
+        async function loadData() {
+            if (!courseId) return;
+            try {
+                const [courseData, assignmentsData, submissionsData] = await Promise.all([
+                    getCourse(courseId),
+                    getCourseAssignments(courseId),
+                    getSubmissions({ student_id: STUDENT_ID })
+                ]);
+                setCourse(courseData);
+                setAssignments(assignmentsData);
 
-    const selectedCourse = courses.find((course) => course.id === courseId);
+                // Map submissions by assignment_id for quick lookup
+                const submissionMap = new Map<string, Submission>();
+                submissionsData.forEach(sub => {
+                    submissionMap.set(sub.assignment_id, sub);
+                });
+                setSubmissions(submissionMap);
+            } catch (err) {
+                setError('Failed to load course data. Make sure the backend server is running.');
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        loadData();
+    }, [courseId]);
 
-    if (!selectedCourse) {
+    if (!courseId) {
         return (
             <div className="class-assignments">
                 <div className="state-card">
                     <h1 className="assignments-title">Course not found</h1>
-                    <p className="assignments-subtitle">We could not find that course.</p>
+                    <p className="assignments-subtitle">Invalid course ID.</p>
                     <Link to="/student" className="link-primary">
                         Back to Dashboard
                     </Link>
@@ -29,19 +57,15 @@ const ClassAssignments: React.FC = () => {
         );
     }
 
-    const courseAssignments = assignments.filter(
-        (assignment) => assignment.courseId === selectedCourse.id
-    );
-
     const header = (
         <div className="assignments-header">
             <div>
                 <h1 className="assignments-title">Assignments</h1>
                 <p className="assignments-subtitle">
-                    {selectedCourse.name} &bull; {selectedCourse.term}
+                    {course ? `${course.name} • ${course.term}` : 'Loading...'}
                 </p>
             </div>
-            <Link to={`/student/courses/${selectedCourse.id}`} className="link-primary">
+            <Link to={`/student/courses/${courseId}`} className="link-primary">
                 Course Home
             </Link>
         </div>
@@ -56,7 +80,30 @@ const ClassAssignments: React.FC = () => {
         );
     }
 
-    if (courseAssignments.length === 0) {
+    if (error) {
+        return (
+            <div className="class-assignments">
+                {header}
+                <div className="state-card" style={{ color: '#dc2626' }}>{error}</div>
+            </div>
+        );
+    }
+
+    if (!course) {
+        return (
+            <div className="class-assignments">
+                <div className="state-card">
+                    <h1 className="assignments-title">Course not found</h1>
+                    <p className="assignments-subtitle">We could not find that course.</p>
+                    <Link to="/student" className="link-primary">
+                        Back to Dashboard
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    if (assignments.length === 0) {
         return (
             <div className="class-assignments">
                 {header}
@@ -75,53 +122,72 @@ const ClassAssignments: React.FC = () => {
                             <th>Assignment name</th>
                             <th>Due date</th>
                             <th>Status</th>
+                            <th>Submitted</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {courseAssignments.map((assignment) => (
-                            <tr
-                                key={assignment.id}
-                                className="assignment-row"
-                                onClick={() =>
-                                    navigate(
-                                        `/student/courses/${selectedCourse.id}/assignments/${assignment.id}`
-                                    )
-                                }
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                        event.preventDefault();
+                        {assignments.map((assignment) => {
+                            const submission = submissions.get(assignment.id);
+                            const dueDate = new Date(assignment.due_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                            });
+
+                            return (
+                                <tr
+                                    key={assignment.id}
+                                    className="assignment-row"
+                                    onClick={() =>
                                         navigate(
-                                            `/student/courses/${selectedCourse.id}/assignments/${assignment.id}`
-                                        );
+                                            `/student/courses/${course.id}/assignments/${assignment.id}`
+                                        )
                                     }
-                                }}
-                            >
-                                <td className="assignment-name">{assignment.title}</td>
-                                <td>{assignment.dueDate}</td>
-                                <td>
-                                    <span className={`status-pill status-${assignment.status}`}>
-                                        {assignment.status}
-                                    </span>
-                                </td>
-                                <td>
-                                    <button
-                                        type="button"
-                                        className="view-button"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
                                             navigate(
-                                                `/student/courses/${selectedCourse.id}/assignments/${assignment.id}`
+                                                `/student/courses/${course.id}/assignments/${assignment.id}`
                                             );
-                                        }}
-                                    >
-                                        View
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                                        }
+                                    }}
+                                >
+                                    <td className="assignment-name">{assignment.title}</td>
+                                    <td>{dueDate}</td>
+                                    <td>
+                                        <span className={`status-pill status-${assignment.status}`}>
+                                            {assignment.status}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {submission ? (
+                                            <span style={{ color: '#16a34a', fontWeight: 500 }}>
+                                                ✓ {submission.file_name}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: '#9ca3af' }}>Not submitted</span>
+                                        )}
+                                    </td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            className="view-button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                navigate(
+                                                    `/student/courses/${course.id}/assignments/${assignment.id}`
+                                                );
+                                            }}
+                                        >
+                                            View
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Server specific
+server/node_modules
+server/uploads/
+server/*.db
