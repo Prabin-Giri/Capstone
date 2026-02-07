@@ -15,27 +15,23 @@ Full-stack assignment submission and grading system with React frontend and Expr
 
 ### Install & Run
 
-**1. Install frontend dependencies:**
+**1. Install dependencies:**
 ```bash
 npm install
-```
-
-**2. Install backend dependencies:**
-```bash
 cd server && npm install
+cd ..
 ```
 
-**3. Start backend server (Terminal 1):**
-```bash
-cd server && npm run dev
-```
-Backend runs on http://localhost:3001
-
-**4. Start frontend (Terminal 2):**
+**2. Start both servers:**
 ```bash
 npm run dev
 ```
-Frontend runs on http://localhost:5173
+
+This runs both frontend (http://localhost:5173) and backend (http://localhost:3001) together.
+
+**Alternative (separate terminals):**
+- `npm run dev:frontend` – Frontend only
+- `npm run dev:server` – Backend only
 
 ## Features
 - Student dashboard with course list
