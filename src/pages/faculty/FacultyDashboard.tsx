@@ -27,37 +27,36 @@ const FacultyDashboard: React.FC = () => {
 
             <div className="dashboard-grid">
                 {courses.map((course) => (
-                    <Card key={course.id} className="hover:shadow-md transition-shadow">
-                        <div className="course-card-header">
-                            <div>
-                                <h3 className="course-id">{course.id}</h3>
-                                <p className="course-term">{course.term}</p>
-                            </div>
-                            <span className="status-badge status-info">
-                                Active
-                            </span>
+                    <Card key={course.id} className="cursor-pointer">
+                        <div className="card-header" style={{ paddingBottom: '0.5rem', borderBottom: 'none' }}>
+                            <h3 className="card-title">{course.name}</h3>
+                            <span className="tag-pill">{course.id}</span>
                         </div>
 
-                        <h4 className="course-name">{course.name}</h4>
+                        <div className="card-body">
+                            <p className="text-sm text-gray-500 mb-4" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                                {course.term} • <span className="text-green-600" style={{ color: 'var(--primary-color)' }}>Active</span>
+                            </p>
 
-                        <div className="course-stats">
-                            <div>
-                                <span className="stat-value">{course.students}</span>
-                                <span>Students</span>
+                            <div className="course-stats" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                                <div>
+                                    <span className="stat-value">{course.students}</span>
+                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Students</span>
+                                </div>
+                                <div>
+                                    <span className="stat-value">{course.activeAssignments}</span>
+                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active Assignments</span>
+                                </div>
                             </div>
-                            <div>
-                                <span className="stat-value">{course.activeAssignments}</span>
-                                <span>Active Assignments</span>
-                            </div>
-                        </div>
 
-                        <div className="course-actions">
-                            <Link to={`/faculty/courses/${course.id}`} style={{ flex: 1 }}>
-                                <Button variant="outline" size="sm" className="w-full">View Course</Button>
-                            </Link>
-                            <Link to={`/faculty/courses/${course.id}/grading`} style={{ flex: 1 }}>
-                                <Button variant="secondary" size="sm" className="w-full">Needs Grading</Button>
-                            </Link>
+                            <div className="course-actions" style={{ marginTop: '1rem' }}>
+                                <Link to={`/faculty/courses/${course.id}`} style={{ flex: 1 }}>
+                                    <Button variant="outline" size="sm" className="w-full">View</Button>
+                                </Link>
+                                <Link to={`/faculty/courses/${course.id}/grading`} style={{ flex: 1 }}>
+                                    <Button variant="secondary" size="sm" className="w-full">Grade</Button>
+                                </Link>
+                            </div>
                         </div>
                     </Card>
                 ))}
