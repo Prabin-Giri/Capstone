@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, getAssignments } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
-import './StudentDashboard.css';
+import { Card } from '../../components/ui/Card';
+// import './StudentDashboard.css'; // Replaced with Tailwind utility classes
 
 const StudentDashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -53,13 +54,13 @@ const StudentDashboard: React.FC = () => {
     }
 
     return (
-        <div className="student-dashboard">
-            <div className="dashboard-header">
-                <h1 className="dashboard-title">Dashboard</h1>
-                <p className="dashboard-subtitle">Welcome back, Student.</p>
+        <div className="student-dashboard p-6">
+            <div className="dashboard-header mb-6">
+                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+                <p className="text-gray-600">Welcome back, Student.</p>
             </div>
 
-            <div className="class-grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {courses.map((course) => {
                     const courseAssignments = assignments.filter(
                         (assignment) => assignment.course_id === course.id
@@ -72,34 +73,31 @@ const StudentDashboard: React.FC = () => {
                         : 'No upcoming due dates';
 
                     return (
-                        <div
+                        <Card
                             key={course.id}
-                            className="class-card"
+                            className="cursor-pointer hover:shadow-md transition-shadow"
                             onClick={() => navigate(`/student/courses/${course.id}`)}
                             role="button"
                             tabIndex={0}
-                            onKeyDown={(e) => {
+                            onKeyDown={(e: React.KeyboardEvent) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     navigate(`/student/courses/${course.id}`);
                                 }
                             }}
+                            title={course.name}
+                            action={<span className="text-sm text-gray-500">{course.id}</span>}
                         >
-                            <div className="class-header">
-                                <h3 className="class-name">{course.name}</h3>
-                                <span className="class-code">{course.id}</span>
-                            </div>
-
-                            <div className="class-stats">
-                                <div className="stat-item">
-                                    <span className="stat-value">{openAssignments.length}</span>
-                                    <span className="stat-label">open</span>
+                            <div className="class-stats space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-gray-500">Open Assignments</span>
+                                    <span className="text-lg font-bold text-indigo-600">{openAssignments.length}</span>
                                 </div>
-                                <div className="stat-item">
-                                    <span className="stat-value">{nextDue}</span>
-                                    <span className="stat-label">Next Assignment Due</span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-gray-500">Next Due</span>
+                                    <span className="text-sm text-gray-900">{nextDue}</span>
                                 </div>
                             </div>
-                        </div>
+                        </Card>
                     );
                 })}
             </div>
