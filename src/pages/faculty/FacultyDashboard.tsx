@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
@@ -11,52 +11,52 @@ const MOCK_FACULTY_COURSES = [
 ];
 
 const FacultyDashboard: React.FC = () => {
-    const [courses, setCourses] = useState(MOCK_FACULTY_COURSES);
+    const [courses] = useState(MOCK_FACULTY_COURSES);
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="dashboard-container">
+            <div className="dashboard-header">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Faculty Dashboard</h1>
-                    <p className="text-gray-600">Overview of your active courses.</p>
+                    <h1 className="dashboard-title">Faculty Dashboard</h1>
+                    <p className="dashboard-subtitle">Overview of your active courses.</p>
                 </div>
                 <Button>
                     + Create New Course
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="dashboard-grid">
                 {courses.map((course) => (
                     <Card key={course.id} className="hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start mb-4">
+                        <div className="course-card-header">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900">{course.id}</h3>
-                                <p className="text-sm text-gray-500">{course.term}</p>
+                                <h3 className="course-id">{course.id}</h3>
+                                <p className="course-term">{course.term}</p>
                             </div>
-                            <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            <span className="status-badge status-info">
                                 Active
                             </span>
                         </div>
 
-                        <h4 className="text-xl font-medium text-gray-800 mb-4">{course.name}</h4>
+                        <h4 className="course-name">{course.name}</h4>
 
-                        <div className="flex justify-between text-sm text-gray-600 border-t pt-4 border-gray-100">
+                        <div className="course-stats">
                             <div>
-                                <span className="block font-bold text-gray-900">{course.students}</span>
+                                <span className="stat-value">{course.students}</span>
                                 <span>Students</span>
                             </div>
                             <div>
-                                <span className="block font-bold text-gray-900">{course.activeAssignments}</span>
+                                <span className="stat-value">{course.activeAssignments}</span>
                                 <span>Active Assignments</span>
                             </div>
                         </div>
 
-                        <div className="mt-6 flex space-x-3">
-                            <Link to={`/faculty/courses/${course.id}`} className="flex-1">
-                                <Button variant="outline" className="w-full text-xs">View Course</Button>
+                        <div className="course-actions">
+                            <Link to={`/faculty/courses/${course.id}`} style={{ flex: 1 }}>
+                                <Button variant="outline" size="sm" className="w-full">View Course</Button>
                             </Link>
-                            <Link to={`/faculty/courses/${course.id}/grading`} className="flex-1">
-                                <Button variant="secondary" className="w-full text-xs">Needs Grading</Button>
+                            <Link to={`/faculty/courses/${course.id}/grading`} style={{ flex: 1 }}>
+                                <Button variant="secondary" size="sm" className="w-full">Needs Grading</Button>
                             </Link>
                         </div>
                     </Card>
