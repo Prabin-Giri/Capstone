@@ -1,69 +1,72 @@
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { CodeViewer } from '../../components/ui/CodeViewer';
+import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { assignments, courses } from '../../lib/mockData';
+import { ASSIGNMENT_STATUS } from '../../lib/constants';
+import './AssignmentDetails.css';
+
+// Mock Data
+const MOCK_ASSIGNMENT = {
+    id: 'a1',
+    title: 'Binary Search Implementation',
+    status: ASSIGNMENT_STATUS.OPEN,
+    dueDate: 'Oct 12, 11:59 PM',
+    points: 100,
+    description: 'Implement the binary search algorithm in Python. Your function should take a sorted list and a target value, returning the index of the target or -1 if not found.',
+    rubric: [
+        { criteria: 'Correctness (Public Tests)', points: 40 },
+        { criteria: 'Edge Cases', points: 20 },
+        { criteria: 'Time Complexity O(log n)', points: 20 },
+        { criteria: 'Code Style', points: 20 },
+    ]
+};
 
 const AssignmentDetails: React.FC = () => {
-    const { courseId, assignmentId } = useParams();
-    const assignment = assignments.find(
-        (item) => item.id === assignmentId && item.courseId === courseId
-    );
-    const selectedCourse = courses.find((course) => course.id === courseId);
+    // const { assignmentId } = useParams();
 
-    if (!assignment || !selectedCourse) {
-        const backLink = courseId ? `/student/courses/${courseId}/assignments` : '/student';
-        return (
-            <div className="p-6">
-                <Card className="max-w-4xl mx-auto text-center py-10">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Assignment not found</h1>
-                    <p className="text-gray-600 mb-6">We could not find that assignment.</p>
-                    <Link to={backLink}>
-                        <Button variant="secondary">Back to Assignments</Button>
-                    </Link>
-                </Card>
-            </div>
-        );
-    }
+    // In a real app, use assignmentId to fetch data
+    const data = MOCK_ASSIGNMENT;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-            <div className="flex justify-between items-start">
+        <div className="assignment-details">
+            <div className="details-header">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">{assignment.title}</h1>
-                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                        <span>{selectedCourse.name}</span>
-                        <span>•</span>
-                        <span>Due: {assignment.dueDate}</span>
+                    <h1 className="details-title">{data.title}</h1>
+                    <div className="details-meta">
+                        <span>Due: {data.dueDate}</span>
+                        <span>{data.points} Points</span>
                     </div>
                 </div>
-                <StatusBadge status={assignment.status} />
+                <StatusBadge status={data.status} />
             </div>
 
-            <Card title="Overview">
-                <p className="text-gray-700 leading-relaxed">
-                    {assignment.description || "No description provided for this assignment."}
-                </p>
-            </Card>
+            <div className="section">
+                <h2 className="section-title">Instructions</h2>
+                <p className="description-text">{data.description}</p>
+            </div>
 
-            {assignment.starterCode && (
-                <Card title="Starter Code">
-                    <CodeViewer
-                        code={assignment.starterCode}
-                        language="typescript"
-                        filename="starter.ts"
-                    />
-                    <div className="mt-4">
-                        <Button variant="outline" size="sm">Download Starter Code</Button>
-                    </div>
-                </Card>
-            )}
+            <div className="section">
+                <h2 className="section-title">Grading Rubric</h2>
+                <table className="rubric-table">
+                    <thead>
+                        <tr>
+                            <th>Criteria</th>
+                            <th style={{ textAlign: 'right' }}>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.rubric.map((item, index) => (
+                            <tr key={index}>
+                                <td>{item.criteria}</td>
+                                <td style={{ textAlign: 'right' }}>{item.points}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
-            <div className="flex justify-end pt-4">
-                <Link to="submit">
-                    <Button size="lg">Submit Assignment</Button>
+            <div className="action-bar">
+                <Link to="submit" className="btn-primary">
+                    Submit Assignment
                 </Link>
             </div>
         </div>
