@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, getAssignments } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
-import './StudentDashboard.css';
+import { Card } from '../../components/ui/Card';
+// import './StudentDashboard.css'; // Removed in favor of global components.css
 
 const StudentDashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -32,10 +33,12 @@ const StudentDashboard: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="student-dashboard">
+            <div className="dashboard-container">
                 <div className="dashboard-header">
-                    <h1 className="dashboard-title">Dashboard</h1>
-                    <p className="dashboard-subtitle">Loading...</p>
+                    <div>
+                        <h1 className="dashboard-title">Dashboard</h1>
+                        <p className="dashboard-subtitle">Loading...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -43,23 +46,27 @@ const StudentDashboard: React.FC = () => {
 
     if (error) {
         return (
-            <div className="student-dashboard">
+            <div className="dashboard-container">
                 <div className="dashboard-header">
-                    <h1 className="dashboard-title">Dashboard</h1>
-                    <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
+                    <div>
+                        <h1 className="dashboard-title">Dashboard</h1>
+                        <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="student-dashboard">
+        <div className="dashboard-container">
             <div className="dashboard-header">
-                <h1 className="dashboard-title">Dashboard</h1>
-                <p className="dashboard-subtitle">Welcome back, Student.</p>
+                <div>
+                    <h1 className="dashboard-title">Dashboard</h1>
+                    <p className="dashboard-subtitle">Welcome back, Student.</p>
+                </div>
             </div>
 
-            <div className="class-grid">
+            <div className="dashboard-grid">
                 {courses.map((course) => {
                     const courseAssignments = assignments.filter(
                         (assignment) => assignment.course_id === course.id
@@ -72,9 +79,9 @@ const StudentDashboard: React.FC = () => {
                         : 'No upcoming due dates';
 
                     return (
-                        <div
+                        <Card
                             key={course.id}
-                            className="class-card"
+                            className="cursor-pointer"
                             onClick={() => navigate(`/student/courses/${course.id}`)}
                             role="button"
                             tabIndex={0}
@@ -84,22 +91,30 @@ const StudentDashboard: React.FC = () => {
                                 }
                             }}
                         >
-                            <div className="class-header">
-                                <h3 className="class-name">{course.name}</h3>
-                                <span className="class-code">{course.id}</span>
+                            <div className="course-card-header">
+                                <div>
+                                    <h3 className="course-name">{course.name}</h3>
+                                    {/* <p className="course-term">{course.term}</p> -- Term not in API yet, skipping for matching look */}
+                                </div>
+                                <span className="tag-pill">{course.id}</span>
                             </div>
 
-                            <div className="class-stats">
-                                <div className="stat-item">
-                                    <span className="stat-value">{openAssignments.length}</span>
-                                    <span className="stat-label">open</span>
-                                </div>
-                                <div className="stat-item">
-                                    <span className="stat-value">{nextDue}</span>
-                                    <span className="stat-label">Next Assignment Due</span>
+                            <div className="card-body">
+                                {/* Spacer to push stats to bottom */}
+                                <div style={{ flex: 1 }}></div>
+
+                                <div className="course-stats" style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                                    <div>
+                                        <span className="stat-value" style={{ fontSize: '1.25rem' }}>{openAssignments.length}</span>
+                                        <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>open</span>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <span className="stat-value" style={{ fontSize: '1.25rem' }}>{nextDue}</span>
+                                        <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Next Assignment Due</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </Card>
                     );
                 })}
             </div>
