@@ -19,7 +19,7 @@ const FacultyDashboard: React.FC = () => {
             <div className="dashboard-header">
                 <div>
                     <h1 className="dashboard-title">Dashboard</h1>
-                    <p className="dashboard-subtitle">Overview of your active courses.</p>
+                    <p className="dashboard-subtitle">Welcome back, Faculty.</p>
                 </div>
                 <Button onClick={() => navigate('/faculty/courses/new')}>
                     + Create New Course
