@@ -13,6 +13,8 @@ export type Assignment = {
     title: string;
     dueDate: string;
     status: AssignmentStatus;
+    description?: string;
+    starterCode?: string;
 };
 
 export const courses: Course[] = [
@@ -28,6 +30,13 @@ export const assignments: Assignment[] = [
         title: 'Language and Platform',
         dueDate: 'Feb 19, 2026',
         status: ASSIGNMENT_STATUS.OPEN,
+        description: 'Implement a basic language platform using the provided interface.',
+        starterCode: `// Starter code for Language Platform
+interface Language {
+    name: string;
+    compile(code: string): void;
+}
+`
     },
     {
         id: 'sprint-1',
