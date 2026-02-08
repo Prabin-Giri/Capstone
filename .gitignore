@@ -27,3 +27,4 @@ dist-ssr
 server/node_modules
 server/uploads/
 server/*.db
+.vite/

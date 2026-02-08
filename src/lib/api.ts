@@ -61,7 +61,7 @@ export interface Submission {
     file_path: string;
     submitted_at: string;
     updated_at: string;
-    status: 'queued' | 'running' | 'completed' | 'failed' | 'timed out';
+    status: 'pending' | 'graded' | 'returned';
     grade?: number;
     feedback?: string;
 }
