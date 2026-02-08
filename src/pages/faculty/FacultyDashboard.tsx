@@ -33,24 +33,24 @@ const FacultyDashboard: React.FC = () => {
                         className="cursor-pointer"
                         onClick={() => navigate(`/faculty/courses/${course.id}`)}
                     >
-                        <div className="card-header" style={{ paddingBottom: '0.5rem', borderBottom: 'none' }}>
-                            <h3 className="card-title">{course.name}</h3>
-                            <span className="tag-pill">{course.id}</span>
+                        <div className="course-card-header">
+                            <div>
+                                <h3 className="course-id">{course.name}</h3>
+                                <p className="course-term">{course.term}</p>
+                            </div>
+                            <span className="tag-pill">
+                                {course.id}
+                            </span>
                         </div>
 
-                        <div className="card-body">
-                            {/* Spacer to push stats to bottom if content varies, essentially ensuring height consistency */}
-                            <div style={{ flex: 1 }}></div>
-
-                            <div className="course-stats" style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                                <div>
-                                    <span className="stat-value" style={{ fontSize: '1.25rem' }}>{course.students}</span>
-                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Students</span>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <span className="stat-value" style={{ fontSize: '1.25rem' }}>{course.activeAssignments}</span>
-                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active Assignments</span>
-                                </div>
+                        <div className="course-stats">
+                            <div>
+                                <span className="stat-value">{course.students}</span>
+                                <span>Students</span>
+                            </div>
+                            <div>
+                                <span className="stat-value">{course.activeAssignments}</span>
+                                <span>Active Assignments</span>
                             </div>
                         </div>
                     </Card>
