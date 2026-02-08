@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { FileUploader } from '../../components/ui/FileUploader';
 import { createSubmission, getSubmissions, getFileUrl } from '../../lib/api';
 import type { Submission } from '../../lib/api';
-import './SubmitAssignment.css';
 
 const STUDENT_ID = 'student-001'; // In a real app, get from auth context
 
@@ -33,11 +35,9 @@ const SubmitAssignment: React.FC = () => {
         checkExisting();
     }, [assignmentId]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setSelectedFile(e.target.files[0]);
-            setError(null);
-        }
+    const handleFileSelect = (file: File) => {
+        setSelectedFile(file);
+        setError(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -59,24 +59,16 @@ const SubmitAssignment: React.FC = () => {
     };
 
     return (
-        <div className="submit-page">
-            <div className="submit-card">
-                <h1 className="section-title">
-                    {existingSubmission ? 'Resubmit Assignment' : 'Submit Assignment'}
-                </h1>
-                <p className="description-text mb-6">Upload your solution file for grading.</p>
+        <div className="p-6 max-w-3xl mx-auto">
+            <Card title={existingSubmission ? 'Resubmit Assignment' : 'Submit Assignment'}>
+                <p className="text-gray-600 mb-6">Upload your solution file for grading.</p>
 
                 {existingSubmission && (
-                    <div style={{
-                        background: '#fef3c7',
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        marginBottom: '16px'
-                    }}>
-                        <p style={{ margin: 0, fontSize: '14px' }}>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+                        <p className="text-sm text-yellow-800">
                             <strong>Previous submission:</strong> {existingSubmission.file_name}
                             <br />
-                            <span style={{ color: '#666' }}>
+                            <span className="text-yellow-600">
                                 Submitted: {new Date(existingSubmission.submitted_at).toLocaleString()}
                             </span>
                             <br />
@@ -84,7 +76,7 @@ const SubmitAssignment: React.FC = () => {
                                 href={getFileUrl(existingSubmission.file_path)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ color: '#2563eb' }}
+                                className="text-blue-600 hover:underline mt-1 inline-block"
                             >
                                 Download previous file
                             </a>
@@ -93,46 +85,29 @@ const SubmitAssignment: React.FC = () => {
                 )}
 
                 {error && (
-                    <div style={{
-                        background: '#fee2e2',
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        marginBottom: '16px',
-                        color: '#dc2626'
-                    }}>
+                    <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6 text-sm text-red-600">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                    <div className="upload-area">
-                        <input
-                            type="file"
-                            id="file-upload"
-                            className="hidden"
-                            onChange={handleFileChange}
-                            style={{ display: 'none' }}
-                            disabled={isSubmitting}
-                        />
-                        <label htmlFor="file-upload" className="file-input-label cursor-pointer block h-full">
-                            {selectedFile ? (
-                                <span className="text-gray-900 font-semibold">{selectedFile.name}</span>
-                            ) : (
-                                <span>Click to upload file</span>
-                            )}
-                        </label>
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <FileUploader
+                        onFileSelect={handleFileSelect}
+                        selectedFile={selectedFile}
+                        disabled={isSubmitting}
+                        label="Click to upload solution"
+                    />
 
-                    <button
+                    <Button
                         type="submit"
-                        className="btn-primary w-full"
+                        className="w-full"
                         disabled={!selectedFile || isSubmitting}
-                        style={{ width: '100%', opacity: selectedFile && !isSubmitting ? 1 : 0.5 }}
+                        isLoading={isSubmitting}
                     >
-                        {isSubmitting ? 'Submitting...' : existingSubmission ? 'Resubmit Solution' : 'Submit Solution'}
-                    </button>
+                        {existingSubmission ? 'Resubmit Solution' : 'Submit Solution'}
+                    </Button>
                 </form>
-            </div>
+            </Card>
         </div>
     );
 };
