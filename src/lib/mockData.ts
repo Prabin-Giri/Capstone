@@ -27,7 +27,7 @@ export const assignments: Assignment[] = [
         courseId: 'CSCI4060',
         title: 'Language and Platform',
         dueDate: 'Feb 19, 2026',
-        status: ASSIGNMENT_STATUS.OPEN,
+        status: ASSIGNMENT_STATUS.ACTIVE,
     },
     {
         id: 'sprint-1',
@@ -48,7 +48,7 @@ export const assignments: Assignment[] = [
         courseId: 'CSCI2100',
         title: 'Stacks and Queues',
         dueDate: 'Mar 1, 2026',
-        status: ASSIGNMENT_STATUS.OPEN,
+        status: ASSIGNMENT_STATUS.ACTIVE,
     },
     {
         id: 'intro-lab',

@@ -71,11 +71,11 @@ const StudentDashboard: React.FC = () => {
                     const courseAssignments = assignments.filter(
                         (assignment) => assignment.course_id === course.id
                     );
-                    const openAssignments = courseAssignments.filter(
-                        (assignment) => assignment.status === 'open'
+                    const activeAssignments = courseAssignments.filter(
+                        (assignment) => assignment.status === 'active'
                     );
-                    const nextDue = openAssignments[0]?.due_date
-                        ? new Date(openAssignments[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    const nextDue = activeAssignments[0]?.due_date
+                        ? new Date(activeAssignments[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                         : 'No upcoming due dates';
 
                     return (
@@ -104,8 +104,8 @@ const StudentDashboard: React.FC = () => {
 
                             <div className="course-stats">
                                 <div>
-                                    <span className="stat-value">{openAssignments.length}</span>
-                                    <span>open</span>
+                                    <span className="stat-value">{activeAssignments.length}</span>
+                                    <span>active</span>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <span className="stat-value">{nextDue}</span>

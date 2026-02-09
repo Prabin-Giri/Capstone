@@ -43,3 +43,5 @@ initDb().then(() => {
     console.error('Failed to initialize database:', err);
     process.exit(1);
 });
+
+// Force restart to reload database changes
