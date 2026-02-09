@@ -99,19 +99,17 @@ const StudentDashboard: React.FC = () => {
                                 <span className="tag-pill">{course.id}</span>
                             </div>
 
-                            <div className="card-body">
-                                {/* Spacer to push stats to bottom */}
-                                <div style={{ flex: 1 }}></div>
+                            {/* Spacer to push stats to bottom */}
+                            <div style={{ flex: 1 }}></div>
 
-                                <div className="course-stats" style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                                    <div>
-                                        <span className="stat-value" style={{ fontSize: '1.25rem' }}>{openAssignments.length}</span>
-                                        <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>open</span>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <span className="stat-value" style={{ fontSize: '1.25rem' }}>{nextDue}</span>
-                                        <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Next Assignment Due</span>
-                                    </div>
+                            <div className="course-stats">
+                                <div>
+                                    <span className="stat-value" style={{ fontSize: '1.25rem' }}>{openAssignments.length}</span>
+                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>open</span>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <span className="stat-value" style={{ fontSize: '1.25rem' }}>{nextDue}</span>
+                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Next Assignment Due</span>
                                 </div>
                             </div>
                         </Card>
