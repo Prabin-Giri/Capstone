@@ -1,30 +1,64 @@
-import React from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { assignments, courses } from '../../lib/mockData';
+import { getAssignment } from '../../lib/api';
+import type { Assignment } from '../../lib/api';
 import './AssignmentDetails.css';
 
 const AssignmentDetails: React.FC = () => {
-    const { courseId, assignmentId } = useParams();
-    const assignment = assignments.find(
-        (item) => item.id === assignmentId && item.courseId === courseId
-    );
-    const selectedCourse = courses.find((course) => course.id === courseId);
+    const { assignmentId } = useParams();
+    const [assignment, setAssignment] = useState<Assignment | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    if (!assignment || !selectedCourse) {
-        const backLink = courseId ? `/student/courses/${courseId}/assignments` : '/student';
+    useEffect(() => {
+        async function loadAssignment() {
+            if (!assignmentId) return;
+            try {
+                const data = await getAssignment(assignmentId);
+                setAssignment(data);
+            } catch (err) {
+                console.error(err);
+                setError('Failed to load assignment details.');
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadAssignment();
+    }, [assignmentId]);
+
+    if (loading) {
+        return <div className="assignment-details"><div className="state-card">Loading...</div></div>;
+    }
+
+    if (error || !assignment) {
         return (
             <div className="assignment-details">
-                <div className="section">
+                <div className="state-card">
                     <h1 className="details-title">Assignment not found</h1>
-                    <p className="description-text">We could not find that assignment.</p>
-                    <Link to={backLink} className="btn-primary">
-                        Back to Assignments
-                    </Link>
+                    <p className="details-subtitle">{error || 'Invalid assignment ID'}</p>
+                    <Link to="/student" className="link-primary">Back to Dashboard</Link>
                 </div>
             </div>
         );
     }
+
+    // Mock points and rubric since they aren't in the API yet
+    const points = 100;
+    const rubric = [
+        { criteria: 'Correctness (Public Tests)', points: 40 },
+        { criteria: 'Edge Cases', points: 20 },
+        { criteria: 'Time Complexity O(log n)', points: 20 },
+        { criteria: 'Code Style', points: 20 },
+    ];
+    const description = assignment.description || 'No description provided.';
+
+    const displayDate = new Date(assignment.due_date).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+    });
 
     return (
         <div className="assignment-details">
@@ -32,22 +66,40 @@ const AssignmentDetails: React.FC = () => {
                 <div>
                     <h1 className="details-title">{assignment.title}</h1>
                     <div className="details-meta">
-                        <span>{selectedCourse.name}</span>
-                        <span>Due: {assignment.dueDate}</span>
+                        <span>Due: {displayDate}</span>
+                        <span>{points} Points</span>
                     </div>
                 </div>
                 <StatusBadge status={assignment.status} />
             </div>
 
             <div className="section">
-                <h2 className="section-title">Overview</h2>
-                <p className="description-text">
-                    Assignment details will appear here in the next step of the student flow.
-                </p>
+                <h2 className="section-title">Instructions</h2>
+                <p className="description-text">{description}</p>
+            </div>
+
+            <div className="section">
+                <h2 className="section-title">Grading Rubric</h2>
+                <table className="rubric-table">
+                    <thead>
+                        <tr>
+                            <th>Criteria</th>
+                            <th style={{ textAlign: 'right' }}>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rubric.map((item, index) => (
+                            <tr key={index}>
+                                <td>{item.criteria}</td>
+                                <td style={{ textAlign: 'right' }}>{item.points}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
 
             <div className="action-bar">
-                <Link to="submit" className="btn-primary">
+                <Link to={`/student/courses/${assignment.course_id}/assignments/${assignment.id}/submit`} className="btn-primary">
                     Submit Assignment
                 </Link>
             </div>

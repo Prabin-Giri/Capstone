@@ -25,8 +25,8 @@ const ClassOverview: React.FC = () => {
     const courseAssignments = assignments.filter(
         (assignment) => assignment.courseId === selectedCourse.id
     );
-    const openAssignments = courseAssignments.filter(
-        (assignment) => assignment.status === ASSIGNMENT_STATUS.OPEN
+    const activeAssignments = courseAssignments.filter(
+        (assignment) => assignment.status === ASSIGNMENT_STATUS.ACTIVE
     );
 
     return (
@@ -49,8 +49,8 @@ const ClassOverview: React.FC = () => {
                     <span className="stat-label">Assignments</span>
                 </div>
                 <div className="overview-stat">
-                    <span className="stat-value">{openAssignments.length}</span>
-                    <span className="stat-label">Open</span>
+                    <span className="stat-value">{activeAssignments.length}</span>
+                    <span className="stat-label">Active</span>
                 </div>
             </div>
         </div>

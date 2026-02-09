@@ -14,7 +14,7 @@ export const VISIBILITY_STATUS = {
 } as const;
 
 export const ASSIGNMENT_STATUS = {
-    OPEN: 'open',
+    ACTIVE: 'active',
     CLOSED: 'closed',
     LATE: 'late',
 } as const;
