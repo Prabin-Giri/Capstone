@@ -44,4 +44,4 @@ initDb().then(() => {
     process.exit(1);
 });
 
-// Force restart to reload database changes
+// Force restart to reload database changes and routes
