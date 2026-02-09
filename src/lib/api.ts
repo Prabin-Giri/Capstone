@@ -35,7 +35,7 @@ export interface Assignment {
     title: string;
     description?: string;
     due_date: string;
-    status: 'open' | 'closed' | 'late';
+    status: 'active' | 'closed' | 'late';
     created_at?: string;
 }
 
@@ -49,6 +49,32 @@ export async function getAssignment(id: string): Promise<Assignment> {
 
 export async function getCourseAssignments(courseId: string): Promise<Assignment[]> {
     return apiFetch<Assignment[]>(`/courses/${courseId}/assignments`);
+}
+
+export async function createAssignment(assignment: Omit<Assignment, 'id' | 'created_at'> & { id?: string }): Promise<Assignment> {
+    return apiFetch<Assignment>('/assignments', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(assignment),
+    });
+}
+
+export async function updateAssignment(id: string, updates: Partial<Assignment>): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/assignments/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+    });
+}
+
+export async function deleteAssignment(id: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/assignments/${id}`, {
+        method: 'DELETE',
+    });
 }
 
 // ============ Submissions ============

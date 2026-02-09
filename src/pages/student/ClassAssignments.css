@@ -75,9 +75,10 @@
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 600;
+    text-transform: capitalize;
 }
 
-.status-open {
+.status-active {
     background-color: #dcfce7;
     color: #166534;
 }

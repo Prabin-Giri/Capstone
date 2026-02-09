@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS assignments (
     title VARCHAR(200) NOT NULL,
     description TEXT,
     due_date DATE NOT NULL,
-    status ENUM('open', 'closed', 'late') DEFAULT 'open',
+    status ENUM('active', 'closed', 'late') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
@@ -49,9 +49,9 @@ ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 -- Insert sample assignments
 INSERT INTO assignments (id, course_id, title, due_date, status) VALUES
-    ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'open'),
+    ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active'),
     ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed'),
     ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late'),
-    ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'open'),
+    ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active'),
     ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')
 ON DUPLICATE KEY UPDATE title = VALUES(title);
