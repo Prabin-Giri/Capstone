@@ -93,8 +93,8 @@ const StudentDashboard: React.FC = () => {
                         >
                             <div className="course-card-header">
                                 <div>
-                                    <h3 className="course-name">{course.name}</h3>
-                                    {/* <p className="course-term">{course.term}</p> -- Term not in API yet, skipping for matching look */}
+                                    <h3 className="course-id">{course.name}</h3>
+                                    <p className="course-term">{course.term}</p>
                                 </div>
                                 <span className="tag-pill">{course.id}</span>
                             </div>
@@ -104,12 +104,12 @@ const StudentDashboard: React.FC = () => {
 
                             <div className="course-stats">
                                 <div>
-                                    <span className="stat-value" style={{ fontSize: '1.25rem' }}>{openAssignments.length}</span>
-                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>open</span>
+                                    <span className="stat-value">{openAssignments.length}</span>
+                                    <span>open</span>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <span className="stat-value" style={{ fontSize: '1.25rem' }}>{nextDue}</span>
-                                    <span className="stat-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Next Assignment Due</span>
+                                    <span className="stat-value">{nextDue}</span>
+                                    <span>Next Assignment Due</span>
                                 </div>
                             </div>
                         </Card>
