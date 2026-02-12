@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getAssignment, getSubmissions } from '../../lib/api';
+import { getAssignment, getSubmissions, downloadAllSubmissions } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { RefreshCw } from 'lucide-react';
 
 const GradingDashboard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
@@ -11,13 +12,24 @@ const GradingDashboard: React.FC = () => {
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
+    const [downloading, setDownloading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
     useEffect(() => {
         loadData();
+
+        // Auto-refresh every 10 seconds
+        const interval = setInterval(() => {
+            loadData(true); // Silent refresh
+        }, 10000);
+
+        return () => clearInterval(interval);
     }, [assignmentId]);
 
-    async function loadData() {
+    async function loadData(silent = false) {
         if (!assignmentId) return;
+        if (!silent) setLoading(true);
         try {
             const [assignmentData, submissionsData] = await Promise.all([
                 getAssignment(assignmentId),
@@ -25,10 +37,30 @@ const GradingDashboard: React.FC = () => {
             ]);
             setAssignment(assignmentData);
             setSubmissions(submissionsData);
+            setLastRefresh(new Date());
         } catch (err) {
             console.error(err);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
+        }
+    }
+
+    async function handleRefresh() {
+        setRefreshing(true);
+        await loadData(false);
+        setRefreshing(false);
+    }
+
+    async function handleDownloadAll() {
+        if (!assignmentId) return;
+        setDownloading(true);
+        try {
+            await downloadAllSubmissions(assignmentId);
+        } catch (err) {
+            console.error('Download failed:', err);
+            alert('Failed to download submissions. Please try again.');
+        } finally {
+            setDownloading(false);
         }
     }
 
@@ -45,6 +77,25 @@ const GradingDashboard: React.FC = () => {
                         <span>{assignment.title}</span>
                     </div>
                     <h1 className="text-3xl font-bold text-gray-900">Grading Dashboard</h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Last updated: {lastRefresh.toLocaleTimeString()} • Auto-refreshes every 10s
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    <Button
+                        variant="ghost"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                    >
+                        <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                        {refreshing ? 'Refreshing...' : 'Refresh'}
+                    </Button>
+                    <Button
+                        onClick={handleDownloadAll}
+                        disabled={submissions.length === 0 || downloading}
+                    >
+                        {downloading ? 'Downloading...' : 'Download All Submissions'}
+                    </Button>
                 </div>
             </div>
 
@@ -98,3 +149,4 @@ const GradingDashboard: React.FC = () => {
 };
 
 export default GradingDashboard;
+
