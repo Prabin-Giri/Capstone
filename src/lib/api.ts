@@ -157,7 +157,33 @@ export async function deleteSubmission(id: number): Promise<void> {
     await apiFetch<{ message: string }>(`/submissions/${id}`, { method: 'DELETE' });
 }
 
+// Download all submissions for an assignment as a ZIP file
+export async function downloadAllSubmissions(assignmentId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/assignments/${assignmentId}/download-all`);
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(error.error || 'Download failed');
+    }
+
+    // Get the blob from the response
+    const blob = await response.blob();
+
+    // Create a download link and trigger it
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${assignmentId}-submissions.zip`;
+    document.body.appendChild(a);
+    a.click();
+
+    // Cleanup
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
 // Helper to get the full URL for a submitted file
+
 export function getFileUrl(filePath: string): string {
     return `${API_BASE.replace('/api', '')}/uploads/${filePath}`;
 }
