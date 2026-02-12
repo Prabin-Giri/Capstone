@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const { getDb, queryToObjects } = require('../db');
 
 // GET /api/assignments - Get all assignments
@@ -115,4 +117,75 @@ router.delete('/:id', (req, res, next) => {
     }
 });
 
+// Helper to get rows from prepared statement
+function getRows(db, sql, params = []) {
+    const stmt = db.prepare(sql);
+    if (params.length) stmt.bind(params);
+    const rows = [];
+    while (stmt.step()) {
+        rows.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return rows;
+}
+
+// GET /api/assignments/:id/download-all - Download all submissions as ZIP
+router.get('/:id/download-all', (req, res, next) => {
+    try {
+        const db = getDb();
+        const assignmentId = req.params.id;
+        const uploadsDir = path.join(__dirname, '../uploads');
+
+        // Get all submissions for this assignment
+        const submissions = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ?', [assignmentId]);
+
+        if (submissions.length === 0) {
+            return res.status(404).json({ error: 'No submissions found for this assignment' });
+        }
+
+        // Import archiver
+        const archiver = require('archiver');
+
+        // Create a zip archive
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Maximum compression
+        });
+
+        // Set response headers
+        res.attachment(`${assignmentId}-submissions.zip`);
+        res.setHeader('Content-Type', 'application/zip');
+
+        // Pipe archive to response
+        archive.pipe(res);
+
+        // Add each submission file to the archive
+        submissions.forEach(submission => {
+            const filePath = path.join(uploadsDir, submission.file_path);
+
+            // Check if file exists
+            if (fs.existsSync(filePath)) {
+                // Extract file extension
+                const ext = path.extname(submission.file_name);
+                // Create new filename: studentId_assignmentId.ext
+                const newFileName = `${submission.student_id}_${assignmentId}${ext}`;
+
+                // Add file to archive with new name
+                archive.file(filePath, { name: newFileName });
+            }
+        });
+
+        // Finalize the archive
+        archive.finalize();
+
+        // Handle archive errors
+        archive.on('error', (err) => {
+            next(err);
+        });
+
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;
+
