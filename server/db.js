@@ -56,8 +56,8 @@ async function initDb() {
             status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'graded', 'returned')),
             grade REAL DEFAULT NULL,
             feedback TEXT DEFAULT NULL,
-            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
-            UNIQUE(assignment_id, student_id)
+            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+
         )
     `);
 

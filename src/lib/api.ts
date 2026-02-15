@@ -36,6 +36,7 @@ export interface Assignment {
     description?: string;
     due_date: string;
     status: 'active' | 'closed' | 'late';
+    points?: number;
     created_at?: string;
 }
 
