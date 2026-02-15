@@ -64,7 +64,7 @@ const SubmitAssignment: React.FC = () => {
                 <h1 className="section-title">
                     {existingSubmission ? 'Resubmit Assignment' : 'Submit Assignment'}
                 </h1>
-                <p className="description-text mb-6">Upload your solution file for grading.</p>
+                <p className="description-text mb-6">Upload your assignment file for grading.</p>
 
                 {existingSubmission && (
                     <div style={{
@@ -125,11 +125,11 @@ const SubmitAssignment: React.FC = () => {
 
                     <button
                         type="submit"
-                        className="btn-primary w-full"
+                        className="btn btn-primary w-full"
                         disabled={!selectedFile || isSubmitting}
                         style={{ width: '100%', opacity: selectedFile && !isSubmitting ? 1 : 0.5 }}
                     >
-                        {isSubmitting ? 'Submitting...' : existingSubmission ? 'Resubmit Solution' : 'Submit Solution'}
+                        {isSubmitting ? 'Submitting...' : existingSubmission ? 'Resubmit Assignment' : 'Submit Assignment'}
                     </button>
                 </form>
             </div>

@@ -13,8 +13,10 @@
 .card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    border-color: var(--primary-color);
+    border-color: var(--text-tertiary);
+    /* Was primary-color */
 }
+
 
 .card-header {
     padding: 1.5rem;
@@ -65,10 +67,15 @@
     cursor: pointer;
     transition: background-color 0.2s, color 0.2s;
     font-family: inherit;
+    padding: 0.5rem 1rem;
+    /* Default size (matches btn-md) */
+    font-size: 0.875rem;
+    /* Default size (matches btn-md) */
 }
 
 .btn:focus {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--text-tertiary);
+    /* Was primary-color */
     outline-offset: 2px;
 }
 

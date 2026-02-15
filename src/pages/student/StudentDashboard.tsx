@@ -71,9 +71,10 @@ const StudentDashboard: React.FC = () => {
                     const courseAssignments = assignments.filter(
                         (assignment) => assignment.course_id === course.id
                     );
-                    const activeAssignments = courseAssignments.filter(
-                        (assignment) => assignment.status === 'active'
-                    );
+                    const activeAssignments = courseAssignments
+                        .filter((assignment) => assignment.status === 'active')
+                        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
                     const nextDue = activeAssignments[0]?.due_date
                         ? new Date(activeAssignments[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                         : 'No upcoming due dates';

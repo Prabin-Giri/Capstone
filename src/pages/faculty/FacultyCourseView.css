@@ -1,0 +1,218 @@
+/* Page Container to match Student view (max-width + spacing) */
+.faculty-course-container {
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* Header Section */
+.faculty-course-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+  /* gray-200 */
+}
+
+.header-title h1 {
+  font-size: 1.875rem;
+  /* 30px */
+  font-weight: 700;
+  color: #111827;
+  /* gray-900 */
+  letter-spacing: -0.025em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.header-metadata {
+  color: #6b7280;
+  /* gray-500 */
+  margin-top: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+
+.create-btn {
+  background-color: #4f46e5;
+  /* indigo-600 (Primary) */
+  color: white;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  /* 14px */
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  margin-bottom: 4px;
+}
+
+.create-btn:hover {
+  background-color: #4338ca;
+  /* indigo-700 */
+}
+
+/* Assignments List */
+.assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 64px 0;
+  background-color: #ffffff;
+  border: 2px dashed #e5e7eb;
+  border-radius: 12px;
+}
+
+.empty-state p {
+  color: #6b7280;
+  font-weight: 500;
+  margin: 0;
+}
+
+.empty-state small {
+  display: block;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Assignment Card (Island Style) */
+.assignment-card {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  /* Soft shadow */
+  padding: 24px;
+  transition: box-shadow 0.2s ease;
+}
+
+.assignment-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.card-title-row {
+  margin-bottom: 16px;
+}
+
+.assignment-title {
+  font-size: 1.125rem;
+  /* 18px */
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.card-divider {
+  border-top: 1px solid #f3f4f6;
+  /* gray-100 */
+  margin: 0 -24px 16px -24px;
+  /* NEGATIVE MARGIN to span full width if needed, or just 0 */
+  /* Actually, let's keep it contained */
+  margin: 0 0 16px 0;
+}
+
+.card-details-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Left: Metadata */
+.meta-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.due-date {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.due-label {
+  text-transform: uppercase;
+  font-size: 0.625rem;
+  /* 10px */
+  color: #9ca3af;
+  /* gray-400 */
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-right: 8px;
+}
+
+/* Right: Actions */
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.button-group {
+  display: flex;
+  background-color: #f9fafb;
+  /* gray-50 */
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  /* 12px */
+  font-weight: 500;
+  color: #374151;
+  /* gray-700 */
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.divider-vertical {
+  width: 1px;
+  height: 20px;
+  background-color: #e5e7eb;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: #DC2626;
+  /* red-600 */
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: all 0.2s;
+}
+
+.delete-btn:hover {
+  background-color: #FEF2F2;
+  /* red-50 */
+  color: #991B1B;
+  /* red-800 */
+}

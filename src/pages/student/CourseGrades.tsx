@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import type { Course, Assignment, Submission } from '../../lib/api';
-import { StatusBadge } from '../../components/ui/StatusBadge';
-import { Button } from '../../components/ui/Button';
+import './CourseGrades.css';
 
 const CourseGrades: React.FC = () => {
     const { courseId } = useParams();
@@ -23,7 +22,7 @@ const CourseGrades: React.FC = () => {
             const [courseData, assignmentsData, submissionsData] = await Promise.all([
                 getCourse(courseId),
                 getCourseAssignments(courseId),
-                getSubmissions({ student_id: '1' }) // Hardcoded student ID for now as per auth mock
+                getSubmissions({ student_id: 'student-001' })
             ]);
             setCourse(courseData);
             setAssignments(assignmentsData);
@@ -40,99 +39,134 @@ const CourseGrades: React.FC = () => {
         return submissions.find(s => s.assignment_id === assignmentId);
     };
 
+    // Calculate totals
+    const calculateTotals = () => {
+        let earned = 0;
+        let possible = 0;
+
+        assignments.forEach(assignment => {
+            const submission = getSubmissionForAssignment(assignment.id);
+            const assignmentPoints = assignment.points || 100; // Default to 100 if not set
+            if (submission && submission.grade !== undefined && submission.grade !== null) {
+                earned += submission.grade;
+                possible += assignmentPoints;
+            }
+        });
+
+        return { earned, possible };
+    };
+
+    const { earned, possible } = calculateTotals();
+    const totalPercentage = possible > 0 ? Math.round((earned / possible) * 100) : 0;
+
     if (loading) return <div className="p-8">Loading...</div>;
     if (!course) return <div className="p-8">Course not found</div>;
 
-    // Calculate overall grade (simple average for now)
-    const gradedAssignments = assignments.filter(a => {
-        const sub = getSubmissionForAssignment(a.id);
-        return sub && sub.grade !== undefined;
-    });
 
-    // Calculate simple average if there are graded assignments
-    const totalScore = gradedAssignments.reduce((acc, curr) => {
-        const sub = getSubmissionForAssignment(curr.id);
-        return acc + (sub?.grade || 0);
-    }, 0);
-
-    const averageGrade = gradedAssignments.length > 0
-        ? Math.round(totalScore / gradedAssignments.length)
-        : null;
 
     return (
-        <div className="max-w-7xl mx-auto p-8">
-            <div className="flex justify-between items-center mb-8">
+        <div className="course-grades">
+            <div className="grades-header">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">{course.name}</h1>
-                    <p className="text-gray-500 mt-1">Grades & Feedback</p>
+                    <h1 className="grades-title">Grades</h1>
+                    <p className="grades-subtitle">
+                        {course.name} • {course.term}
+                    </p>
                 </div>
-                {averageGrade !== null && (
-                    <div className="bg-blue-50 px-6 py-3 rounded-lg border border-blue-100">
-                        <span className="text-sm text-blue-600 block">Current Average</span>
-                        <span className="text-2xl font-bold text-blue-900">{averageGrade}%</span>
-                    </div>
-                )}
+                <Link to={`/student/courses/${courseId}`} className="btn-view-assignments">
+                    Course Home
+                </Link>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+            <div className="table-wrapper">
+                <table className="grades-table">
+                    <thead>
                         <tr>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Assignment</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Due Date</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Status</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Grade</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Feedback</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Action</th>
+                            <th>Assignment name</th>
+                            <th>Due date</th>
+                            <th>Submitted Date</th>
+                            <th>Status</th>
+                            <th>Grade</th>
+                            <th>Feedback</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody>
                         {assignments.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={7} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                     No assignments in this course yet.
                                 </td>
                             </tr>
                         ) : (
                             assignments.map(assignment => {
                                 const submission = getSubmissionForAssignment(assignment.id);
+                                const dueDate = new Date(assignment.due_date).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                });
+                                const submittedDate = submission ? new Date(submission.submitted_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                }) : '-';
+                                const maxPoints = assignment.points || 100;
+
                                 return (
-                                    <tr key={assignment.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900">{assignment.title}</div>
+                                    <tr key={assignment.id} className="grade-row">
+                                        <td className="assignment-name">
+                                            <Link
+                                                to={`/student/courses/${courseId}/assignments/${assignment.id}`}
+                                                className="assignment-link"
+                                            >
+                                                {assignment.title}
+                                            </Link>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {new Date(assignment.due_date).toLocaleDateString()}
-                                        </td>
-                                        <td className="px-6 py-4">
+                                        <td>{dueDate}</td>
+                                        <td>{submittedDate}</td>
+                                        <td>
                                             {submission ? (
-                                                <StatusBadge status={submission.status === 'graded' || submission.status === 'returned' ? 'completed' : 'submitted'} />
+                                                <span className={`status-pill status-${submission.status === 'graded' || submission.status === 'returned' ? 'completed' : 'submitted'}`}>
+                                                    {submission.status === 'graded' || submission.status === 'returned' ? 'Graded' : 'Submitted'}
+                                                </span>
                                             ) : (
-                                                <StatusBadge status="pending" />
+                                                <span className="status-pill status-pending">Pending</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td style={{ fontWeight: 500, color: '#374151' }}>
                                             {submission?.grade !== undefined ? (
-                                                <span className="font-bold text-gray-900">{submission.grade} / 100</span>
+                                                <span>{submission.grade}/{maxPoints}</span>
                                             ) : (
-                                                <span className="text-gray-400">-</span>
+                                                <span style={{ color: '#9ca3af' }}>-/{maxPoints}</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
-                                            {submission?.feedback || <span className="text-gray-400 italic">None</span>}
+                                        <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {submission?.feedback || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>None</span>}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td>
                                             <Link
                                                 to={`/student/courses/${courseId}/assignments/${assignment.id}/submissions/${submission?.id || ''}`}
-                                                className={`text-sm font-medium ${submission ? 'text-blue-600 hover:text-blue-800' : 'text-gray-400 cursor-not-allowed'}`}
+                                                className="view-button"
                                                 onClick={(e) => !submission && e.preventDefault()}
+                                                style={!submission ? { color: '#9ca3af', cursor: 'not-allowed' } : {}}
                                             >
-                                                {submission ? 'View Details' : 'No Submission'}
+                                                {submission ? 'View' : 'No Submission'}
                                             </Link>
                                         </td>
                                     </tr>
                                 );
                             })
+                        )}
+                        {assignments.length > 0 && (
+                            <tr className="grade-row" style={{ backgroundColor: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                                <td colSpan={4} style={{ fontWeight: 700, paddingLeft: '1.5rem' }}>Total Grade</td>
+                                <td style={{ fontWeight: 700, color: '#111827' }}>
+                                    {possible > 0 ? `${earned} / ${possible} (${totalPercentage}%)` : '-'}
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
                         )}
                     </tbody>
                 </table>
