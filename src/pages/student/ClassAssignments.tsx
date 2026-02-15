@@ -65,7 +65,7 @@ const ClassAssignments: React.FC = () => {
                     {course ? `${course.name} • ${course.term}` : 'Loading...'}
                 </p>
             </div>
-            <Link to={`/student/courses/${courseId}`} className="link-primary">
+            <Link to={`/student/courses/${courseId}`} className="btn-course-home">
                 Course Home
             </Link>
         </div>
@@ -123,6 +123,7 @@ const ClassAssignments: React.FC = () => {
                             <th>Due date</th>
                             <th>Status</th>
                             <th>Submitted</th>
+                            <th>Grade</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -134,6 +135,13 @@ const ClassAssignments: React.FC = () => {
                                 day: 'numeric',
                                 year: 'numeric'
                             });
+
+                            const gradeDisplay =
+                                submission &&
+                                    submission.grade !== undefined &&
+                                    submission.grade !== null
+                                    ? `${submission.grade}/${assignment.points || 100}`
+                                    : `-/${assignment.points || 100}`;
 
                             return (
                                 <tr
@@ -170,6 +178,9 @@ const ClassAssignments: React.FC = () => {
                                         ) : (
                                             <span style={{ color: '#9ca3af' }}>Not submitted</span>
                                         )}
+                                    </td>
+                                    <td style={{ fontWeight: 500, color: '#374151' }}>
+                                        {gradeDisplay}
                                     </td>
                                     <td>
                                         <button

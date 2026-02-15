@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getCourse, getCourseAssignments, deleteAssignment } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import './FacultyCourseView.css';
 
 const FacultyCourseView: React.FC = () => {
     const { courseId } = useParams();
@@ -44,60 +43,89 @@ const FacultyCourseView: React.FC = () => {
         }
     }
 
-    if (loading) return <div className="p-8">Loading...</div>;
-    if (!course) return <div className="p-8">Course not found</div>;
+    if (loading) return <div className="faculty-course-container">Loading...</div>;
+    if (!course) return <div className="faculty-course-container">Course not found</div>;
 
     return (
-        <div className="max-w-7xl mx-auto p-8">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">{course.name}</h1>
-                    <p className="text-gray-500 mt-1">{course.term} • {course.id}</p>
+        <div className="faculty-course-container">
+            {/* Page Header */}
+            <div className="faculty-course-header">
+                <div className="header-title">
+                    <h1>{course.name}</h1>
+                    <p className="header-metadata">{course.term} • {course.id}</p>
                 </div>
-                <Button onClick={() => navigate('assignments/new')}>
+                <button
+                    onClick={() => navigate('assignments/new')}
+                    className="create-btn"
+                >
                     + Create Assignment
-                </Button>
+                </button>
             </div>
 
-            <div className="grid gap-6">
+            {/* Assignment List */}
+            <div className="assignments-list">
                 {assignments.length === 0 ? (
-                    <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                        <p className="text-gray-500">No assignments yet. Create one to get started.</p>
+                    <div className="empty-state">
+                        <p>No assignments yet</p>
+                        <small>Create your first assignment to get started.</small>
                     </div>
                 ) : (
                     assignments.map(assignment => (
-                        <Card key={assignment.id} className="flex justify-between items-center p-6">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900">{assignment.title}</h3>
-                                <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                                    <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
-                                    <StatusBadge status={assignment.status} />
+                        <div key={assignment.id} className="assignment-card">
+                            <div className="card-content">
+                                {/* Row 1: Title */}
+                                <div className="card-title-row">
+                                    <h3 className="assignment-title">
+                                        {assignment.title}
+                                    </h3>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="card-divider"></div>
+
+                                {/* Row 2: Metadata & Actions */}
+                                <div className="card-details-row">
+                                    {/* Left: Metadata */}
+                                    <div className="meta-group">
+                                        <div className="due-date">
+                                            <span className="due-label">DUE</span>
+                                            {new Date(assignment.due_date).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric'
+                                            })}
+                                        </div>
+                                        <StatusBadge status={assignment.status} className="status-pill-small" />
+                                    </div>
+
+                                    {/* Right: Actions */}
+                                    <div className="action-group">
+                                        <div className="button-group">
+                                            <button
+                                                onClick={() => navigate(`assignments/${assignment.id}/grading`)}
+                                                className="action-btn"
+                                            >
+                                                Grade
+                                            </button>
+                                            <div className="divider-vertical"></div>
+                                            <button
+                                                onClick={() => navigate(`assignments/${assignment.id}/edit`)}
+                                                className="action-btn"
+                                            >
+                                                Edit
+                                            </button>
+                                        </div>
+
+                                        <button
+                                            onClick={() => handleDelete(assignment.id)}
+                                            className="delete-btn"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => navigate(`assignments/${assignment.id}/grading`)}
-                                >
-                                    Grade
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => navigate(`assignments/${assignment.id}/edit`)}
-                                >
-                                    Edit
-                                </Button>
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    onClick={() => handleDelete(assignment.id)}
-                                >
-                                    Delete
-                                </Button>
-                            </div>
-                        </Card>
+                        </div>
                     ))
                 )}
             </div>

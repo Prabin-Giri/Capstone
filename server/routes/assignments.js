@@ -37,7 +37,7 @@ router.get('/:id', (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active' } = req.body;
+        const { course_id, title, description, due_date, status = 'active', points = 100 } = req.body;
 
         if (!course_id || !title || !due_date) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -47,15 +47,15 @@ router.post('/', (req, res, next) => {
         const id = req.body.id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
 
         const db = getDb();
-        const stmt = db.prepare('INSERT INTO assignments (id, course_id, title, description, due_date, status) VALUES (?, ?, ?, ?, ?, ?)');
-        stmt.run([id, course_id, title, description, due_date, status]);
+        const stmt = db.prepare('INSERT INTO assignments (id, course_id, title, description, due_date, status, points) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        stmt.run([id, course_id, title, description, due_date, status, points]);
         stmt.free();
 
         // Save DB to file
         const { saveDb } = require('../db');
         saveDb();
 
-        res.status(201).json({ id, course_id, title, description, due_date, status });
+        res.status(201).json({ id, course_id, title, description, due_date, status, points });
     } catch (err) {
         next(err);
     }
@@ -64,7 +64,7 @@ router.post('/', (req, res, next) => {
 // PUT /api/assignments/:id - Update assignment
 router.put('/:id', (req, res, next) => {
     try {
-        const { title, description, due_date, status } = req.body;
+        const { title, description, due_date, status, points } = req.body;
         const id = req.params.id;
 
         const db = getDb();
@@ -76,6 +76,7 @@ router.put('/:id', (req, res, next) => {
         if (description !== undefined) { updates.push('description = ?'); values.push(description); }
         if (due_date !== undefined) { updates.push('due_date = ?'); values.push(due_date); }
         if (status !== undefined) { updates.push('status = ?'); values.push(status); }
+        if (points !== undefined) { updates.push('points = ?'); values.push(points); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
