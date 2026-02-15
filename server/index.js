@@ -6,6 +6,7 @@ const { initDb } = require('./db');
 const coursesRouter = require('./routes/courses');
 const assignmentsRouter = require('./routes/assignments');
 const submissionsRouter = require('./routes/submissions');
+const calendarRouter = require('./routes/calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +22,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/courses', coursesRouter);
 app.use('/api/assignments', assignmentsRouter);
 app.use('/api/submissions', submissionsRouter);
+app.use('/api/calendar', calendarRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

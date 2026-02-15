@@ -60,6 +60,15 @@ async function initDb() {
 
         )
     `);
+    db.run(`
+        CREATE TABLE IF NOT EXISTS course_settings (
+            student_id TEXT NOT NULL,
+            course_id TEXT NOT NULL,
+            color TEXT NOT NULL,
+            PRIMARY KEY (student_id, course_id),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+        )
+    `);
 
     // Insert sample data if tables are empty
     const result = db.exec('SELECT COUNT(*) as count FROM courses');
