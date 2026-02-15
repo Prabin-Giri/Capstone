@@ -1,26 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCourses, getAssignments } from '../../lib/api';
+import { getCourses, getAssignments, getColors } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 // import './StudentDashboard.css'; // Removed in favor of global components.css
+
+const STUDENT_ID = 'student-001';
+
+const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 const StudentDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [courses, setCourses] = useState<Course[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [courseColors, setCourseColors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function loadData() {
             try {
-                const [coursesData, assignmentsData] = await Promise.all([
+                const [coursesData, assignmentsData, colorsData] = await Promise.all([
                     getCourses(),
-                    getAssignments()
+                    getAssignments(),
+                    getColors(STUDENT_ID)
                 ]);
                 setCourses(coursesData);
                 setAssignments(assignmentsData);
+                setCourseColors(colorsData);
             } catch (err) {
                 setError('Failed to load data. Make sure the backend server is running.');
                 console.error(err);
@@ -79,6 +91,13 @@ const StudentDashboard: React.FC = () => {
                         ? new Date(activeAssignments[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                         : 'No upcoming due dates';
 
+                    const color = courseColors[course.id];
+                    const pillStyle = color ? {
+                        backgroundColor: hexToRgba(color, 0.1),
+                        color: color,
+                        fontWeight: 700
+                    } : undefined;
+
                     return (
                         <Card
                             key={course.id}
@@ -97,7 +116,7 @@ const StudentDashboard: React.FC = () => {
                                     <h3 className="course-id">{course.name}</h3>
                                     <p className="course-term">{course.term}</p>
                                 </div>
-                                <span className="tag-pill">{course.id}</span>
+                                <span className="tag-pill" style={pillStyle}>{course.id}</span>
                             </div>
 
                             {/* Spacer to push stats to bottom */}
