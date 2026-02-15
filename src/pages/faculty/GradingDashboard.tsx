@@ -5,11 +5,14 @@ import type { Assignment, Submission } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 
+import './GradingDashboard.css';
+
 const GradingDashboard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
     const [assignment, setAssignment] = useState<Assignment | null>(null);
-    const [submissions, setSubmissions] = useState<Submission[]>([]);
+    const [groupedSubmissions, setGroupedSubmissions] = useState<Record<string, Submission[]>>({});
+    const [selectedStudentSubmissions, setSelectedStudentSubmissions] = useState<Submission[] | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -24,7 +27,24 @@ const GradingDashboard: React.FC = () => {
                 getSubmissions({ assignment_id: assignmentId })
             ]);
             setAssignment(assignmentData);
-            setSubmissions(submissionsData);
+
+            // Group submissions by student_id
+            const grouped = submissionsData.reduce((acc, curr) => {
+                if (!acc[curr.student_id]) {
+                    acc[curr.student_id] = [];
+                }
+                acc[curr.student_id].push(curr);
+                return acc;
+            }, {} as Record<string, Submission[]>);
+
+            // Sort each group by submitted_at desc (newest first)
+            Object.keys(grouped).forEach(studentId => {
+                grouped[studentId].sort((a, b) =>
+                    new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
+                );
+            });
+
+            setGroupedSubmissions(grouped);
         } catch (err) {
             console.error(err);
         } finally {
@@ -32,67 +52,134 @@ const GradingDashboard: React.FC = () => {
         }
     }
 
-    if (loading) return <div className="p-8">Loading...</div>;
-    if (!assignment) return <div className="p-8">Assignment not found</div>;
+    if (loading) return <div className="grading-dashboard-container">Loading...</div>;
+    if (!assignment) return <div className="grading-dashboard-container">Assignment not found</div>;
 
     return (
-        <div className="max-w-7xl mx-auto p-8">
-            <div className="flex justify-between items-center mb-8">
+        <div className="grading-dashboard-container">
+            <div className="dashboard-header">
                 <div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                        <Link to={`/faculty/courses/${courseId}`} className="hover:text-blue-600">Back to Course</Link>
+                    <div className="breadcrumb">
+                        <Link to={`/faculty/courses/${courseId}`}>Back to Course</Link>
                         <span>/</span>
                         <span>{assignment.title}</span>
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900">Grading Dashboard</h1>
+                    <h1 className="dashboard-title">Grading Dashboard</h1>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+            <div className="grading-card">
+                <table className="grading-table">
+                    <thead>
                         <tr>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Student ID</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Submitted</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Status</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Grade</th>
-                            <th className="px-6 py-3 text-sm font-medium text-gray-500">Action</th>
+                            <th>Student ID</th>
+                            <th>Latest Submission</th>
+                            <th>Submitted Assignments</th>
+                            <th>Status</th>
+                            <th>Grade</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {submissions.length === 0 ? (
+                    <tbody>
+                        {Object.keys(groupedSubmissions).length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={6} className="empty-state">
                                     No submissions found for this assignment yet.
                                 </td>
                             </tr>
                         ) : (
-                            submissions.map(submission => (
-                                <tr key={submission.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{submission.student_id}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {new Date(submission.submitted_at).toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <StatusBadge status={submission.status} />
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">
-                                        {submission.grade !== undefined && submission.grade !== null ? submission.grade : '-'}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <Button
-                                            size="sm"
-                                            onClick={() => navigate(`${submission.id}`)}
-                                        >
-                                            Grade
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))
+                            Object.values(groupedSubmissions).map(group => {
+                                const latestSubmission = group[0]; // First one is latest due to sort
+                                return (
+                                    <tr key={latestSubmission.student_id}>
+                                        <td className="text-medium">{latestSubmission.student_id}</td>
+                                        <td className="text-secondary">
+                                            {new Date(latestSubmission.submitted_at).toLocaleString()}
+                                        </td>
+                                        <td>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setSelectedStudentSubmissions(group)}
+                                                className="text-gray-600 border-gray-300 hover:bg-gray-50 focus:ring-0 focus:outline-none"
+                                                style={{ borderColor: '#d1d5db', boxShadow: 'none', color: '#374151' }}
+                                            >
+                                                View Submissions ({group.length})
+                                            </Button>
+                                        </td>
+                                        <td>
+                                            <StatusBadge status={latestSubmission.status} />
+                                        </td>
+                                        <td className="text-medium">
+                                            {latestSubmission.grade !== undefined && latestSubmission.grade !== null ? latestSubmission.grade : '-'}
+                                        </td>
+                                        <td>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => navigate(`${latestSubmission.id}`)}
+                                                className="bg-purple-600 hover:bg-purple-700 text-white border-transparent focus:ring-0 focus:outline-none"
+                                            >
+                                                Grade
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
             </div>
+
+            {/* Submission View Modal */}
+            {selectedStudentSubmissions && (
+                <div className="modal-overlay" onClick={() => setSelectedStudentSubmissions(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">
+                                Submissions for {selectedStudentSubmissions[0].student_id}
+                            </h3>
+                            <button
+                                className="modal-close"
+                                onClick={() => setSelectedStudentSubmissions(null)}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="submission-list">
+                                {selectedStudentSubmissions.map((sub) => (
+                                    <div key={sub.id} className="submission-item">
+                                        <div className="submission-info">
+                                            <span className="file-name">{sub.file_name}</span>
+                                            <span className="submission-date">
+                                                Submitted: {new Date(sub.submitted_at).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        <a
+                                            href={`http://localhost:3001/uploads/${sub.file_path}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-sm btn-outline text-gray-700 hover:bg-gray-50 border-gray-300"
+                                            style={{
+                                                textDecoration: 'none',
+                                                color: '#374151',
+                                                borderColor: '#d1d5db',
+                                                boxShadow: 'none',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            Download
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
