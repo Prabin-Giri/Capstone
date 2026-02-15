@@ -162,3 +162,62 @@ export async function deleteSubmission(id: number): Promise<void> {
 export function getFileUrl(filePath: string): string {
     return `${API_BASE.replace('/api', '')}/uploads/${filePath}`;
 }
+// --- Calendar API ---
+
+export interface Todo {
+    id: string;
+    student_id: string;
+    course_id?: string;
+    title: string;
+    due_date?: string;
+    completed: boolean;
+    created_at?: string;
+}
+
+export async function getTodos(params: { student_id: string }): Promise<Todo[]> {
+    const res = await fetch(`${API_BASE}/calendar/todos?student_id=${params.student_id}`);
+    if (!res.ok) throw new Error('Failed to fetch todos');
+    return res.json();
+}
+
+export async function createTodo(data: { student_id: string; title: string; due_date?: string; course_id?: string }): Promise<Todo> {
+    const res = await fetch(`${API_BASE}/calendar/todos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create todo');
+    return res.json();
+}
+
+export async function updateTodo(id: string, data: Partial<Todo>): Promise<Todo> {
+    const res = await fetch(`${API_BASE}/calendar/todos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update todo');
+    return res.json();
+}
+
+export async function deleteTodo(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/calendar/todos/${id}`, {
+        method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete todo');
+}
+
+export async function getColors(studentId: string): Promise<Record<string, string>> {
+    const res = await fetch(`${API_BASE}/calendar/colors?student_id=${studentId}`);
+    if (!res.ok) throw new Error('Failed to fetch colors');
+    return res.json();
+}
+
+export async function saveColor(data: { student_id: string; course_id: string; color: string }): Promise<void> {
+    const res = await fetch(`${API_BASE}/calendar/colors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to save color');
+}

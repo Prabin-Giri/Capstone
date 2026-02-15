@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/layout/ProtectedRoute';
 import LandingPage from '../pages/LandingPage';
 import Login from '../pages/auth/Login';
 import StudentDashboard from '../pages/student/StudentDashboard';
+import Calendar from '../pages/student/Calendar';
 import ClassOverview from '../pages/student/ClassOverview';
 import ClassAssignments from '../pages/student/ClassAssignments';
 import AssignmentDetails from '../pages/student/AssignmentDetails';
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute requiredRole={AUTH_ROLES.STUDENT} />,
                 children: [
                     { index: true, element: <StudentDashboard /> },
+                    { path: 'calendar', element: <Calendar /> },
                     { path: 'courses/:courseId', element: <ClassOverview /> },
                     { path: 'courses/:courseId/assignments', element: <ClassAssignments /> },
                     { path: 'courses/:courseId/assignments/:assignmentId', element: <AssignmentDetails /> },

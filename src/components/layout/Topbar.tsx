@@ -2,10 +2,21 @@ import React from 'react';
 import { logout } from '../../lib/auth';
 import './Layout.css';
 
+import { useLocation } from 'react-router-dom';
+
 const Topbar: React.FC = () => {
+    const location = useLocation();
+
+    const getPageTitle = () => {
+        const path = location.pathname;
+        if (path.includes('/calendar')) return 'Calendar';
+        // Add more routes here as needed
+        return 'Dashboard';
+    };
+
     return (
         <header className="topbar">
-            <div className="page-title">Dashboard</div>
+            <div className="page-title">{getPageTitle()}</div>
             <div className="user-profile">
                 <button
                     onClick={logout}
