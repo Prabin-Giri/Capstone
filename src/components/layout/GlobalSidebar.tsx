@@ -16,6 +16,7 @@ const GlobalSidebar: React.FC = () => {
             <nav className="global-nav">
                 <NavLink
                     to={dashboardPath}
+                    end
                     className={({ isActive }) =>
                         `global-nav-link ${isActive ? 'active' : ''}`
                     }
@@ -23,9 +24,14 @@ const GlobalSidebar: React.FC = () => {
                     <span className="global-nav-text">Dashboard</span>
                 </NavLink>
                 <div className="global-nav-divider" />
-                <span className="global-nav-link disabled">
+                <NavLink
+                    to="/student/calendar"
+                    className={({ isActive }) =>
+                        `global-nav-link ${isActive ? 'active' : ''}`
+                    }
+                >
                     <span className="global-nav-text">Calendar</span>
-                </span>
+                </NavLink>
                 <span className="global-nav-link disabled">
                     <span className="global-nav-text">Inbox</span>
                 </span>

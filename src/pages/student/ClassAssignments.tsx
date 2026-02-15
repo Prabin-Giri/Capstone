@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import type { Course, Assignment, Submission } from '../../lib/api';
 import './ClassAssignments.css';
@@ -8,7 +8,6 @@ const STUDENT_ID = 'student-001'; // In a real app, get from auth context
 
 const ClassAssignments: React.FC = () => {
     const { courseId } = useParams();
-    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [course, setCourse] = useState<Course | null>(null);
@@ -119,12 +118,12 @@ const ClassAssignments: React.FC = () => {
                 <table className="assignments-table">
                     <thead>
                         <tr>
-                            <th>Assignment name</th>
-                            <th>Due date</th>
-                            <th>Status</th>
-                            <th>Submitted</th>
-                            <th>Grade</th>
-                            <th>Action</th>
+                            <th className="col-name">Assignment name</th>
+                            <th className="col-due-date">Due date</th>
+                            <th className="col-status">Status</th>
+                            <th className="col-submitted">Submitted</th>
+                            <th className="col-grade">Grade</th>
+                            <th className="col-action">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -146,31 +145,23 @@ const ClassAssignments: React.FC = () => {
                             return (
                                 <tr
                                     key={assignment.id}
-                                    className="assignment-row"
-                                    onClick={() =>
-                                        navigate(
-                                            `/student/courses/${course.id}/assignments/${assignment.id}`
-                                        )
-                                    }
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            navigate(
-                                                `/student/courses/${course.id}/assignments/${assignment.id}`
-                                            );
-                                        }
-                                    }}
+                                    className="class-assignment-row"
                                 >
-                                    <td className="assignment-name">{assignment.title}</td>
-                                    <td>{dueDate}</td>
-                                    <td>
+                                    <td className="col-name assignment-name">
+                                        <Link
+                                            to={`/student/courses/${course.id}/assignments/${assignment.id}`}
+                                            className="assignment-link"
+                                        >
+                                            {assignment.title}
+                                        </Link>
+                                    </td>
+                                    <td className="col-due-date">{dueDate}</td>
+                                    <td className="col-status">
                                         <span className={`status-pill status-${assignment.status}`}>
                                             {assignment.status}
                                         </span>
                                     </td>
-                                    <td>
+                                    <td className="col-submitted">
                                         {submission ? (
                                             <span style={{ color: '#16a34a', fontWeight: 500 }}>
                                                 ✓ {submission.file_name}
@@ -179,22 +170,17 @@ const ClassAssignments: React.FC = () => {
                                             <span style={{ color: '#9ca3af' }}>Not submitted</span>
                                         )}
                                     </td>
-                                    <td style={{ fontWeight: 500, color: '#374151' }}>
+                                    <td className="col-grade" style={{ fontWeight: 500, color: '#374151' }}>
                                         {gradeDisplay}
                                     </td>
-                                    <td>
-                                        <button
-                                            type="button"
+                                    <td className="col-action">
+                                        <Link
+                                            to={`/student/courses/${course.id}/assignments/${assignment.id}`}
                                             className="view-button"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                navigate(
-                                                    `/student/courses/${course.id}/assignments/${assignment.id}`
-                                                );
-                                            }}
+                                            style={{ textDecoration: 'none', display: 'inline-block' }}
                                         >
                                             View
-                                        </button>
+                                        </Link>
                                     </td>
                                 </tr>
                             );

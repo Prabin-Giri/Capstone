@@ -1,16 +1,26 @@
 :root {
-  --primary-color: #4f46e5; /* indigo-600 */
-  --primary-hover: #4338ca; /* indigo-700 */
-  --primary-light: #eef2ff; /* indigo-50 */
-  --text-primary: #111827; /* gray-900 */
-  --text-secondary: #4b5563; /* gray-600 */
-  --text-tertiary: #9ca3af; /* gray-400 */
-  --bg-body: #f9fafb; /* gray-50 */
+  --primary-color: #4f46e5;
+  /* indigo-600 */
+  --primary-hover: #4338ca;
+  /* indigo-700 */
+  --primary-light: #eef2ff;
+  /* indigo-50 */
+  --text-primary: #111827;
+  /* gray-900 */
+  --text-secondary: #4b5563;
+  /* gray-600 */
+  --text-tertiary: #9ca3af;
+  /* gray-400 */
+  --bg-body: #f9fafb;
+  /* gray-50 */
   --bg-surface: #ffffff;
-  --border-color: #e5e7eb; /* gray-200 */
-  --danger-color: #dc2626; /* red-600 */
-  --danger-bg: #fef2f2; /* red-50 */
-  
+  --border-color: #e5e7eb;
+  /* gray-200 */
+  --danger-color: #dc2626;
+  /* red-600 */
+  --danger-bg: #fef2f2;
+  /* red-50 */
+
   --global-sidebar-width: 120px;
   --course-sidebar-width: 200px;
   --course-sidebar-collapsed-width: 96px;
