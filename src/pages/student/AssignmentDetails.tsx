@@ -50,8 +50,8 @@ const AssignmentDetails: React.FC = () => {
         );
     }
 
-    // Mock points and rubric since they aren't in the API yet
-    const points = 100;
+    // Use assignment.points if available, falling back to 100
+    const points = assignment.points || 100;
     const rubric = [
         { criteria: 'Correctness (Public Tests)', points: 40 },
         { criteria: 'Edge Cases', points: 20 },
@@ -84,7 +84,7 @@ const AssignmentDetails: React.FC = () => {
                     <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>
                         {submission && submission.grade !== undefined && submission.grade !== null
                             ? `${submission.grade}/${points}`
-                            : '-/100'}
+                            : `-/${points}`}
                     </div>
                 </div>
             </div>
