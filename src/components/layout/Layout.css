@@ -162,6 +162,26 @@
     min-width: 0;
 }
 
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    background-color: var(--bg-body);
+}
+
+.course-page-layout {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+.course-page-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
 /* Topbar - Glass Effect */
 .topbar {
     background: rgba(255, 255, 255, 0.8);

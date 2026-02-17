@@ -76,3 +76,89 @@
     justify-content: flex-end;
     gap: 1rem;
 }
+
+.materials-box {
+    background: rgba(132, 0, 41, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+}
+
+.material-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.material-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.material-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.material-size {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Student Test Case Display */
+.test-cases-display {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.test-case-card-student {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.tc-card-header {
+    background: rgba(132, 0, 41, 0.03);
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tc-io-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+.io-group {
+    padding: 1rem;
+}
+
+.io-group:first-child {
+    border-right: 1px solid var(--border-color);
+}
+
+.io-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.io-content {
+    margin: 0;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+}

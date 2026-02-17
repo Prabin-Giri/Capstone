@@ -94,6 +94,51 @@
     margin-top: 8px;
 }
 
+.upload-box-wizard {
+    padding: 1rem;
+    background: rgba(132, 0, 41, 0.03);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    transition: all 0.2s;
+}
+
+.upload-box-wizard:hover {
+    border-color: var(--primary-color);
+    background: rgba(132, 0, 41, 0.05);
+}
+
+.form-input-file {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.file-info-wizard {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.form-select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23646469' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(132, 0, 41, 0.1);
+}
+
 @media (max-width: 640px) {
     .form-row {
         grid-template-columns: 1fr;

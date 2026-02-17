@@ -46,6 +46,8 @@ async function initDb() {
             due_date TEXT NOT NULL,
             status TEXT DEFAULT 'active' CHECK(status IN ('active', 'closed', 'late')),
             points INTEGER DEFAULT 100,
+            language TEXT,
+            starter_code_path TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
@@ -91,6 +93,17 @@ async function initDb() {
             schedule_path TEXT,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS test_cases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assignment_id TEXT NOT NULL,
+            input TEXT,
+            expected_output TEXT NOT NULL,
+            points INTEGER DEFAULT 0,
+            is_public INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
         )`
     ];
 

@@ -37,7 +37,7 @@ router.get('/:id', (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active', points = 100 } = req.body;
+        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path } = req.body;
 
         if (!course_id || !title || !due_date) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -47,15 +47,15 @@ router.post('/', (req, res, next) => {
         const id = req.body.id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
 
         const db = getDb();
-        const stmt = db.prepare('INSERT INTO assignments (id, course_id, title, description, due_date, status, points) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        stmt.run([id, course_id, title, description, due_date, status, points]);
+        const stmt = db.prepare('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        stmt.run([id, course_id, title, description, due_date, status, points, language, starter_code_path]);
         stmt.free();
 
         // Save DB to file
         const { saveDb } = require('../db');
         saveDb();
 
-        res.status(201).json({ id, course_id, title, description, due_date, status, points });
+        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path });
     } catch (err) {
         next(err);
     }
@@ -64,7 +64,7 @@ router.post('/', (req, res, next) => {
 // PUT /api/assignments/:id - Update assignment
 router.put('/:id', (req, res, next) => {
     try {
-        const { title, description, due_date, status, points } = req.body;
+        const { title, description, due_date, status, points, language, starter_code_path } = req.body;
         const id = req.params.id;
 
         const db = getDb();
@@ -77,6 +77,8 @@ router.put('/:id', (req, res, next) => {
         if (due_date !== undefined) { updates.push('due_date = ?'); values.push(due_date); }
         if (status !== undefined) { updates.push('status = ?'); values.push(status); }
         if (points !== undefined) { updates.push('points = ?'); values.push(points); }
+        if (language !== undefined) { updates.push('language = ?'); values.push(language); }
+        if (starter_code_path !== undefined) { updates.push('starter_code_path = ?'); values.push(starter_code_path); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });

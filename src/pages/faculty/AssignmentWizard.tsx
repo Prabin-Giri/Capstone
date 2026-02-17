@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAssignment, createAssignment, updateAssignment } from '../../lib/api';
+import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase } from '../../lib/api';
+import type { TestCase } from '../../lib/api';
 
 import { Button } from '../../components/ui/Button';
+import { Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import './AssignmentWizard.css';
 
 const AssignmentWizard: React.FC = () => {
@@ -16,24 +18,33 @@ const AssignmentWizard: React.FC = () => {
         due_date: '',
         due_time: '23:59',
         status: 'active' as 'active' | 'closed' | 'late',
-        points: 100
+        points: 100,
+        language: '',
+        starter_code_path: ''
     });
+    const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
+    const [testCases, setTestCases] = useState<Partial<TestCase>[]>([]);
     const [loading, setLoading] = useState(isEditing);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (isEditing && assignmentId) {
-            getAssignment(assignmentId).then(data => {
+            Promise.all([
+                getAssignment(assignmentId),
+                getTestCases(assignmentId)
+            ]).then(([data, cases]) => {
                 const dateObj = new Date(data.due_date);
                 setFormData({
                     title: data.title,
                     description: data.description || '',
                     due_date: dateObj.toISOString().split('T')[0],
-                    // Check if the source had a time component (not midnight default if only date was stored)
-                    // But for simplicity, we extract the time from the stored ISO string
                     due_time: dateObj.toISOString().split('T')[1].substring(0, 5),
                     status: data.status,
-                    points: data.points || 100
+                    points: data.points || 100,
+                    language: data.language || '',
+                    starter_code_path: data.starter_code_path || ''
                 });
+                setTestCases(cases);
                 setLoading(false);
             }).catch(err => {
                 console.error(err);
@@ -42,32 +53,84 @@ const AssignmentWizard: React.FC = () => {
         }
     }, [isEditing, assignmentId, courseId, navigate]);
 
+    const handleAddTestCase = () => {
+        setTestCases([...testCases, {
+            input: '',
+            expected_output: '',
+            points: 0,
+            is_public: 1
+        }]);
+    };
+
+    const handleRemoveTestCase = async (index: number) => {
+        const tc = testCases[index];
+        if (tc.id) {
+            if (!confirm('Are you sure you want to delete this test case?')) return;
+            try {
+                await deleteTestCase(tc.id);
+            } catch (err) {
+                console.error('Failed to delete test case', err);
+                return;
+            }
+        }
+        setTestCases(testCases.filter((_, i) => i !== index));
+    };
+
+    const handleTestCaseChange = (index: number, field: keyof TestCase, value: any) => {
+        const newCases = [...testCases];
+        newCases[index] = { ...newCases[index], [field]: value };
+        setTestCases(newCases);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setSaving(true);
         try {
-            // Combine date and time
+            let starterCodePath = formData.starter_code_path;
+
+            if (starterCodeFile) {
+                const uploadResult = await uploadStarterCode(starterCodeFile);
+                starterCodePath = uploadResult.filePath;
+            }
+
             const combinedDateTime = new Date(`${formData.due_date}T${formData.due_time}:00`).toISOString();
 
             const payload = {
                 ...formData,
-                due_date: combinedDateTime
+                due_date: combinedDateTime,
+                starter_code_path: starterCodePath
             };
-            // Remove due_time from payload to match API type
             const { due_time, ...finalPayload } = payload;
 
+            let finalAssignmentId = assignmentId;
             if (isEditing && assignmentId) {
                 await updateAssignment(assignmentId, finalPayload);
             } else {
                 if (!courseId) return;
-                await createAssignment({
+                const newAssignment = await createAssignment({
                     ...finalPayload,
                     course_id: courseId,
                 });
+                finalAssignmentId = newAssignment.id;
             }
+
+            // Sync test cases
+            if (finalAssignmentId) {
+                for (const tc of testCases) {
+                    if (tc.id) {
+                        await updateTestCase(tc.id, tc);
+                    } else {
+                        await createTestCase({ ...tc, assignment_id: finalAssignmentId });
+                    }
+                }
+            }
+
             navigate(`/faculty/courses/${courseId}`);
         } catch (err) {
             console.error('Failed to save', err);
-            alert('Failed to save assignment');
+            alert('Failed to save assignment and test cases');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -149,12 +212,116 @@ const AssignmentWizard: React.FC = () => {
                     </div>
                 </div>
 
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Programming Language</label>
+                        <select
+                            className="form-select"
+                            value={formData.language}
+                            onChange={e => setFormData({ ...formData, language: e.target.value })}
+                        >
+                            <option value="">Select Language (Optional)</option>
+                            <option value="python">Python</option>
+                            <option value="java">Java</option>
+                            <option value="cpp">C++</option>
+                            <option value="javascript">JavaScript</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="form-group">
+                    <label className="form-label">Starter Code (ZIP or individual file)</label>
+                    <div className="upload-box-wizard">
+                        <input
+                            type="file"
+                            onChange={e => e.target.files?.[0] && setStarterCodeFile(e.target.files[0])}
+                            className="form-input-file"
+                        />
+                        {formData.starter_code_path && (
+                            <p className="file-info-wizard">
+                                Current: <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>{formData.starter_code_path}</span>
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="test-cases-section">
+                    <div className="section-header-wizard">
+                        <h2 className="section-title-wizard">Test Cases</h2>
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddTestCase}>
+                            <Plus size={16} /> Add Test Case
+                        </Button>
+                    </div>
+
+                    <div className="test-cases-list">
+                        {testCases.length === 0 ? (
+                            <p className="empty-state-text">No test cases defined. Add one above to enable automated grading.</p>
+                        ) : (
+                            testCases.map((tc, idx) => (
+                                <div key={idx} className="test-case-item glass-card">
+                                    <div className="tc-header">
+                                        <span className="tc-index">Test Case {idx + 1}</span>
+                                        <div className="tc-actions">
+                                            <button
+                                                type="button"
+                                                className={`tc-toggle-btn ${tc.is_public ? 'public' : 'hidden'}`}
+                                                onClick={() => handleTestCaseChange(idx, 'is_public', tc.is_public ? 0 : 1)}
+                                                title={tc.is_public ? "Public (Student can see input/output)" : "Hidden (Only for grading)"}
+                                            >
+                                                {tc.is_public ? <Eye size={16} /> : <EyeOff size={16} />}
+                                                <span>{tc.is_public ? 'Public' : 'Hidden'}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="tc-delete-btn"
+                                                onClick={() => handleRemoveTestCase(idx)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="tc-grid">
+                                        <div className="form-group">
+                                            <label className="tc-label">Input</label>
+                                            <textarea
+                                                className="tc-textarea"
+                                                value={tc.input || ''}
+                                                onChange={e => handleTestCaseChange(idx, 'input', e.target.value)}
+                                                placeholder="e.g. 5\n10"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="tc-label">Expected Output</label>
+                                            <textarea
+                                                className="tc-textarea"
+                                                required
+                                                value={tc.expected_output || ''}
+                                                onChange={e => handleTestCaseChange(idx, 'expected_output', e.target.value)}
+                                                placeholder="e.g. 15"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="form-group" style={{ maxWidth: '120px' }}>
+                                        <label className="tc-label">Points</label>
+                                        <input
+                                            type="number"
+                                            className="tc-input"
+                                            value={tc.points || 0}
+                                            onChange={e => handleTestCaseChange(idx, 'points', parseInt(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
                 <div className="form-actions">
-                    <Button type="button" variant="ghost" onClick={() => navigate(`/faculty/courses/${courseId}`)}>
+                    <Button type="button" variant="ghost" onClick={() => navigate(`/faculty/courses/${courseId}`)} disabled={saving}>
                         Cancel
                     </Button>
-                    <Button type="submit">
-                        {isEditing ? 'Update Assignment' : 'Create Assignment'}
+                    <Button type="submit" disabled={saving}>
+                        {saving ? 'Saving...' : (isEditing ? 'Update Assignment' : 'Create Assignment')}
                     </Button>
                 </div>
             </form>
