@@ -37,6 +37,8 @@ export interface Assignment {
     due_date: string;
     status: 'active' | 'closed' | 'late';
     points?: number;
+    language?: string;
+    starter_code_path?: string;
     created_at?: string;
 }
 
@@ -258,6 +260,59 @@ export async function uploadSyllabus(courseId: string, file: File) {
 
 export async function uploadSchedule(course_id: string, file: File) {
     return uploadFile('schedule', course_id, file);
+}
+
+export async function uploadStarterCode(file: File): Promise<{ message: string; filePath: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/uploads/starter-code`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(error.error || 'Upload failed');
+    }
+
+    return response.json();
+}
+
+// ============ Test Cases ============
+
+export interface TestCase {
+    id: number;
+    assignment_id: string;
+    input: string;
+    expected_output: string;
+    points: number;
+    is_public: number;
+    updated_at?: string;
+}
+
+export async function getTestCases(assignmentId: string): Promise<TestCase[]> {
+    return apiFetch<TestCase[]>(`/test-cases/${assignmentId}`);
+}
+
+export async function createTestCase(testCase: Partial<TestCase>): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/test-cases', {
+        method: 'POST',
+        body: JSON.stringify(testCase),
+    });
+}
+
+export async function updateTestCase(id: number, testCase: Partial<TestCase>): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/test-cases/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(testCase),
+    });
+}
+
+export async function deleteTestCase(id: number): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/test-cases/${id}`, {
+        method: 'DELETE',
+    });
 }
 
 // ============ Admin / Database Explorer ============
