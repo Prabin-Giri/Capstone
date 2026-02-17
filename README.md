@@ -39,7 +39,7 @@ This runs both frontend (http://localhost:5173) and backend (http://localhost:30
 - Submit assignments (file upload)
 - Resubmit assignments
 - View submission status and feedback
-
+s
 ## API Endpoints
 | Method | Endpoint | Description |
 |--------|----------|-------------|
