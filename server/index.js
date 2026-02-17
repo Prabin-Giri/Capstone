@@ -7,6 +7,8 @@ const coursesRouter = require('./routes/courses');
 const assignmentsRouter = require('./routes/assignments');
 const submissionsRouter = require('./routes/submissions');
 const calendarRouter = require('./routes/calendar');
+const uploadsRouter = require('./routes/uploads');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -23,6 +25,8 @@ app.use('/api/courses', coursesRouter);
 app.use('/api/assignments', assignmentsRouter);
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/calendar', calendarRouter);
+app.use('/api/uploads', uploadsRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

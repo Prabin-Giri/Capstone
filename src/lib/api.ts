@@ -221,3 +221,66 @@ export async function saveColor(data: { student_id: string; course_id: string; c
     });
     if (!res.ok) throw new Error('Failed to save color');
 }
+
+// ============ Uploads ============
+
+export interface CourseDocuments {
+    course_id: string;
+    syllabus_path?: string;
+    schedule_path?: string;
+    updated_at?: string;
+}
+
+export async function getCourseDocuments(courseId: string): Promise<CourseDocuments> {
+    return apiFetch<CourseDocuments>(`/uploads/documents/${courseId}`);
+}
+
+async function uploadFile(endpoint: string, courseId: string, file: File): Promise<{ message: string; filePath: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/uploads/${endpoint}/${courseId}`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(error.error || 'Upload failed');
+    }
+
+    return response.json();
+}
+
+export async function uploadSyllabus(courseId: string, file: File) {
+    return uploadFile('syllabus', courseId, file);
+}
+
+export async function uploadSchedule(course_id: string, file: File) {
+    return uploadFile('schedule', course_id, file);
+}
+
+// ============ Admin / Database Explorer ============
+
+export interface DbColumn {
+    cid: number;
+    name: string;
+    type: string;
+    notnull: number;
+    dflt_value: any;
+    pk: number;
+}
+
+export interface TableData {
+    tableName: string;
+    columns: DbColumn[];
+    rows: any[];
+}
+
+export async function getDbTables(): Promise<string[]> {
+    return apiFetch<string[]>('/admin/tables');
+}
+
+export async function getTableData(tableName: string): Promise<TableData> {
+    return apiFetch<TableData>(`/admin/tables/${tableName}`);
+}

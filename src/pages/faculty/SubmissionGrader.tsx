@@ -17,7 +17,6 @@ const SubmissionGrader: React.FC = () => {
     // Form State
     const [grade, setGrade] = useState('');
     const [feedback, setFeedback] = useState('');
-    const [status, setStatus] = useState<'pending' | 'graded' | 'returned'>('pending');
 
     useEffect(() => {
         loadData();
@@ -35,7 +34,6 @@ const SubmissionGrader: React.FC = () => {
 
             setGrade(subData.grade?.toString() || '');
             setFeedback(subData.feedback || '');
-            setStatus(subData.status);
         } catch (err) {
             console.error(err);
         } finally {
@@ -67,44 +65,31 @@ const SubmissionGrader: React.FC = () => {
             <div className="grader-panel-left">
                 <div className="grader-header">
                     <h2 className="grader-title">{assignment.title}</h2>
-                    <p className="grader-meta">Student ID: {submission.student_id}</p>
-                    <p className="grader-meta">Submitted: {new Date(submission.submitted_at).toLocaleString()}</p>
+                    <div className="meta-group" style={{ display: 'flex', gap: '2rem' }}>
+                        <p className="grader-meta">STUDENT ID: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{submission.student_id}</span></p>
+                        <p className="grader-meta">SUBMITTED: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{new Date(submission.submitted_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></p>
+                    </div>
                 </div>
 
                 <div className="info-card">
-                    <h3 className="section-title">Submitted File</h3>
+                    <h3 className="section-title">Submission Artifact</h3>
                     <div className="file-box">
                         <span className="file-name">{submission.file_name}</span>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => setShowPreview(!showPreview)}
-                                className="text-gray-600 hover:text-gray-900 border-transparent focus:ring-0 focus:outline-none"
-                                style={{
-                                    borderColor: 'transparent',
-                                    outline: 'none',
-                                    boxShadow: 'none',
-                                    backgroundColor: 'transparent'
-                                }}
                             >
-                                {showPreview ? 'Hide Preview' : 'Show Preview'}
+                                {showPreview ? 'Hide Artifact' : 'Preview Artifact'}
                             </Button>
-                            <a
-                                href={getFileUrl(submission.file_path)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-sm btn-outline text-gray-700 hover:bg-gray-50 border-gray-300"
-                                style={{
-                                    textDecoration: 'none',
-                                    color: '#374151',
-                                    borderColor: '#d1d5db',
-                                    boxShadow: 'none',
-                                    outline: 'none'
-                                }}
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => window.open(getFileUrl(submission.file_path), '_blank')}
                             >
                                 Download
-                            </a>
+                            </Button>
                         </div>
                     </div>
 

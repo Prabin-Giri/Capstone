@@ -1,22 +1,20 @@
-/* Card Component */
+/* Card Component - Premium Island Style */
 .card {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
 }
 
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    border-color: var(--text-tertiary);
-    /* Was primary-color */
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-light);
 }
-
 
 .card-header {
     padding: 1.5rem;
@@ -28,9 +26,9 @@
 
 .card-title {
     margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
 }
 
 .card-body {
@@ -44,75 +42,90 @@
     padding-top: 0;
 }
 
-/* Tag/Pill Style (matches .class-code) */
-.tag-pill {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--primary-color);
-    background-color: var(--primary-light);
-    padding: 0.25rem 0.5rem;
-    border-radius: 9999px;
-    display: inline-block;
+/* Glassmorphism Utility */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-md);
 }
 
+/* Tag/Pill Style - Brand Accent */
+.tag-pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    background-color: var(--primary-light);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
 
-/* Button Component */
+/* Button Component - Premium Feel */
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    font-weight: 500;
-    border-radius: 0.375rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
+    transition: all 0.2s ease;
     font-family: inherit;
-    padding: 0.5rem 1rem;
-    /* Default size (matches btn-md) */
+    padding: 0.625rem 1.25rem;
     font-size: 0.875rem;
-    /* Default size (matches btn-md) */
+    letter-spacing: 0.01em;
+}
+
+.btn:active {
+    transform: scale(0.98);
 }
 
 .btn:focus {
-    outline: 2px solid var(--text-tertiary);
-    /* Was primary-color */
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--primary-light);
 }
 
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
 }
 
 /* Button Variants */
 .btn-primary {
     background-color: var(--primary-color);
     color: white;
+    box-shadow: 0 2px 4px rgba(132, 0, 41, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
     background-color: var(--primary-hover);
+    box-shadow: 0 4px 8px rgba(132, 0, 41, 0.3);
 }
 
 .btn-secondary {
-    background-color: var(--primary-light);
-    color: var(--primary-color);
+    background-color: var(--secondary-color);
+    color: var(--text-primary);
+    box-shadow: 0 2px 4px rgba(253, 185, 19, 0.2);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background-color: #e0e7ff;
-    /* darker indigo-100 */
+    background-color: var(--secondary-hover);
+    box-shadow: 0 4px 8px rgba(253, 185, 19, 0.3);
 }
 
 .btn-outline {
-    background-color: white;
-    border-color: var(--border-color);
-    color: var(--text-secondary);
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
 }
 
 .btn-outline:hover:not(:disabled) {
-    background-color: var(--bg-body);
-    color: var(--text-primary);
+    background-color: var(--primary-light);
 }
 
 .btn-ghost {
@@ -121,8 +134,8 @@
 }
 
 .btn-ghost:hover:not(:disabled) {
-    background-color: var(--bg-body);
-    color: var(--text-primary);
+    background-color: var(--light-grey);
+    color: var(--primary-color);
 }
 
 .btn-danger {
@@ -131,23 +144,22 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-    background-color: #b91c1c;
-    /* red-700 */
+    background-color: #991b1b;
 }
 
 /* Button Sizes */
 .btn-sm {
-    padding: 0.375rem 0.75rem;
+    padding: 0.4rem 0.8rem;
     font-size: 0.75rem;
 }
 
 .btn-md {
-    padding: 0.5rem 1rem;
+    padding: 0.625rem 1.25rem;
     font-size: 0.875rem;
 }
 
 .btn-lg {
-    padding: 0.75rem 1.5rem;
+    padding: 0.875rem 1.75rem;
     font-size: 1rem;
 }
 
@@ -155,140 +167,157 @@
 .status-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem 0.625rem;
+    padding: 0.2rem 0.75rem;
     border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: capitalize;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
 }
 
+.status-active,
 .status-success {
-    background-color: #dcfce7;
-    /* green-100 */
-    color: #166534;
-    /* green-800 */
+    background-color: var(--success-bg);
+    color: var(--success-color);
 }
 
+.status-closed,
 .status-error {
-    background-color: #fee2e2;
-    /* red-100 */
-    color: #991b1b;
-    /* red-800 */
+    background-color: var(--danger-bg);
+    color: var(--danger-color);
 }
 
+.status-late,
 .status-warning {
-    background-color: #fef9c3;
-    /* yellow-100 */
-    color: #854d0e;
-    /* yellow-800 */
+    background-color: #fffbeb;
+    color: #b45309;
 }
 
-.status-info {
-    background-color: #dbeafe;
-    /* blue-100 */
-    color: #1e40af;
-    /* blue-800 */
-}
-
-.status-neutral {
-    background-color: #f3f4f6;
-    /* gray-100 */
-    color: #1f2937;
-    /* gray-800 */
-}
-
-/* Layout Utilities */
+/* Dashboard Layout Overhaul */
 .dashboard-container {
-    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
 }
 
 .dashboard-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
+    align-items: flex-end;
+    /* Align with bottom for better look */
+    margin-bottom: 3rem;
 }
 
 .dashboard-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    letter-spacing: -0.04em;
     margin: 0;
 }
 
 .dashboard-subtitle {
     color: var(--text-secondary);
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+/* Analytics Summary Bar */
+.analytics-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.analytics-card {
+    padding: 1.5rem;
+    background: white;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.analytics-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.analytics-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.analytics-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
     margin-top: 0.25rem;
 }
 
+/* Grid System */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 2rem;
 }
 
-@media (min-width: 768px) {
-    .dashboard-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+/* Course Card Premium Styling */
+.course-card-premium {
+    height: 100%;
+    position: relative;
+    border-top: 4px solid var(--primary-color);
 }
 
-@media (min-width: 1024px) {
-    .dashboard-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-/* Course Card Specifics */
 .course-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
 }
 
-.course-id {
-    font-size: 1.125rem;
+.course-id-display {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.course-title-display {
+    font-size: 1.375rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0;
+    line-height: 1.25;
 }
 
-.course-term {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin: 0;
+.course-stats-display {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: auto;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--light-grey);
 }
 
-.course-name {
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: #1f2937;
-    /* gray-800 */
-    margin-bottom: 1rem;
-}
-
-.course-stats {
+.stat-item {
     display: flex;
-    justify-content: space-between;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    border-top: 1px solid var(--border-color);
-    padding-top: 1rem;
+    flex-direction: column;
 }
 
-.stat-value {
-    display: block;
+.stat-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.stat-v {
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
-}
-
-.course-actions {
-    margin-top: 1.5rem;
-    display: flex;
-    gap: 0.75rem;
-}
-
-.w-full {
-    width: 100%;
 }

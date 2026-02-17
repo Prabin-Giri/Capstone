@@ -1,0 +1,154 @@
+.db-explorer {
+    display: flex;
+    height: calc(100vh - var(--header-height));
+    background-color: var(--bg-body);
+    overflow: hidden;
+}
+
+.db-sidebar {
+    width: 260px;
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+}
+
+.sidebar-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1.5rem;
+}
+
+.table-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.table-btn {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.table-btn:hover {
+    background-color: var(--light-grey);
+    color: var(--text-primary);
+}
+
+.table-btn.active {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+}
+
+.db-content {
+    flex: 1;
+    padding: 2.5rem;
+    overflow-y: auto;
+}
+
+.table-header {
+    margin-bottom: 2rem;
+}
+
+.table-header h1 {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.04em;
+}
+
+.row-count {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.table-card {
+    background-color: white;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.data-table th {
+    background-color: var(--light-grey);
+    padding: 1rem 1.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.col-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.col-name {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.col-type {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.pk-badge {
+    align-self: flex-start;
+    font-size: 0.65rem;
+    background-color: var(--secondary-color);
+    color: var(--primary-color);
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-weight: 800;
+}
+
+.data-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.data-table tr:hover td {
+    background-color: #fcfcfc;
+}
+
+.null-value {
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: 0.8rem;
+}
+
+.db-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-tertiary);
+}
