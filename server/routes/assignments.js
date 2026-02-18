@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryToObjects } = require('../db');
+const { getDb, queryToObjects, queryOne } = require('../db');
 
 // GET /api/assignments - Get all assignments
 router.get('/', (req, res, next) => {
@@ -113,6 +113,61 @@ router.delete('/:id', (req, res, next) => {
         saveDb();
 
         res.json({ message: 'Assignment deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/assignments/:id/grades/export - Export single assignment grades as CSV
+router.get('/:id/grades/export', (req, res, next) => {
+    try {
+        const db = getDb();
+        const assignmentId = req.params.id;
+
+        // 1. Get assignment info
+        const assignmentResult = db.exec('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+        const assignment = queryOne(assignmentResult);
+        if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+
+        // 2. Get course info for context
+        const courseResult = db.exec('SELECT id FROM courses WHERE id = ?', [assignment.course_id]);
+        const course = queryOne(courseResult);
+
+        // 3. Get all students
+        const studentsResult = db.exec("SELECT id, name FROM users WHERE role = 'student' ORDER BY name");
+        const students = queryToObjects(studentsResult);
+
+        // 4. Get submissions for this specific assignment
+        const submissionsResult = db.exec(`
+            SELECT student_id, grade 
+            FROM submissions 
+            WHERE assignment_id = ?
+        `, [assignmentId]);
+        const submissions = queryToObjects(submissionsResult);
+
+        // 5. Create a map for quick lookup
+        const gradeMap = {};
+        submissions.forEach(s => {
+            gradeMap[s.student_id] = s.grade;
+        });
+
+        // 6. Generate CSV
+        const headers = ['Student Name', 'Student ID', `Grade (${assignment.title})`];
+        const rows = students.map(student => {
+            const grade = gradeMap[student.id];
+            return [student.name, student.id, grade !== undefined && grade !== null ? grade : ''];
+        });
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const filename = `${course?.id || 'Course'}_${assignment.title.replace(/[^a-z0-9]/gi, '_')}_Grades.csv`;
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csvContent);
     } catch (err) {
         next(err);
     }

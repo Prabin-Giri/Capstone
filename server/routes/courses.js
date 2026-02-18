@@ -51,4 +51,129 @@ router.get('/:id/assignments', (req, res, next) => {
     }
 });
 
+// POST /api/courses - Create a new course
+router.post('/', (req, res, next) => {
+    try {
+        const { id, name, term } = req.body;
+        if (!id || !name || !term) {
+            return res.status(400).json({ error: 'Missing required fields: id, name, term' });
+        }
+
+        const db = getDb();
+        const stmt = db.prepare('INSERT INTO courses (id, name, term) VALUES (?, ?, ?)');
+        stmt.run([id, name, term]);
+        stmt.free();
+
+        res.status(201).json({ id, name, term });
+    } catch (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(400).json({ error: 'Course ID already exists' });
+        }
+        next(err);
+    }
+});
+
+// PATCH /api/courses/:id - Update course details
+router.patch('/:id', (req, res, next) => {
+    try {
+        const { name, term, is_archived } = req.body;
+        const db = getDb();
+
+        // Build query dynamically based on provided fields
+        const updates = [];
+        const params = [];
+
+        if (name !== undefined) {
+            updates.push('name = ?');
+            params.push(name);
+        }
+        if (term !== undefined) {
+            updates.push('term = ?');
+            params.push(term);
+        }
+        if (is_archived !== undefined) {
+            updates.push('is_archived = ?');
+            params.push(is_archived ? 1 : 0);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields provided for update' });
+        }
+
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(req.params.id);
+
+        const sql = `UPDATE courses SET ${updates.join(', ')} WHERE id = ?`;
+        const stmt = db.prepare(sql);
+        stmt.run(params);
+        stmt.free();
+
+        // Save the database after changes
+        const { saveDb } = require('../db');
+        saveDb();
+
+        res.json({ message: 'Course updated successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/courses/:id/grades/export - Export course grades as CSV
+router.get('/:id/grades/export', (req, res, next) => {
+    try {
+        const db = getDb();
+        const courseId = req.params.id;
+
+        // 1. Get course info
+        const courseResult = db.exec('SELECT * FROM courses WHERE id = ?', [courseId]);
+        const course = queryOne(courseResult);
+        if (!course) return res.status(404).json({ error: 'Course not found' });
+
+        // 2. Get all assignments for this course
+        const assignmentsResult = db.exec('SELECT id, title FROM assignments WHERE course_id = ? ORDER BY due_date', [courseId]);
+        const assignments = queryToObjects(assignmentsResult);
+
+        // 3. Get all students (for now we get all users with student role)
+        const studentsResult = db.exec("SELECT id, name FROM users WHERE role = 'student' ORDER BY name");
+        const students = queryToObjects(studentsResult);
+
+        // 4. Get all submissions for these assignments
+        const submissionsResult = db.exec(`
+            SELECT s.student_id, s.assignment_id, s.grade 
+            FROM submissions s
+            JOIN assignments a ON s.assignment_id = a.id
+            WHERE a.course_id = ?
+        `, [courseId]);
+        const submissions = queryToObjects(submissionsResult);
+
+        // 5. Create a map for quick lookup
+        const gradeMap = {};
+        submissions.forEach(s => {
+            if (!gradeMap[s.student_id]) gradeMap[s.student_id] = {};
+            gradeMap[s.student_id][s.assignment_id] = s.grade;
+        });
+
+        // 6. Generate CSV
+        const headers = ['Student Name', 'Student ID', ...assignments.map(a => a.title)];
+        const rows = students.map(student => {
+            const studentGrades = assignments.map(a => {
+                const grade = gradeMap[student.id]?.[a.id];
+                return grade !== undefined && grade !== null ? grade : '';
+            });
+            return [student.name, student.id, ...studentGrades];
+        });
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=grades_${courseId}.csv`);
+        res.send(csvContent);
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;

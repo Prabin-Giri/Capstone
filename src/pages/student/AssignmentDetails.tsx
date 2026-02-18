@@ -6,9 +6,11 @@ import { Code, Download, Eye } from 'lucide-react';
 import type { Assignment, Submission, TestCase } from '../../lib/api';
 import './AssignmentDetails.css';
 
-const STUDENT_ID = 'student-001'; // Mock ID for student view
+import { getUser } from '../../lib/auth';
 
 const AssignmentDetails: React.FC = () => {
+    const user = getUser();
+    const studentId = user?.id || 'student-001';
     const { assignmentId } = useParams();
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [submission, setSubmission] = useState<Submission | null>(null);
@@ -22,7 +24,7 @@ const AssignmentDetails: React.FC = () => {
             try {
                 const [assignmentData, submissionsData, testCaseData] = await Promise.all([
                     getAssignment(assignmentId),
-                    getSubmissions({ assignment_id: assignmentId, student_id: STUDENT_ID }),
+                    getSubmissions({ assignment_id: assignmentId, student_id: studentId }),
                     getTestCases(assignmentId)
                 ]);
                 setAssignment(assignmentData);

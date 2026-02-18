@@ -4,11 +4,11 @@ import { getCourses, getAssignments } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-// import './StudentDashboard.css'; // Removed in favor of global components.css
-
+import { getUser } from '../../lib/auth';
 
 const StudentDashboard: React.FC = () => {
     const navigate = useNavigate();
+    const user = getUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,7 +64,7 @@ const StudentDashboard: React.FC = () => {
             <div className="dashboard-header">
                 <div>
                     <h1 className="dashboard-title">Student Command Center</h1>
-                    <p className="dashboard-subtitle">Welcome back, Prabin. Here is your semester at a glance.</p>
+                    <p className="dashboard-subtitle">Welcome back, {user?.name || 'Student'}. Here is your semester at a glance.</p>
                 </div>
                 <div className="dashboard-actions">
                     <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>

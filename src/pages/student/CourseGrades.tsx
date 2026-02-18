@@ -2,10 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import type { Course, Assignment, Submission } from '../../lib/api';
+import { getUser } from '../../lib/auth';
 import './CourseGrades.css';
 
 const CourseGrades: React.FC = () => {
     const { courseId } = useParams();
+    const user = getUser();
+    const studentId = user?.id || 'student-001';
     const [course, setCourse] = useState<Course | null>(null);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -22,7 +25,7 @@ const CourseGrades: React.FC = () => {
             const [courseData, assignmentsData, submissionsData] = await Promise.all([
                 getCourse(courseId),
                 getCourseAssignments(courseId),
-                getSubmissions({ student_id: 'student-001' })
+                getSubmissions({ student_id: studentId })
             ]);
             setCourse(courseData);
             setAssignments(assignmentsData);
