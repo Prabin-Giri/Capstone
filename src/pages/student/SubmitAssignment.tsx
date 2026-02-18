@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createSubmission, getSubmissions, getFileUrl } from '../../lib/api';
 import type { Submission } from '../../lib/api';
+import { getUser } from '../../lib/auth';
 import './SubmitAssignment.css';
-
-const STUDENT_ID = 'student-001'; // In a real app, get from auth context
 
 const SubmitAssignment: React.FC = () => {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
+    const user = getUser();
+    const studentId = user?.id || 'student-001';
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,7 @@ const SubmitAssignment: React.FC = () => {
             try {
                 const submissions = await getSubmissions({
                     assignment_id: assignmentId,
-                    student_id: STUDENT_ID
+                    student_id: studentId
                 });
                 if (submissions.length > 0) {
                     setExistingSubmission(submissions[0]);
@@ -31,7 +32,7 @@ const SubmitAssignment: React.FC = () => {
             }
         }
         checkExisting();
-    }, [assignmentId]);
+    }, [assignmentId, studentId]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -48,10 +49,10 @@ const SubmitAssignment: React.FC = () => {
         setError(null);
 
         try {
-            const submission = await createSubmission(assignmentId, STUDENT_ID, selectedFile);
-            navigate(
-                `/student/courses/${courseId}/assignments/${assignmentId}/submissions/${submission.id}`
-            );
+            if (assignmentId) {
+                await createSubmission(assignmentId, studentId, selectedFile);
+                navigate(`/student/courses/${courseId}/assignments/${assignmentId}`);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to submit. Please try again.');
             setIsSubmitting(false);

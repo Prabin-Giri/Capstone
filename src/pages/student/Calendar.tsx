@@ -5,13 +5,14 @@ import { CalendarSidebar } from '../../components/calendar/CalendarSidebar';
 import { MonthView } from '../../components/calendar/MonthView';
 import { getAssignments, getCourses, getTodos, createTodo, deleteTodo, updateTodo, getColors, saveColor } from '../../lib/api';
 import type { Assignment, Course, Todo } from '../../lib/api';
+import { getUser } from '../../lib/auth';
 import './Calendar.css';
-
-const STUDENT_ID = 'student-001';
 
 type ViewMode = 'agenda' | 'month';
 
 const Calendar: React.FC = () => {
+    const user = getUser();
+    const studentId = user?.id || 'student-001';
     const [view, setView] = useState<ViewMode>('month');
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
@@ -34,8 +35,8 @@ const Calendar: React.FC = () => {
             const [fetchedCourses, fetchedAssignments, fetchedTodos, fetchedColors] = await Promise.all([
                 getCourses(),
                 getAssignments(),
-                getTodos({ student_id: STUDENT_ID }),
-                getColors(STUDENT_ID)
+                getTodos({ student_id: studentId }),
+                getColors(studentId)
             ]);
 
             setCourses(fetchedCourses);
@@ -50,7 +51,7 @@ const Calendar: React.FC = () => {
     const handleColorChange = async (courseId: string, color: string) => {
         try {
             setCourseColors(prev => ({ ...prev, [courseId]: color }));
-            await saveColor({ student_id: STUDENT_ID, course_id: courseId, color });
+            await saveColor({ student_id: studentId, course_id: courseId, color });
         } catch (err) {
             console.error('Failed to save color', err);
             loadData();
@@ -85,7 +86,7 @@ const Calendar: React.FC = () => {
         e.preventDefault();
         try {
             const newTodo = await createTodo({
-                student_id: STUDENT_ID,
+                student_id: studentId,
                 title: newTodoTitle,
                 due_date: newTodoDate ? new Date(newTodoDate).toISOString() : undefined,
                 course_id: newTodoCourse || undefined

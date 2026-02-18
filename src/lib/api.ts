@@ -16,6 +16,7 @@ export interface Course {
     id: string;
     name: string;
     term: string;
+    is_archived?: boolean;
     created_at?: string;
 }
 
@@ -25,6 +26,34 @@ export async function getCourses(): Promise<Course[]> {
 
 export async function getCourse(id: string): Promise<Course> {
     return apiFetch<Course>(`/courses/${id}`);
+}
+
+export async function createCourse(course: Course): Promise<Course> {
+    return apiFetch<Course>('/courses', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(course),
+    });
+}
+
+export function getCourseGradesExportUrl(id: string): string {
+    return `${API_BASE}/courses/${id}/grades/export`;
+}
+
+export function getAssignmentGradesExportUrl(id: string): string {
+    return `${API_BASE}/assignments/${id}/grades/export`;
+}
+
+export async function updateCourse(id: string, updates: Partial<Course>): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/courses/${id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+    });
 }
 
 // ============ Assignments ============
@@ -338,4 +367,22 @@ export async function getDbTables(): Promise<string[]> {
 
 export async function getTableData(tableName: string): Promise<TableData> {
     return apiFetch<TableData>(`/admin/tables/${tableName}`);
+}
+// ============ Users ============
+
+export interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: 'student' | 'faculty' | 'admin';
+}
+
+export async function loginRequest(email: string): Promise<User> {
+    return apiFetch<User>('/users/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+    });
 }

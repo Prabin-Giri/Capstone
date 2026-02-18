@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
+import { getUser } from '../../lib/auth';
 import type { Course, Assignment, Submission } from '../../lib/api';
 import './ClassAssignments.css';
 
-const STUDENT_ID = 'student-001'; // In a real app, get from auth context
-
 const ClassAssignments: React.FC = () => {
     const { courseId } = useParams();
+    const user = getUser();
+    const studentId = user?.id || 'student-001';
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [course, setCourse] = useState<Course | null>(null);
@@ -21,7 +22,7 @@ const ClassAssignments: React.FC = () => {
                 const [courseData, assignmentsData, submissionsData] = await Promise.all([
                     getCourse(courseId),
                     getCourseAssignments(courseId),
-                    getSubmissions({ student_id: STUDENT_ID })
+                    getSubmissions({ student_id: studentId })
                 ]);
                 setCourse(courseData);
                 setAssignments(assignmentsData);

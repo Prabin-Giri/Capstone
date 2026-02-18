@@ -16,6 +16,7 @@ import FacultyCourseView from '../pages/faculty/FacultyCourseView';
 import AssignmentWizard from '../pages/faculty/AssignmentWizard';
 import GradingDashboard from '../pages/faculty/GradingDashboard';
 import SubmissionGrader from '../pages/faculty/SubmissionGrader';
+import NewCourse from '../pages/faculty/NewCourse';
 import DatabaseExplorer from '../pages/admin/DatabaseExplorer';
 import NotFound from '../pages/NotFound';
 import { AUTH_ROLES } from '../lib/auth';
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute requiredRole={AUTH_ROLES.FACULTY} />,
                 children: [
                     { index: true, element: <FacultyDashboard /> },
+                    { path: 'courses/new', element: <NewCourse /> },
                     { path: 'courses/:courseId', element: <FacultyCourseView /> },
                     { path: 'courses/:courseId/assignments/new', element: <AssignmentWizard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/edit', element: <AssignmentWizard /> },

@@ -35,6 +35,7 @@ async function initDb() {
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             term TEXT NOT NULL,
+            is_archived INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )`,

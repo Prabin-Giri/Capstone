@@ -7,7 +7,8 @@ import {
     getCourseDocuments,
     uploadSyllabus,
     uploadSchedule,
-    getFileUrl
+    getFileUrl,
+    getAssignmentGradesExportUrl
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -115,7 +116,14 @@ const FacultyCourseView: React.FC = () => {
             {/* Page Header */}
             <div className="faculty-course-header">
                 <div className="header-title">
-                    <h1>Faculty Command Center</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <h1>Faculty Command Center</h1>
+                        {course.is_archived && (
+                            <span className="tag-pill" style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--muted-color)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                ARCHIVED
+                            </span>
+                        )}
+                    </div>
                     <p className="header-metadata">{course.name} • {course.id}</p>
                 </div>
 
@@ -177,11 +185,6 @@ const FacultyCourseView: React.FC = () => {
                         {assignments.filter(a => a.status === 'closed').length * 12 + 5}
                     </span>
                     <span className="analytics-desc">Total submissions to review</span>
-                </div>
-                <div className="analytics-card glass">
-                    <span className="analytics-label">Course GPA</span>
-                    <span className="analytics-value" style={{ color: 'var(--secondary-color)' }}>3.42</span>
-                    <span className="analytics-desc">Overall average</span>
                 </div>
             </div>
 
@@ -250,6 +253,16 @@ const FacultyCourseView: React.FC = () => {
                                     {/* Right: Actions */}
                                     <div className="action-group">
                                         <div className="button-group">
+                                            <a
+                                                href={getAssignmentGradesExportUrl(assignment.id)}
+                                                download
+                                                className="action-btn"
+                                                title="Download Grades"
+                                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            >
+                                                <Download size={14} />
+                                                Grades
+                                            </a>
                                             <button
                                                 onClick={() => navigate(`assignments/${assignment.id}/grading`)}
                                                 className="action-btn"

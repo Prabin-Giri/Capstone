@@ -10,6 +10,7 @@ const calendarRouter = require('./routes/calendar');
 const uploadsRouter = require('./routes/uploads');
 const adminRouter = require('./routes/admin');
 const testCasesRouter = require('./routes/testCases');
+const usersRouter = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,6 +30,7 @@ app.use('/api/calendar', calendarRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/test-cases', testCasesRouter);
+app.use('/api/users', usersRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
