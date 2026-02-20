@@ -50,7 +50,8 @@ const CourseGrades: React.FC = () => {
         assignments.forEach(assignment => {
             const submission = getSubmissionForAssignment(assignment.id);
             const assignmentPoints = assignment.points || 100; // Default to 100 if not set
-            if (submission && submission.grade !== undefined && submission.grade !== null) {
+            const isGraded = submission && (submission.status === 'graded' || submission.status === 'returned');
+            if (isGraded && submission.grade !== undefined && submission.grade !== null) {
                 earned += submission.grade;
                 possible += assignmentPoints;
             }
@@ -133,19 +134,21 @@ const CourseGrades: React.FC = () => {
                                                 <span className={`status-pill status-${submission.status === 'graded' || submission.status === 'returned' ? 'completed' : 'submitted'}`}>
                                                     {submission.status === 'graded' || submission.status === 'returned' ? 'Graded' : 'Submitted'}
                                                 </span>
+                                            ) : new Date() > new Date(assignment.due_date) ? (
+                                                <span className="status-pill status-late">Late</span>
                                             ) : (
                                                 <span className="status-pill status-pending">Pending</span>
                                             )}
                                         </td>
                                         <td style={{ fontWeight: 500, color: '#374151' }}>
-                                            {submission?.grade !== undefined ? (
+                                            {submission?.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') ? (
                                                 <span>{submission.grade}/{maxPoints}</span>
                                             ) : (
                                                 <span style={{ color: '#9ca3af' }}>-/{maxPoints}</span>
                                             )}
                                         </td>
                                         <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {submission?.feedback || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>None</span>}
+                                            {(submission?.status === 'graded' || submission?.status === 'returned') && submission?.feedback ? submission.feedback : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>None</span>}
                                         </td>
                                         <td>
                                             <Link

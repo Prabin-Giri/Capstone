@@ -122,6 +122,7 @@ export interface Submission {
     status: 'pending' | 'graded' | 'returned';
     grade?: number;
     feedback?: string;
+    files?: { name: string, path: string }[];
 }
 
 export async function getSubmissions(params?: {
@@ -132,22 +133,36 @@ export async function getSubmissions(params?: {
     if (params?.assignment_id) searchParams.set('assignment_id', params.assignment_id);
     if (params?.student_id) searchParams.set('student_id', params.student_id);
     const query = searchParams.toString();
-    return apiFetch<Submission[]>(`/submissions${query ? `?${query}` : ''}`);
+    const res = await apiFetch<Submission[]>(`/submissions${query ? `?${query}` : ''}`);
+    return res.map(sub => {
+        try {
+            sub.files = JSON.parse(sub.file_path);
+        } catch (e) {
+            sub.files = [{ name: sub.file_name, path: sub.file_path }];
+        }
+        return sub;
+    });
 }
 
 export async function getSubmission(id: number): Promise<Submission> {
-    return apiFetch<Submission>(`/submissions/${id}`);
+    const sub = await apiFetch<Submission>(`/submissions/${id}`);
+    try {
+        sub.files = JSON.parse(sub.file_path);
+    } catch (e) {
+        sub.files = [{ name: sub.file_name, path: sub.file_path }];
+    }
+    return sub;
 }
 
 export async function createSubmission(
     assignmentId: string,
     studentId: string,
-    file: File
+    files: File[]
 ): Promise<Submission> {
     const formData = new FormData();
     formData.append('assignment_id', assignmentId);
     formData.append('student_id', studentId);
-    formData.append('file', file);
+    files.forEach(f => formData.append('files', f));
 
     const response = await fetch(`${API_BASE}/submissions`, {
         method: 'POST',
@@ -159,15 +174,23 @@ export async function createSubmission(
         throw new Error(error.error || 'Upload failed');
     }
 
-    return response.json();
+    const sub = await response.json();
+    try {
+        sub.files = JSON.parse(sub.file_path);
+    } catch (e) {
+        sub.files = [{ name: sub.file_name, path: sub.file_path }];
+    }
+    return sub;
 }
 
 export async function updateSubmission(
     id: number,
-    data: { file?: File; status?: string; grade?: number; feedback?: string }
+    data: { files?: File[]; status?: string; grade?: number; feedback?: string }
 ): Promise<Submission> {
     const formData = new FormData();
-    if (data.file) formData.append('file', data.file);
+    if (data.files) {
+        data.files.forEach(f => formData.append('files', f));
+    }
     if (data.status) formData.append('status', data.status);
     if (data.grade !== undefined) formData.append('grade', String(data.grade));
     if (data.feedback !== undefined) formData.append('feedback', data.feedback);
@@ -182,7 +205,13 @@ export async function updateSubmission(
         throw new Error(error.error || 'Update failed');
     }
 
-    return response.json();
+    const sub = await response.json();
+    try {
+        sub.files = JSON.parse(sub.file_path);
+    } catch (e) {
+        sub.files = [{ name: sub.file_name, path: sub.file_path }];
+    }
+    return sub;
 }
 
 export async function deleteSubmission(id: number): Promise<void> {
