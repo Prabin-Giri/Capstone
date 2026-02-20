@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getAssignment, getSubmissions } from '../../lib/api';
+import { getAssignment, getSubmissions, getFileUrl } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -152,27 +152,33 @@ const GradingDashboard: React.FC = () => {
                             <div className="submission-list">
                                 {selectedStudentSubmissions.map((sub) => (
                                     <div key={sub.id} className="submission-item">
-                                        <div className="submission-info">
-                                            <span className="file-name">{sub.file_name}</span>
+                                        <div className="submission-info" style={{ marginBottom: '8px' }}>
                                             <span className="submission-date">
                                                 Submitted: {new Date(sub.submitted_at).toLocaleString()}
                                             </span>
                                         </div>
-                                        <a
-                                            href={`http://localhost:3001/uploads/${sub.file_path}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="btn btn-sm btn-outline text-gray-700 hover:bg-gray-50 border-gray-300"
-                                            style={{
-                                                textDecoration: 'none',
-                                                color: '#374151',
-                                                borderColor: '#d1d5db',
-                                                boxShadow: 'none',
-                                                outline: 'none'
-                                            }}
-                                        >
-                                            Download
-                                        </a>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb', padding: '8px 12px', borderRadius: '6px' }}>
+                                                    <span className="file-name" style={{ fontSize: '14px' }}>{f.name}</span>
+                                                    <a
+                                                        href={getFileUrl(f.path)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="btn btn-sm btn-outline text-gray-700 hover:bg-gray-50 border-gray-300"
+                                                        style={{
+                                                            textDecoration: 'none',
+                                                            color: '#374151',
+                                                            borderColor: '#d1d5db',
+                                                            boxShadow: 'none',
+                                                            outline: 'none'
+                                                        }}
+                                                    >
+                                                        Download
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
                             </div>

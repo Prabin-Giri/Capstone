@@ -74,39 +74,35 @@ router.get('/:id', (req, res, next) => {
     }
 });
 
-// POST /api/submissions - Create new submission (with file upload)
-router.post('/', upload.single('file'), (req, res, next) => {
+// POST /api/submissions - Create new submission (with file array)
+router.post('/', upload.array('files'), (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.body;
 
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No files uploaded' });
         }
         if (!assignment_id || !student_id) {
             return res.status(400).json({ error: 'assignment_id and student_id are required' });
         }
 
-        const file_name = req.file.originalname;
-        const file_path = req.file.filename;
+        const filesData = req.files.map(f => ({
+            name: f.originalname,
+            path: f.filename
+        }));
 
-        // Check for existing submission
-        const existing = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?',
-            [assignment_id, student_id]);
+        const file_name = `${req.files.length} file${req.files.length > 1 ? 's' : ''}`;
+        const file_path = JSON.stringify(filesData);
 
-        if (existing.length > 0) {
-            // Update existing
-            db.run("UPDATE submissions SET file_name = ?, file_path = ?, updated_at = datetime('now'), status = 'pending' WHERE assignment_id = ? AND student_id = ?",
-                [file_name, file_path, assignment_id, student_id]);
-        } else {
-            // Insert new
-            db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, submitted_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
-                [assignment_id, student_id, file_name, file_path]);
-        }
+        // Always insert new submission to track multiple attempts
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, submitted_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
+            [assignment_id, student_id, file_name, file_path]);
+
         saveDb();
 
-        // Return the submission
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?',
+        // Return the *newly inserted* submission (order by submitted_at DESC, limit 1)
+        const rows = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
             [assignment_id, student_id]);
         res.status(201).json(rows[0]);
     } catch (err) {
@@ -115,16 +111,20 @@ router.post('/', upload.single('file'), (req, res, next) => {
 });
 
 // PUT /api/submissions/:id - Update submission
-router.put('/:id', upload.single('file'), (req, res, next) => {
+router.put('/:id', upload.array('files'), (req, res, next) => {
     try {
         const db = getDb();
         const { status, grade, feedback } = req.body;
         const updates = [];
         const params = [];
 
-        if (req.file) {
+        if (req.files && req.files.length > 0) {
+            const filesData = req.files.map(f => ({
+                name: f.originalname,
+                path: f.filename
+            }));
             updates.push('file_name = ?', 'file_path = ?');
-            params.push(req.file.originalname, req.file.filename);
+            params.push(`${req.files.length} file${req.files.length > 1 ? 's' : ''}`, JSON.stringify(filesData));
         }
         if (status) {
             updates.push('status = ?');
@@ -168,10 +168,23 @@ router.delete('/:id', (req, res, next) => {
             return res.status(404).json({ error: 'Submission not found' });
         }
 
-        // Delete file
-        const filePath = path.join(uploadsDir, rows[0].file_path);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        // Delete file(s)
+        try {
+            const filesData = JSON.parse(rows[0].file_path);
+            if (Array.isArray(filesData)) {
+                filesData.forEach(f => {
+                    const filePath = path.join(uploadsDir, f.path);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                });
+            }
+        } catch (e) {
+            // Fallback for older non-JSON entries
+            const filePath = path.join(uploadsDir, rows[0].file_path);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
         }
 
         db.run('DELETE FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
