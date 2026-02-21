@@ -20,7 +20,8 @@ const AssignmentWizard: React.FC = () => {
         status: 'active' as 'active' | 'closed' | 'late',
         points: 100,
         language: '',
-        starter_code_path: ''
+        starter_code_path: '',
+        type: 'individual' as 'individual' | 'group'
     });
     const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
     const [testCases, setTestCases] = useState<Partial<TestCase>[]>([]);
@@ -42,7 +43,8 @@ const AssignmentWizard: React.FC = () => {
                     status: data.status,
                     points: data.points || 100,
                     language: data.language || '',
-                    starter_code_path: data.starter_code_path || ''
+                    starter_code_path: data.starter_code_path || '',
+                    type: data.type || 'individual'
                 });
                 setTestCases(cases);
                 setLoading(false);
@@ -208,6 +210,17 @@ const AssignmentWizard: React.FC = () => {
                             <option value="active">Active</option>
                             <option value="closed">Closed</option>
                             <option value="late">Late</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Type</label>
+                        <select
+                            className="form-select"
+                            value={formData.type}
+                            onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                        >
+                            <option value="individual">Individual</option>
+                            <option value="group">Group</option>
                         </select>
                     </div>
                 </div>

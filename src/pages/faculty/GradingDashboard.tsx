@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getAssignment, getSubmissions, getFileUrl } from '../../lib/api';
+import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
+import { FileText, BarChart2, Search, Play } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import PlagiarismReportModal from './PlagiarismReportModal';
+import AutoGradingConfigModal from './AutoGradingConfigModal';
 
 import './GradingDashboard.css';
 
@@ -14,6 +17,8 @@ const GradingDashboard: React.FC = () => {
     const [groupedSubmissions, setGroupedSubmissions] = useState<Record<string, Submission[]>>({});
     const [selectedStudentSubmissions, setSelectedStudentSubmissions] = useState<Submission[] | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
+    const [showAutoGradeModal, setShowAutoGradeModal] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -52,12 +57,18 @@ const GradingDashboard: React.FC = () => {
         }
     }
 
+    const handleAutoGrade = async (config: { latePenalty: string; timeout: number }) => {
+        if (!assignmentId) return;
+        await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
+        await loadData(); // Reload to show new grades
+    };
+
     if (loading) return <div className="grading-dashboard-container">Loading...</div>;
     if (!assignment) return <div className="grading-dashboard-container">Assignment not found</div>;
 
     return (
         <div className="grading-dashboard-container">
-            <div className="dashboard-header">
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
                 <div>
                     <div className="breadcrumb">
                         <Link to={`/faculty/courses/${courseId}`}>Back to Course</Link>
@@ -65,6 +76,30 @@ const GradingDashboard: React.FC = () => {
                         <span>{assignment.title}</span>
                     </div>
                     <h1 className="dashboard-title">Grading Dashboard</h1>
+                </div>
+                <div className="flex gap-4" style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={() => setShowAutoGradeModal(true)}
+                        className="btn-dashboard-action"
+                        style={{ backgroundColor: 'white', border: '2px solid #d8b4fe', color: '#7e22ce' }}
+                    >
+                        <Play size={20} />
+                        Auto-Grade All
+                    </button>
+                    <button
+                        onClick={() => setShowPlagiarismModal(true)}
+                        className="btn-dashboard-action btn-plagiarism"
+                    >
+                        <Search size={20} />
+                        Check Plagiarism
+                    </button>
+                    <Link
+                        to={`/faculty/courses/${courseId}/gradebook`}
+                        className="btn-dashboard-action btn-gradebook"
+                    >
+                        <BarChart2 size={20} />
+                        View Reports & Gradebook
+                    </Link>
                 </div>
             </div>
 
@@ -185,6 +220,24 @@ const GradingDashboard: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Plagiarism Report Modal */}
+            {showPlagiarismModal && assignment && (
+                <PlagiarismReportModal
+                    assignmentId={assignment.id}
+                    assignmentTitle={assignment.title}
+                    onClose={() => setShowPlagiarismModal(false)}
+                />
+            )}
+
+            {/* Auto-Grading Config Modal */}
+            {showAutoGradeModal && assignment && (
+                <AutoGradingConfigModal
+                    assignmentId={assignment.id}
+                    onClose={() => setShowAutoGradeModal(false)}
+                    onStart={handleAutoGrade}
+                />
             )}
         </div>
     );

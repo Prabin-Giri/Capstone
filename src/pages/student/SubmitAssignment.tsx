@@ -17,6 +17,7 @@ const SubmitAssignment: React.FC = () => {
     const [existingSubmission, setExistingSubmission] = useState<Submission | null>(null);
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [assignment, setAssignment] = useState<Assignment | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Fetch assignment and submission data
     useEffect(() => {
@@ -42,12 +43,72 @@ const SubmitAssignment: React.FC = () => {
         loadData();
     }, [assignmentId, studentId]);
 
+    // Fetch assignment details for validation
+    useEffect(() => {
+        if (assignmentId) {
+            getAssignment(assignmentId).then(setAssignment).catch(console.error);
+        }
+    }, [assignmentId]);
+
+    const validateFile = (file: File): boolean => {
+        if (!assignment?.language) return true; // No restriction
+
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        let valid = true;
+
+        // Simple mapping; can be expanded
+        const map: Record<string, string[]> = {
+            'python': ['py'],
+            'javascript': ['js'],
+            'java': ['java'],
+            'cpp': ['cpp', 'c', 'h'],
+            'c': ['c', 'h']
+        };
+
+        if (map[assignment.language]) {
+            valid = map[assignment.language].includes(ext || '');
+        }
+
+        if (!valid) {
+            setError(`Invalid file type. Expected .${map[assignment.language].join(', .')} file for ${assignment.language} assignment.`);
+            return false;
+        }
+        return true;
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files);
+            // Validate each file
+            for (const file of newFiles) {
+                if (!validateFile(file)) return;
+            }
             setSelectedFiles(prev => [...prev, ...newFiles]);
             setError(null);
             setFileInputKey(Date.now()); // Forces DOM replacement of input to allow identical subsequent selections
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const newFiles = Array.from(e.dataTransfer.files);
+            for (const file of newFiles) {
+                if (!validateFile(file)) return;
+            }
+            setSelectedFiles(prev => [...prev, ...newFiles]);
+            setError(null);
         }
     };
 
@@ -131,7 +192,16 @@ const SubmitAssignment: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit}>
-                    <div className="upload-area" style={{ marginBottom: '1rem', padding: '1.5rem', textAlign: 'center', border: '2px dashed #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#f9fafb' }}>
+                    <div
+                        className={`upload-area ${isDragging ? 'dragging' : ''}`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        style={{
+                            border: isDragging ? '2px dashed #2563eb' : '2px dashed #e5e7eb',
+                            backgroundColor: isDragging ? '#eff6ff' : '#f9fafb'
+                        }}
+                    >
                         <input
                             key={fileInputKey}
                             type="file"
@@ -141,9 +211,15 @@ const SubmitAssignment: React.FC = () => {
                             onChange={handleFileChange}
                             style={{ display: 'none' }}
                             disabled={isSubmitting}
+                            accept={assignment?.language === 'python' ? '.py' : assignment?.language === 'javascript' ? '.js' : assignment?.language === 'java' ? '.java' : undefined}
                         />
-                        <label htmlFor="file-upload" style={{ cursor: 'pointer', display: 'block', width: '100%' }}>
-                            <span style={{ color: '#4f46e5', fontWeight: 500 }}>Click to select files</span>
+                        <label htmlFor="file-upload" className="file-input-label cursor-pointer block h-full" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '150px' }}>
+                            <div style={{ textAlign: 'center', color: '#6b7280' }}>
+                                <p style={{ margin: 0, fontWeight: 500, color: '#374151' }}>Click to upload or drag and drop</p>
+                                <p style={{ fontSize: '0.875rem', margin: '4px 0 0 0' }}>
+                                    {assignment?.language ? `${assignment.language} source file required` : 'Any file'}
+                                </p>
+                            </div>
                         </label>
                     </div>
 

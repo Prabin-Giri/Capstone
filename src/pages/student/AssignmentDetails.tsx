@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases } from '../../lib/api';
-import { Code, Download, Eye } from 'lucide-react';
-import type { Assignment, Submission, TestCase } from '../../lib/api';
+import { getAssignment, getSubmissions, getTestCases, runTests, getFileUrl } from '../../lib/api';
+import { Code, Download, Eye, Play, CheckCircle, XCircle, Zap, Clock, PenTool } from 'lucide-react';
+import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
 
 import { getUser } from '../../lib/auth';
@@ -16,6 +16,8 @@ const AssignmentDetails: React.FC = () => {
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [testCases, setTestCases] = useState<TestCase[]>([]);
+    const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+    const [isRunningTests, setIsRunningTests] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -81,6 +83,28 @@ const AssignmentDetails: React.FC = () => {
         displayStatus = 'late';
     }
 
+    const handleRunTests = async () => {
+        if (!submission || !assignment) return;
+
+        setIsRunningTests(true);
+        setTestResults(null);
+        try {
+            // 1. Fetch file content
+            const fileUrl = getFileUrl(submission.file_path);
+            const res = await fetch(fileUrl);
+            const code = await res.text();
+
+            // 2. Run tests
+            const { results } = await runTests(assignment.id, code, assignment.language || 'python');
+            setTestResults(results);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to run tests. Please try again.');
+        } finally {
+            setIsRunningTests(false);
+        }
+    };
+
     return (
         <div className="assignment-details">
             <div className="details-header">
@@ -145,6 +169,155 @@ const AssignmentDetails: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Test Runner Section */}
+            <div className="section">
+                <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 className="section-title" style={{ marginBottom: 0 }}>
+                        <Play size={20} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+                        Test Runner
+                    </h2>
+                    <button
+                        className="btn btn-outline"
+                        onClick={handleRunTests}
+                        disabled={!submission || isRunningTests}
+                        title={!submission ? "Submit an assignment first to run tests" : "Run tests on latest submission"}
+                    >
+                        {isRunningTests ? 'Running...' : 'Run Tests on Latest Submission'}
+                    </button>
+                </div>
+
+                {!submission && (
+                    <p className="text-gray-500 mt-2">Submit your code to enable the test runner.</p>
+                )}
+
+                {testResults && (
+                    <div className="test-results-container mt-4">
+                        {/* Full Grading Report Card - MOCKED SCORES as requested */}
+                        <div className="grading-report">
+                            <div className="report-header">
+                                <div>
+                                    <div className="total-score-label">Total Score</div>
+                                    <div className="total-score-value">
+                                        88
+                                        <span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>/100</span>
+                                    </div>
+                                </div>
+                                <div className="score-progress-container">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>
+                                        <span>Progress</span>
+                                        <span>88%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                            style={{ width: '88%' }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="criteria-list">
+                                {/* Correctness - Mocked to 35/40 (87.5%) */}
+                                <div className="criteria-item">
+                                    <div className="criteria-icon" style={{ background: '#dcfce7', color: '#166534' }}>
+                                        <CheckCircle size={20} />
+                                    </div>
+                                    <div className="criteria-content">
+                                        <div className="criteria-title">Correctness</div>
+                                        <div className="criteria-desc">
+                                            Passed public tests with minor edge case warnings.
+                                        </div>
+                                    </div>
+                                    <div className="criteria-score">
+                                        35
+                                        <span>/40</span>
+                                    </div>
+                                </div>
+
+                                {/* Edge Cases - Mocked to 18/20 (90%) */}
+                                <div className="criteria-item">
+                                    <div className="criteria-icon" style={{ background: '#fef9c3', color: '#854d0e' }}>
+                                        <Zap size={20} />
+                                    </div>
+                                    <div className="criteria-content">
+                                        <div className="criteria-title">Edge Cases</div>
+                                        <div className="criteria-desc">
+                                            Robust handling of null inputs and boundary values.
+                                        </div>
+                                    </div>
+                                    <div className="criteria-score">
+                                        18
+                                        <span>/20</span>
+                                    </div>
+                                </div>
+
+                                {/* Complexity - Mocked to 17/20 (85%) */}
+                                <div className="criteria-item">
+                                    <div className="criteria-icon" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+                                        <Clock size={20} />
+                                    </div>
+                                    <div className="criteria-content">
+                                        <div className="criteria-title">Time Complexity</div>
+                                        <div className="criteria-desc">O(log n) algorithm implementation detected (within limits).</div>
+                                    </div>
+                                    <div className="criteria-score">
+                                        17
+                                        <span>/20</span>
+                                    </div>
+                                </div>
+
+                                {/* Style - Mocked to 18/20 (90%) */}
+                                <div className="criteria-item">
+                                    <div className="criteria-icon" style={{ background: '#f3e8ff', color: '#7e22ce' }}>
+                                        <PenTool size={20} />
+                                    </div>
+                                    <div className="criteria-content">
+                                        <div className="criteria-title">Code Style</div>
+                                        <div className="criteria-desc">Clean, readable code. Good variable naming conventions.</div>
+                                    </div>
+                                    <div className="criteria-score">
+                                        18
+                                        <span>/20</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 className="text-lg font-semibold mb-3">Detailed Results</h3>
+                        <div className="test-results-grid" style={{ display: 'grid', gap: '1rem' }}>
+                            {testResults.map((result, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`p-4 rounded-lg border ${result.passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            {result.passed ? <CheckCircle className="text-green-600" size={20} /> : <XCircle className="text-red-600" size={20} />}
+                                            <span className="font-medium">Test Case {idx + 1}</span>
+                                        </div>
+                                        {result.is_public === 0 && <span className="text-xs bg-gray-200 px-2 py-1 rounded">Hidden</span>}
+                                    </div>
+
+                                    {result.is_public === 1 && (
+                                        <div className="text-sm mt-2">
+                                            {!result.passed && (
+                                                <>
+                                                    <div className="mb-1"><span className="font-semibold">Expected:</span> <code className="bg-white px-1 rounded border">{result.expected}</code></div>
+                                                    <div className="mb-1"><span className="font-semibold">Actual:</span> <code className="bg-white px-1 rounded border">{result.actual}</code></div>
+                                                </>
+                                            )}
+                                            {result.error && (
+                                                <div className="text-red-600 mt-1"><span className="font-semibold">Error:</span> {result.error}</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {assignment.starter_code_path && (
                 <div className="section">
