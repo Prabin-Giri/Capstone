@@ -51,6 +51,28 @@ router.get('/:id/assignments', (req, res, next) => {
     }
 });
 
+// GET /api/courses/:id/documents - Get course documents
+router.get('/:id/documents', (req, res, next) => {
+    try {
+        const db = getDb();
+        const stmt = db.prepare('SELECT syllabus_path, schedule_path FROM courses WHERE id = ?');
+        stmt.bind([req.params.id]);
+
+        let result = null;
+        if (stmt.step()) {
+            result = stmt.getAsObject();
+        }
+        stmt.free();
+
+        if (!result) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        res.json(result);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // POST /api/courses - Create a new course
 router.post('/', (req, res, next) => {
     try {
@@ -118,33 +140,113 @@ router.patch('/:id', (req, res, next) => {
     }
 });
 
+// GET /api/courses/:id/grades - Get course grades as JSON (for Gradebook UI)
+router.get('/:id/grades', (req, res, next) => {
+    try {
+        const db = getDb();
+        const courseId = req.params.id;
+
+        // Helper for prepared statements
+        const fetchAll = (sql, params) => {
+            const stmt = db.prepare(sql);
+            stmt.bind(params);
+            const rows = [];
+            while (stmt.step()) {
+                rows.push(stmt.getAsObject());
+            }
+            stmt.free();
+            return rows;
+        };
+
+        const fetchOne = (sql, params) => {
+            const rows = fetchAll(sql, params);
+            return rows.length > 0 ? rows[0] : null;
+        };
+
+        // 1. Get course info
+        const course = fetchOne('SELECT * FROM courses WHERE id = ?', [courseId]);
+        if (!course) return res.status(404).json({ error: 'Course not found' });
+
+        // 2. Get all assignments for this course
+        const assignments = fetchAll('SELECT id, title, points, due_date FROM assignments WHERE course_id = ? ORDER BY due_date', [courseId]);
+
+        // 3. Get all students 
+        const students = fetchAll("SELECT id, name, email FROM users WHERE role = 'student' ORDER BY name", []);
+
+        // 4. Get all submissions for these assignments
+        const submissions = fetchAll(`
+            SELECT s.student_id, s.assignment_id, s.grade 
+            FROM submissions s
+            JOIN assignments a ON s.assignment_id = a.id
+            WHERE a.course_id = ?
+        `, [courseId]);
+
+        // 5. Create a map for quick lookup
+        const gradeMap = {};
+        submissions.forEach(s => {
+            if (!gradeMap[s.student_id]) gradeMap[s.student_id] = {};
+            gradeMap[s.student_id][s.assignment_id] = s.grade;
+        });
+
+        // 6. Structure response
+        const studentGrades = students.map(student => {
+            const grades = {};
+            assignments.forEach(a => {
+                grades[a.id] = gradeMap[student.id]?.[a.id] ?? null;
+            });
+            return {
+                ...student,
+                grades
+            };
+        });
+
+        res.json({
+            course,
+            assignments,
+            students: studentGrades
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /api/courses/:id/grades/export - Export course grades as CSV
 router.get('/:id/grades/export', (req, res, next) => {
     try {
         const db = getDb();
         const courseId = req.params.id;
 
+        // Re-using helper logic (inline for isolation)
+        const fetchAll = (sql, params) => {
+            const stmt = db.prepare(sql);
+            stmt.bind(params);
+            const rows = [];
+            while (stmt.step()) {
+                rows.push(stmt.getAsObject());
+            }
+            stmt.free();
+            return rows;
+        };
+
         // 1. Get course info
-        const courseResult = db.exec('SELECT * FROM courses WHERE id = ?', [courseId]);
-        const course = queryOne(courseResult);
+        const courseRows = fetchAll('SELECT * FROM courses WHERE id = ?', [courseId]);
+        const course = courseRows.length > 0 ? courseRows[0] : null;
+
         if (!course) return res.status(404).json({ error: 'Course not found' });
 
         // 2. Get all assignments for this course
-        const assignmentsResult = db.exec('SELECT id, title FROM assignments WHERE course_id = ? ORDER BY due_date', [courseId]);
-        const assignments = queryToObjects(assignmentsResult);
+        const assignments = fetchAll('SELECT id, title FROM assignments WHERE course_id = ? ORDER BY due_date', [courseId]);
 
-        // 3. Get all students (for now we get all users with student role)
-        const studentsResult = db.exec("SELECT id, name FROM users WHERE role = 'student' ORDER BY name");
-        const students = queryToObjects(studentsResult);
+        // 3. Get all students
+        const students = fetchAll("SELECT id, name FROM users WHERE role = 'student' ORDER BY name", []);
 
         // 4. Get all submissions for these assignments
-        const submissionsResult = db.exec(`
+        const submissions = fetchAll(`
             SELECT s.student_id, s.assignment_id, s.grade 
             FROM submissions s
             JOIN assignments a ON s.assignment_id = a.id
             WHERE a.course_id = ?
         `, [courseId]);
-        const submissions = queryToObjects(submissionsResult);
 
         // 5. Create a map for quick lookup
         const gradeMap = {};

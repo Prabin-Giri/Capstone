@@ -37,7 +37,7 @@ router.get('/:id', (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path } = req.body;
+        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, type = 'individual' } = req.body;
 
         if (!course_id || !title || !due_date) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -47,15 +47,15 @@ router.post('/', (req, res, next) => {
         const id = req.body.id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
 
         const db = getDb();
-        const stmt = db.prepare('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        stmt.run([id, course_id, title, description, due_date, status, points, language, starter_code_path]);
+        const stmt = db.prepare('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        stmt.run([id, course_id, title, description, due_date, status, points, language, starter_code_path, type]);
         stmt.free();
 
         // Save DB to file
         const { saveDb } = require('../db');
         saveDb();
 
-        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path });
+        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, type });
     } catch (err) {
         next(err);
     }
@@ -79,6 +79,8 @@ router.put('/:id', (req, res, next) => {
         if (points !== undefined) { updates.push('points = ?'); values.push(points); }
         if (language !== undefined) { updates.push('language = ?'); values.push(language); }
         if (starter_code_path !== undefined) { updates.push('starter_code_path = ?'); values.push(starter_code_path); }
+        const { type } = req.body;
+        if (type !== undefined) { updates.push('type = ?'); values.push(type); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
@@ -168,6 +170,314 @@ router.get('/:id/grades/export', (req, res, next) => {
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(csvContent);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/test - Run tests for a specific assignment
+router.post('/:id/test', async (req, res, next) => {
+    try {
+        const { code, language } = req.body;
+        const assignmentId = req.params.id;
+
+        if (!code) {
+            return res.status(400).json({ error: 'Code is required' });
+        }
+
+        const db = getDb();
+
+        // Get test cases
+        const testCasesResult = db.exec('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+        const testCases = queryToObjects(testCasesResult);
+
+        if (testCases.length === 0) {
+            return res.json({ results: [], summary: 'No test cases defined.' });
+        }
+
+        // Run tests (mocking actual execution for now safely, or using a simple VM if needed, 
+        // but for this task we will implement a basic runner)
+        // Note: In a real environment, this should be sandboxed (Docker/child_process with limits)
+
+        const results = [];
+        const fs = require('fs');
+        const path = require('path');
+        const { exec } = require('child_process');
+        const os = require('os');
+
+        // Create temp directory for execution
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograder-'));
+        const fileName = language === 'python' ? 'main.py' : (language === 'javascript' ? 'main.js' : 'main.txt');
+        const filePath = path.join(tmpDir, fileName);
+
+        fs.writeFileSync(filePath, code);
+
+        const runTestCase = (testCase) => {
+            return new Promise((resolve) => {
+                let command = '';
+                if (language === 'python') {
+                    command = `python3 "${filePath}"`;
+                } else if (language === 'javascript') {
+                    command = `node "${filePath}"`;
+                } else {
+                    // Fallback or error
+                    return resolve({
+                        id: testCase.id,
+                        passed: false,
+                        output: 'Unsupported language for testing',
+                        expected: testCase.expected_output,
+                        is_public: testCase.is_public
+                    });
+                }
+
+                const child = exec(command, { timeout: 2000 }, (error, stdout, stderr) => {
+                    // Clean up output
+                    const output = stdout.trim();
+                    const expected = testCase.expected_output.trim();
+                    const passed = output === expected;
+
+                    resolve({
+                        id: testCase.id,
+                        input: testCase.input,
+                        expected: expected,
+                        actual: output,
+                        error: stderr ? stderr.trim() : error ? error.message : null,
+                        passed,
+                        is_public: testCase.is_public
+                    });
+                });
+
+                // Write input to stdin if needed
+                if (testCase.input) {
+                    child.stdin.write(testCase.input);
+                    child.stdin.end();
+                }
+            });
+        };
+
+        // Execute all test cases
+        for (const tc of testCases) {
+            const result = await runTestCase(tc);
+            results.push(result);
+        }
+
+        // Cleanup
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+
+        res.json({ results });
+
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/plagiarism-check - Run plagiarism detection
+router.post('/:id/plagiarism-check', (req, res, next) => {
+    try {
+        const { getDb, queryToObjects, queryOne } = require('../db');
+        const db = getDb();
+        const assignmentId = req.params.id;
+        const fs = require('fs');
+        const path = require('path');
+
+        const submissionsResult = db.exec(`SELECT * FROM submissions WHERE assignment_id = '${assignmentId}'`);
+        const submissions = queryToObjects(submissionsResult);
+        const submissionMap = new Map();
+
+        // Group by student, keep latest
+        submissions.forEach(sub => {
+            const existing = submissionMap.get(sub.student_id);
+            if (!existing || new Date(sub.submitted_at) > new Date(existing.submitted_at)) {
+                submissionMap.set(sub.student_id, sub);
+            }
+        });
+
+        // Simple tokenization
+        const tokenize = (code) => {
+            return code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '') // remove comments
+                .replace(/\s+/g, ' ') // collapse whitespace
+                .toLowerCase()
+                .split(' ')
+                .filter(t => t.length > 0);
+        };
+
+        const students = Array.from(submissionMap.values());
+        const flaggedPairs = [];
+        const threshold = 50; // Similarity threshold %
+
+        for (let i = 0; i < students.length; i++) {
+            for (let j = i + 1; j < students.length; j++) {
+                const sub1 = students[i];
+                const sub2 = students[j];
+
+                // Read files
+                const path1 = path.join(__dirname, '../../uploads', sub1.file_path);
+                const path2 = path.join(__dirname, '../../uploads', sub2.file_path);
+
+                if (fs.existsSync(path1) && fs.existsSync(path2)) {
+                    const code1 = fs.readFileSync(path1, 'utf8');
+                    const code2 = fs.readFileSync(path2, 'utf8');
+
+                    const tokens1 = new Set(tokenize(code1));
+                    const tokens2 = new Set(tokenize(code2));
+
+                    const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
+                    const union = new Set([...tokens1, ...tokens2]);
+
+                    const similarity = (intersection.size / union.size) * 100;
+
+                    if (similarity >= threshold) {
+                        // Get student names
+                        const s1Result = db.exec(`SELECT name FROM users WHERE id = '${sub1.student_id}'`);
+                        const s1 = queryOne(s1Result);
+                        const s2Result = db.exec(`SELECT name FROM users WHERE id = '${sub2.student_id}'`);
+                        const s2 = queryOne(s2Result);
+
+                        flaggedPairs.push({
+                            student1: { id: sub1.student_id, name: s1 ? s1.name : sub1.student_id },
+                            student2: { id: sub2.student_id, name: s2 ? s2.name : sub2.student_id },
+                            similarity: Math.round(similarity),
+                            matchedTokens: intersection.size,
+                            totalTokens: union.size
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sort by similarity desc
+        flaggedPairs.sort((a, b) => b.similarity - a.similarity);
+
+        res.json({
+            assignmentId: req.params.id,
+            totalSubmissions: students.length,
+            flaggedPairs
+        });
+
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/autograde - Batch auto-grade all submissions
+router.post('/:id/autograde', async (req, res, next) => {
+    try {
+        const { latePenalty, timeout = 2000 } = req.body;
+        const assignmentId = req.params.id;
+        const { getDb, queryToObjects, queryOne, saveDb } = require('../db');
+        const db = getDb();
+        const fs = require('fs');
+        const path = require('path');
+        const { exec } = require('child_process');
+        const os = require('os');
+
+        // 1. Get Assignment (for due date, language)
+        const assignmentResult = db.exec(`SELECT * FROM assignments WHERE id = '${assignmentId}'`);
+        const assignment = queryOne(assignmentResult);
+        if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+
+        // 2. Get Test Cases
+        const testCasesResult = db.exec(`SELECT * FROM test_cases WHERE assignment_id = '${assignmentId}'`);
+        const testCases = queryToObjects(testCasesResult);
+        if (testCases.length === 0) return res.json({ graded: 0, message: 'No test cases found' });
+
+        // 3. Get Latest Submissions
+        const submissionsResult = db.exec(`SELECT * FROM submissions WHERE assignment_id = '${assignmentId}'`);
+        const submissions = queryToObjects(submissionsResult);
+        const submissionMap = new Map();
+        submissions.forEach(sub => {
+            const existing = submissionMap.get(sub.student_id);
+            if (!existing || new Date(sub.submitted_at) > new Date(existing.submitted_at)) {
+                submissionMap.set(sub.student_id, sub);
+            }
+        });
+        const latestSubmissions = Array.from(submissionMap.values());
+
+        // 4. Helper: Run Tests for a single submission
+        const runTestsForSubmission = async (sub) => {
+            const filePath = path.join(__dirname, '../../uploads', sub.file_path);
+            if (!fs.existsSync(filePath)) return 0;
+
+            const code = fs.readFileSync(filePath, 'utf8');
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograder-batch-'));
+            const scriptName = assignment.language === 'python' ? 'main.py' : 'main.js';
+            const scriptPath = path.join(tmpDir, scriptName);
+
+            fs.writeFileSync(scriptPath, code);
+
+            let totalScore = 0;
+
+            for (const tc of testCases) {
+                await new Promise((resolve) => {
+                    let command = '';
+                    if (assignment.language === 'python') {
+                        command = `python3 "${scriptPath}"`;
+                    } else {
+                        command = `node "${scriptPath}"`;
+                    }
+
+                    const child = exec(command, { timeout: Number(timeout) }, (error, stdout, stderr) => {
+                        const output = stdout.trim();
+                        const expected = tc.expected_output.trim();
+                        if (output === expected) {
+                            totalScore += tc.points;
+                        }
+                        resolve();
+                    });
+
+                    if (tc.input) {
+                        child.stdin.write(tc.input);
+                        child.stdin.end();
+                    }
+                });
+            }
+
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+            return totalScore;
+        };
+
+        // 5. Process All
+        let gradedCount = 0;
+        let totalGrades = 0;
+
+        for (const sub of latestSubmissions) {
+            // Calculate raw score
+            let score = await runTestsForSubmission(sub);
+
+            // Apply Late Penalty
+            const dueDate = new Date(assignment.due_date);
+            const submittedAt = new Date(sub.submitted_at);
+
+            const dueDateTime = new Date(assignment.due_date);
+            dueDateTime.setHours(23, 59, 59, 999);
+
+            if (submittedAt > dueDateTime) {
+                if (latePenalty === 'zero') {
+                    score = 0;
+                } else if (latePenalty === 'daily_10') {
+                    const diffTime = Math.abs(submittedAt - dueDateTime);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    const penalty = score * (0.10 * diffDays);
+                    score = Math.max(0, score - penalty);
+                }
+            }
+
+            // Update Database
+            const updateSql = `UPDATE submissions SET grade = ${Math.round(score)}, status = 'graded' WHERE id = ${sub.id}`;
+            db.run(updateSql);
+
+            gradedCount++;
+            totalGrades += score;
+        }
+
+        // Save DB
+        saveDb();
+
+        res.json({
+            graded: gradedCount,
+            average: gradedCount > 0 ? Math.round(totalGrades / gradedCount) : 0
+        });
+
     } catch (err) {
         next(err);
     }

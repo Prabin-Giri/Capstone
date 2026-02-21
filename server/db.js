@@ -49,6 +49,7 @@ async function initDb() {
             points INTEGER DEFAULT 100,
             language TEXT,
             starter_code_path TEXT,
+            type TEXT DEFAULT 'individual' CHECK(type IN ('individual', 'group')),
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE

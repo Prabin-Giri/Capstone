@@ -38,8 +38,23 @@ export async function createCourse(course: Course): Promise<Course> {
     });
 }
 
-export function getCourseGradesExportUrl(id: string): string {
-    return `${API_BASE}/courses/${id}/grades/export`;
+export function getCourseGradesExportUrl(id: string, format: 'csv' | 'excel' = 'csv'): string {
+    return `${API_BASE}/courses/${id}/grades/export?format=${format}`;
+}
+
+export interface GradebookData {
+    course: Course;
+    assignments: Assignment[];
+    students: {
+        id: string;
+        name: string;
+        email: string;
+        grades: Record<string, number | null>;
+    }[];
+}
+
+export async function getCourseGrades(courseId: string): Promise<GradebookData> {
+    return apiFetch<GradebookData>(`/courses/${courseId}/grades`);
 }
 
 export function getAssignmentGradesExportUrl(id: string): string {
@@ -68,6 +83,7 @@ export interface Assignment {
     points?: number;
     language?: string;
     starter_code_path?: string;
+    type?: 'individual' | 'group';
     created_at?: string;
 }
 
@@ -373,6 +389,26 @@ export async function deleteTestCase(id: number): Promise<{ message: string }> {
     });
 }
 
+export interface TestResult {
+    id: number;
+    input: string;
+    expected: string;
+    actual: string;
+    error: string | null;
+    passed: boolean;
+    is_public: number;
+}
+
+export async function runTests(assignmentId: string, code: string, language: string): Promise<{ results: TestResult[] }> {
+    return apiFetch<{ results: TestResult[] }>(`/assignments/${assignmentId}/test`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, language }),
+    });
+}
+
 // ============ Admin / Database Explorer ============
 
 export interface DbColumn {
@@ -406,12 +442,53 @@ export interface User {
     role: 'student' | 'faculty' | 'admin';
 }
 
-export async function loginRequest(email: string): Promise<User> {
+export async function loginRequest(email: string, role: string): Promise<User> {
     return apiFetch<User>('/users/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, role }),
+    });
+}
+
+export interface PlagiarismResult {
+    student1: { name: string; id: string };
+    student2: { name: string; id: string };
+    similarity: number;
+    matchedTokens: number;
+    totalTokens: number;
+}
+
+export interface PlagiarismResponse {
+    assignmentId: string;
+    totalSubmissions: number;
+    flaggedPairs: PlagiarismResult[];
+    message?: string;
+}
+
+export async function runPlagiarismCheck(assignmentId: string): Promise<PlagiarismResponse> {
+    return apiFetch<PlagiarismResponse>(`/assignments/${assignmentId}/plagiarism-check`, {
+        method: 'POST',
+    });
+}
+
+export interface AutoGradeSummary {
+    graded: number;
+    failed: number;
+    average: number;
+}
+
+export async function autoGradeAssignment(
+    assignmentId: string,
+    latePenalty: string,
+    timeout: number
+): Promise<AutoGradeSummary> {
+    return apiFetch<AutoGradeSummary>(`/assignments/${assignmentId}/autograde`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ latePenalty, timeout }),
     });
 }

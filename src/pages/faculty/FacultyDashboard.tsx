@@ -3,12 +3,21 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, updateCourse, type Course } from '../../lib/api';
-import { Archive, RotateCcw } from 'lucide-react';
+import { Archive, RotateCcw, AlertTriangle } from 'lucide-react';
+
+interface ArchiveModalState {
+    id: string;
+    name: string;
+    currentlyArchived: boolean;
+}
 
 const FacultyDashboard: React.FC = () => {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [showArchived, setShowArchived] = useState(false);
+    const [archiveModal, setArchiveModal] = useState<ArchiveModalState | null>(null);
+    const [archiveInput, setArchiveInput] = useState('');
+    const [actionError, setActionError] = useState<string | null>(null);
     const navigate = useNavigate();
 
     const loadCourses = async () => {
@@ -27,17 +36,32 @@ const FacultyDashboard: React.FC = () => {
         loadCourses();
     }, []);
 
-    const handleArchive = async (e: React.MouseEvent, id: string, currentlyArchived: boolean) => {
+    const openArchiveModal = (e: React.MouseEvent, course: Course) => {
         e.stopPropagation();
-        const action = currentlyArchived ? 'unarchive' : 'archive';
-        if (!confirm(`Are you sure you want to ${action} this course ? `)) return;
+        setArchiveModal({
+            id: course.id,
+            name: course.name,
+            currentlyArchived: !!course.is_archived
+        });
+        setArchiveInput('');
+        setActionError(null);
+    };
+
+    const confirmArchive = async () => {
+        if (!archiveModal) return;
+
+        if (archiveInput !== archiveModal.name) {
+            setActionError('Course name does not match');
+            return;
+        }
 
         try {
-            await updateCourse(id, { is_archived: !currentlyArchived });
+            await updateCourse(archiveModal.id, { is_archived: !archiveModal.currentlyArchived });
             await loadCourses();
+            setArchiveModal(null);
         } catch (err) {
-            console.error(`Failed to ${action} course`, err);
-            alert(`Failed to ${action} course`);
+            console.error('Failed to update course', err);
+            setActionError('Failed to update course status');
         }
     };
 
@@ -93,7 +117,7 @@ const FacultyDashboard: React.FC = () => {
                                     </span>
                                     <button
                                         className="archive-btn-mini"
-                                        onClick={(e) => handleArchive(e, course.id, !!course.is_archived)}
+                                        onClick={(e) => openArchiveModal(e, course)}
                                         title={course.is_archived ? 'Unarchive Course' : 'Archive Course'}
                                         style={{
                                             background: 'none',
@@ -132,6 +156,70 @@ const FacultyDashboard: React.FC = () => {
                     ))
                 )}
             </div>
+
+            {/* Archive/Unarchive Confirmation Modal */}
+            {archiveModal && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                {archiveModal.currentlyArchived ? 'Unarchive Course?' : 'Archive Course?'}
+                            </h3>
+                            <p className="text-gray-500 mb-6 font-medium">
+                                To confirm, type <span className="font-mono bg-gray-100 px-1 rounded select-all">{archiveModal.name}</span> below.
+                            </p>
+
+                            <input
+                                type="text"
+                                value={archiveInput}
+                                onChange={(e) => {
+                                    setArchiveInput(e.target.value);
+                                    setActionError(null);
+                                }}
+                                placeholder="Type course name"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+
+                            {actionError && (
+                                <p className="text-red-600 text-sm mb-4">{actionError}</p>
+                            )}
+
+                            {!archiveModal.currentlyArchived && (
+                                <p className="text-xs text-gray-400 mb-6">
+                                    Archiving will make this course read-only for all students.
+                                </p>
+                            )}
+
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setArchiveModal(null);
+                                    }}
+                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        confirmArchive();
+                                    }}
+                                    disabled={archiveInput !== archiveModal.name}
+                                    className={`flex-1 px-5 py-2.5 rounded-lg font-medium text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${archiveModal.currentlyArchived ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
+                                        }`}
+                                >
+                                    {archiveModal.currentlyArchived ? 'Unarchive' : 'Archive'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
