@@ -14,6 +14,7 @@ const AssignmentDetails: React.FC = () => {
     const { assignmentId } = useParams();
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [submission, setSubmission] = useState<Submission | null>(null);
+    const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [testCases, setTestCases] = useState<TestCase[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -29,6 +30,7 @@ const AssignmentDetails: React.FC = () => {
                 ]);
                 setAssignment(assignmentData);
                 setSubmission(submissionsData.length > 0 ? submissionsData[0] : null);
+                setAllSubmissions(submissionsData);
                 setTestCases(testCaseData.filter(tc => tc.is_public));
             } catch (err) {
                 console.error(err);
@@ -73,6 +75,12 @@ const AssignmentDetails: React.FC = () => {
         minute: 'numeric',
     });
 
+    const isPastDue = new Date() > new Date(assignment.due_date);
+    let displayStatus = assignment.status;
+    if (assignment.status === 'active' && isPastDue) {
+        displayStatus = 'late';
+    }
+
     return (
         <div className="assignment-details">
             <div className="details-header">
@@ -93,14 +101,14 @@ const AssignmentDetails: React.FC = () => {
                                 <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{assignment.language}</span>
                             </div>
                         )}
-                        <StatusBadge status={assignment.status} />
+                        <StatusBadge status={displayStatus as any} />
                     </div>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Current Grade</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>
-                        {submission && submission.grade !== undefined && submission.grade !== null
+                        {submission && submission.grade !== undefined && submission.grade !== null && (submission.status === 'graded' || submission.status === 'returned')
                             ? `${submission.grade}/${points}`
                             : `-/${points}`}
                     </div>
@@ -183,10 +191,72 @@ const AssignmentDetails: React.FC = () => {
                 </table>
             </div>
 
+            {allSubmissions.length > 0 && (
+                <div className="section">
+                    <h2 className="section-title">Submission History</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {allSubmissions.map((sub, index) => {
+                            const isSubGraded = sub.status === 'graded' || sub.status === 'returned';
+                            const attemptLabel = `Attempt ${allSubmissions.length - index}`;
+
+                            return (
+                                <div key={sub.id} style={{
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    padding: '16px',
+                                    background: '#f9fafb',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>{attemptLabel}</div>
+                                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                            Submitted: {new Date(sub.submitted_at).toLocaleString()}
+                                        </div>
+                                        <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>
+                                            <span style={{ fontWeight: 500 }}>Status:</span>{' '}
+                                            <span style={{
+                                                color: isSubGraded ? '#16a34a' : '#d97706',
+                                                textTransform: 'capitalize'
+                                            }}>
+                                                {sub.status}
+                                            </span>
+                                            {' • '}
+                                            <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
+                                            {isSubGraded && sub.grade !== null && sub.grade !== undefined
+                                                ? `${sub.grade}/${points}`
+                                                : '-'}
+                                        </div>
+                                    </div>
+                                    <Link
+                                        to={`/student/courses/${assignment.course_id}/assignments/${assignment.id}/submissions/${sub.id}`}
+                                        className="btn btn-outline"
+                                        style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)' }}
+                                    >
+                                        View Details
+                                    </Link>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div className="action-bar">
-                <Link to={`/student/courses/${assignment.course_id}/assignments/${assignment.id}/submit`} className="btn btn-primary">
-                    {submission ? 'Resubmit Assignment' : 'Submit Assignment'}
-                </Link>
+                {displayStatus === 'closed' ? (
+                    <button className="btn btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        Assignment is Closed
+                    </button>
+                ) : displayStatus === 'late' && submission ? (
+                    <button className="btn" disabled style={{ backgroundColor: '#eadddf', color: '#988385', border: '1px solid #d7c5c7', cursor: 'not-allowed' }}>
+                        Resubmit Assignment
+                    </button>
+                ) : (
+                    <Link to={`/student/courses/${assignment.course_id}/assignments/${assignment.id}/submit`} className="btn btn-primary">
+                        {submission ? 'Resubmit Assignment' : 'Submit Assignment'}
+                    </Link>
+                )}
             </div>
         </div>
     );

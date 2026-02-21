@@ -91,10 +91,10 @@ const StudentDashboard: React.FC = () => {
                     <span className="analytics-label">Next Deadline</span>
                     <span className="analytics-value" style={{ color: 'var(--primary-color)' }}>
                         {assignments
-                            .filter(a => a.status === 'active')
+                            .filter(a => a.status === 'active' && new Date(a.due_date) >= new Date())
                             .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0]?.due_date
-                            ? new Date(assignments.filter(a => a.status === 'active').sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                            : 'N/A'
+                            ? new Date(assignments.filter(a => a.status === 'active' && new Date(a.due_date) >= new Date()).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                            : 'None'
                         }
                     </span>
                     <span className="analytics-desc">Time to focus!</span>
@@ -110,8 +110,10 @@ const StudentDashboard: React.FC = () => {
                         .filter((assignment) => assignment.status === 'active')
                         .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
-                    const nextDue = activeAssignments[0]?.due_date
-                        ? new Date(activeAssignments[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    const openAssignments = activeAssignments.filter(a => new Date(a.due_date) >= new Date());
+
+                    const nextDue = openAssignments[0]?.due_date
+                        ? new Date(openAssignments[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                         : 'None';
 
                     return (
@@ -133,7 +135,7 @@ const StudentDashboard: React.FC = () => {
                                 </div>
                                 <div className="stat-item">
                                     <span className="stat-label">Next Due</span>
-                                    <span className="stat-v" style={{ color: activeAssignments.length > 0 ? 'var(--primary-color)' : 'inherit' }}>
+                                    <span className="stat-v" style={{ color: openAssignments.length > 0 ? 'var(--primary-color)' : 'inherit' }}>
                                         {nextDue}
                                     </span>
                                 </div>

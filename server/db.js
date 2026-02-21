@@ -116,23 +116,23 @@ async function initDb() {
 
     if (count === 0) {
         // Users
-        db.run("INSERT INTO users (id, name, email, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'student')");
-        db.run("INSERT INTO users (id, name, email, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'faculty')");
+        db.run("INSERT OR IGNORE INTO users (id, name, email, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'student')");
+        db.run("INSERT OR IGNORE INTO users (id, name, email, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'faculty')");
 
         // Courses
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026')");
+        db.run("INSERT OR IGNORE INTO courses (id, name, term) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026')");
+        db.run("INSERT OR IGNORE INTO courses (id, name, term) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026')");
+        db.run("INSERT OR IGNORE INTO courses (id, name, term) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026')");
 
         // Assignments
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
+        db.run("INSERT OR IGNORE INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
+        db.run("INSERT OR IGNORE INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
+        db.run("INSERT OR IGNORE INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
+        db.run("INSERT OR IGNORE INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active')");
+        db.run("INSERT OR IGNORE INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
 
         // Todos
-        db.run("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
+        db.run("INSERT OR IGNORE INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
 
         console.log('Database initialized with sample data');
         saveDb();

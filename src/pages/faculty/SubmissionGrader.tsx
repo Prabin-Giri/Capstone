@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getSubmission, updateSubmission, getFileUrl, getAssignment } from '../../lib/api';
+import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment } from '../../lib/api';
 import type { Submission, Assignment } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 
@@ -10,9 +10,10 @@ const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
     const navigate = useNavigate();
     const [submission, setSubmission] = useState<Submission | null>(null);
+    const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [loading, setLoading] = useState(true);
-    const [showPreview, setShowPreview] = useState(false);
+    const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
     // Form State
     const [grade, setGrade] = useState('');
@@ -25,12 +26,14 @@ const SubmissionGrader: React.FC = () => {
     async function loadData() {
         if (!submissionId || !assignmentId) return;
         try {
-            const [subData, assignData] = await Promise.all([
-                getSubmission(parseInt(submissionId)),
-                getAssignment(assignmentId)
+            const subData = await getSubmission(parseInt(submissionId));
+            const [assignData, historyData] = await Promise.all([
+                getAssignment(assignmentId),
+                getSubmissions({ assignment_id: assignmentId, student_id: subData.student_id })
             ]);
             setSubmission(subData);
             setAssignment(assignData);
+            setAllSubmissions(historyData);
 
             setGrade(subData.grade?.toString() || '');
             setFeedback(subData.feedback || '');
@@ -72,36 +75,53 @@ const SubmissionGrader: React.FC = () => {
                 </div>
 
                 <div className="info-card">
-                    <h3 className="section-title">Submission Artifact</h3>
-                    <div className="file-box">
-                        <span className="file-name">{submission.file_name}</span>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowPreview(!showPreview)}
-                            >
-                                {showPreview ? 'Hide Artifact' : 'Preview Artifact'}
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => window.open(getFileUrl(submission.file_path), '_blank')}
-                            >
-                                Download
-                            </Button>
-                        </div>
+                    <h3 className="section-title">Submission Artifacts</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '16px' }}>
+                        {allSubmissions.map((sub, idx) => (
+                            <div key={sub.id} className="submission-attempt-group">
+                                <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#4b5563', borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                                    Attempt {allSubmissions.length - idx} &bull; <span style={{ fontWeight: 'normal' }}>{new Date(sub.submitted_at).toLocaleString()}</span>
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => {
+                                        const url = getFileUrl(f.path);
+                                        const isPreviewing = previewFileUrl === url;
+                                        return (
+                                            <div key={i} className="file-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span className="file-name">{f.name}</span>
+                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                    <Button
+                                                        variant={isPreviewing ? 'primary' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => setPreviewFileUrl(isPreviewing ? null : url)}
+                                                    >
+                                                        {isPreviewing ? 'Hide Preview' : 'Preview'}
+                                                    </Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={() => window.open(url, '_blank')}
+                                                    >
+                                                        Download
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
-                    {showPreview ? (
+                    {previewFileUrl ? (
                         <iframe
-                            src={getFileUrl(submission.file_path)}
+                            src={previewFileUrl}
                             className="preview-frame"
                             title="File Preview"
                         />
                     ) : (
                         <div className="preview-placeholder">
-                            Click user file to view preview.
+                            Select a file to preview.
                         </div>
                     )}
                 </div>

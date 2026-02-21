@@ -30,7 +30,9 @@ const ClassAssignments: React.FC = () => {
                 // Map submissions by assignment_id for quick lookup
                 const submissionMap = new Map<string, Submission>();
                 submissionsData.forEach(sub => {
-                    submissionMap.set(sub.assignment_id, sub);
+                    if (!submissionMap.has(sub.assignment_id)) {
+                        submissionMap.set(sub.assignment_id, sub);
+                    }
                 });
                 setSubmissions(submissionMap);
             } catch (err) {
@@ -130,14 +132,24 @@ const ClassAssignments: React.FC = () => {
                     <tbody>
                         {assignments.map((assignment) => {
                             const submission = submissions.get(assignment.id);
-                            const dueDate = new Date(assignment.due_date).toLocaleDateString('en-US', {
+                            const dueDateObj = new Date(assignment.due_date);
+                            const isPastDue = new Date() > dueDateObj;
+
+                            // Dynamic status calculation
+                            let displayStatus = assignment.status;
+                            if (assignment.status === 'active' && isPastDue) {
+                                displayStatus = 'late';
+                            }
+
+                            const dueDate = dueDateObj.toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric'
                             });
 
+                            const isGraded = submission && (submission.status === 'graded' || submission.status === 'returned');
                             const gradeDisplay =
-                                submission &&
+                                isGraded &&
                                     submission.grade !== undefined &&
                                     submission.grade !== null
                                     ? `${submission.grade}/${assignment.points || 100}`
@@ -158,14 +170,14 @@ const ClassAssignments: React.FC = () => {
                                     </td>
                                     <td className="col-due-date">{dueDate}</td>
                                     <td className="col-status">
-                                        <span className={`status-pill status-${assignment.status}`}>
-                                            {assignment.status}
+                                        <span className={`status-pill status-${displayStatus}`}>
+                                            {displayStatus}
                                         </span>
                                     </td>
                                     <td className="col-submitted">
                                         {submission ? (
                                             <span style={{ color: '#16a34a', fontWeight: 500 }}>
-                                                ✓ {submission.file_name}
+                                                ✓ {submission.files && submission.files.length > 1 ? `${submission.files.length} files` : submission.file_name}
                                             </span>
                                         ) : (
                                             <span style={{ color: '#9ca3af' }}>Not submitted</span>
