@@ -1,7 +1,0 @@
-Submission A,Submission B,Jaccard,Containment,Shared Fingerprints,Fingerprints A,Fingerprints B,Matched Regions
-s001,s002,1.0000,1.0000,61,61,61,1
-s001,s004,0.2772,0.4590,28,61,68,1
-s002,s004,0.2772,0.4590,28,61,68,1
-s001,s005,0.1985,0.4262,26,61,96,1
-s002,s005,0.1985,0.4262,26,61,96,1
-s004,s005,0.1884,0.3824,26,68,96,1

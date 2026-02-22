@@ -237,3 +237,191 @@ def normalize_submission(submission: Submission) -> TokenizedSubmission:
         tokens=all_tokens,
         token_locations=all_locations,
     )
+
+
+# ── Function-level splitting ────────────────────────────────────────
+
+# Patterns that indicate the start of a function/method definition
+_FUNC_PATTERNS = {
+    'python': re.compile(
+        r'^(\s*)(def|class)\s+\w+', re.MULTILINE
+    ),
+    'javascript': re.compile(
+        r'(?:^|\s)(?:(?:async\s+)?function\s+\w+|(?:const|let|var)\s+\w+\s*=\s*(?:async\s+)?\(|class\s+\w+)',
+        re.MULTILINE
+    ),
+    'java': re.compile(
+        r'(?:public|private|protected|static|\s)+\s+\w+\s+\w+\s*\(|class\s+\w+',
+        re.MULTILINE
+    ),
+    'cpp': re.compile(
+        r'(?:\w+\s+)+\w+\s*\([^)]*\)\s*\{|class\s+\w+',
+        re.MULTILINE
+    ),
+}
+
+
+def _split_text_into_functions(text: str, lang: str) -> List[Tuple[str, int, int]]:
+    """
+    Split source text into function/class blocks.
+
+    Returns:
+        List of (function_text, start_line, end_line) tuples.
+        If no functions detected, returns the entire text as one block.
+    """
+    lines = text.splitlines(True)  # keep line endings
+    if not lines:
+        return [(text, 1, 1)]
+
+    # For Python, use indentation-based splitting
+    if lang == 'python':
+        return _split_python_functions(lines)
+
+    # For brace-based languages, use brace counting
+    if lang in ('javascript', 'java', 'cpp'):
+        return _split_brace_functions(lines, lang)
+
+    # Fallback: return entire text as one block
+    return [(text, 1, len(lines))]
+
+
+def _split_python_functions(lines: List[str]) -> List[Tuple[str, int, int]]:
+    """
+    Split Python code into functions/classes using indentation.
+    """
+    func_pattern = re.compile(r'^(def|class)\s+\w+')
+    functions: List[Tuple[str, int, int]] = []
+
+    func_start = None
+    func_lines: List[str] = []
+
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+
+        # Check if this line starts a new top-level function/class
+        if func_pattern.match(stripped) and (len(line) - len(stripped) == 0 or
+                                              (len(line) - len(stripped) <= 4)):
+            # Save previous function if exists
+            if func_start is not None and func_lines:
+                functions.append((
+                    ''.join(func_lines),
+                    func_start + 1,  # 1-indexed
+                    func_start + len(func_lines),
+                ))
+
+            func_start = i
+            func_lines = [line]
+        elif func_start is not None:
+            func_lines.append(line)
+
+    # Save last function
+    if func_start is not None and func_lines:
+        functions.append((
+            ''.join(func_lines),
+            func_start + 1,
+            func_start + len(func_lines),
+        ))
+
+    if not functions:
+        return [(''.join(lines), 1, len(lines))]
+
+    return functions
+
+
+def _split_brace_functions(
+    lines: List[str], lang: str,
+) -> List[Tuple[str, int, int]]:
+    """
+    Split brace-based languages into functions by tracking { } nesting.
+    """
+    pattern = _FUNC_PATTERNS.get(lang)
+    if not pattern:
+        return [(''.join(lines), 1, len(lines))]
+
+    full_text = ''.join(lines)
+    functions: List[Tuple[str, int, int]] = []
+
+    # Find function starts
+    for match in pattern.finditer(full_text):
+        start_pos = match.start()
+
+        # Find the opening brace
+        brace_pos = full_text.find('{', match.end())
+        if brace_pos == -1:
+            continue
+
+        # Count braces to find the end
+        depth = 1
+        pos = brace_pos + 1
+        while pos < len(full_text) and depth > 0:
+            if full_text[pos] == '{':
+                depth += 1
+            elif full_text[pos] == '}':
+                depth -= 1
+            pos += 1
+
+        func_text = full_text[start_pos:pos]
+        start_line = full_text[:start_pos].count('\n') + 1
+        end_line = full_text[:pos].count('\n') + 1
+
+        functions.append((func_text, start_line, end_line))
+
+    if not functions:
+        return [(''.join(lines), 1, len(lines))]
+
+    return functions
+
+
+def split_submission_into_functions(
+    submission: Submission,
+) -> List[TokenizedSubmission]:
+    """
+    Split a submission into individual function-level token streams.
+
+    Each function in each file becomes its own TokenizedSubmission.
+    The submission_id is formatted as "original_id::filename::func_N".
+
+    Returns:
+        List of TokenizedSubmission, one per function found.
+        Returns at least one (the whole file) if no functions detected.
+    """
+    function_submissions: List[TokenizedSubmission] = []
+
+    sorted_files = sorted(submission.files, key=lambda f: f.relative_path)
+
+    for source_file in sorted_files:
+        lang = _detect_language(source_file.relative_path)
+        cleaned = _remove_comments(source_file.text, lang)
+
+        func_blocks = _split_text_into_functions(cleaned, lang)
+
+        for idx, (func_text, start_line, end_line) in enumerate(func_blocks):
+            raw_tokens, locations = _tokenize_and_locate(
+                func_text, source_file.relative_path
+            )
+
+            # Adjust line numbers to be relative to the original file
+            adjusted_locations = []
+            for loc in locations:
+                adjusted_locations.append(TokenLocation(
+                    file_path=loc.file_path,
+                    start_line=loc.start_line + start_line - 1,
+                    end_line=loc.end_line + start_line - 1,
+                ))
+
+            # Normalize tokens
+            normalized = [
+                _normalize_token(tok, ALL_KEYWORDS)
+                for tok in raw_tokens
+            ]
+
+            if normalized:  # Only add non-empty functions
+                func_id = f"{submission.id}::{source_file.relative_path}::func_{idx}"
+                function_submissions.append(TokenizedSubmission(
+                    submission_id=func_id,
+                    tokens=normalized,
+                    token_locations=adjusted_locations,
+                ))
+
+    return function_submissions
+

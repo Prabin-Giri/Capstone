@@ -22,9 +22,12 @@ from .models import (
     Submission,
     TokenizedSubmission,
 )
-from .normalizer import normalize_submission
+from .normalizer import normalize_submission, split_submission_into_functions
 from .fingerprint import fingerprint_submission, DEFAULT_K, DEFAULT_W
-from .compare import compare_all, DEFAULT_JACCARD_THRESHOLD, DEFAULT_CONTAINMENT_THRESHOLD
+from .compare import (
+    compare_all, compute_idf_weights,
+    DEFAULT_JACCARD_THRESHOLD, DEFAULT_CONTAINMENT_THRESHOLD,
+)
 from .evidence import generate_evidence
 from .report import build_report
 
@@ -106,16 +109,48 @@ def run_detector(
                 removed = original_count - len(fp.fingerprints)
                 print(f"     {sub_id}: {removed} starter fingerprints removed, {len(fp.fingerprints)} remaining")
 
+    # ── Step 3.6: Function-level fingerprinting ─────────────────────
+    if verbose:
+        print("  🔧 Splitting into functions...")
+
+    func_fp_map: Dict[str, List[FingerprintResult]] = {}
+    for sub in submissions:
+        func_tokenized_list = split_submission_into_functions(sub)
+        func_fps = []
+        for func_ts in func_tokenized_list:
+            func_fp = fingerprint_submission(func_ts, k=k, w=w)
+            # Suppress starter hashes from function fingerprints too
+            if starter_code and starter_code.files:
+                func_fp.fingerprints -= starter_hashes
+            if func_fp.fingerprints:  # Only keep non-empty
+                func_fps.append(func_fp)
+        func_fp_map[sub.id] = func_fps
+        if verbose:
+            print(f"     {sub.id}: {len(func_fps)} functions detected")
+
+    # ── Step 3.7: Compute IDF weights ───────────────────────────────
+    if verbose:
+        print("  📊 Computing IDF weights...")
+
+    fp_list = list(fp_map.values())
+    idf_weights = compute_idf_weights(fp_list)
+
+    if verbose:
+        # Show how many fingerprints are common (low IDF)
+        common_count = sum(1 for w in idf_weights.values() if w < 0.5)
+        print(f"     {len(idf_weights)} unique fingerprints, {common_count} are common (low weight)")
+
     # ── Steps 4-5: Compare & score ──────────────────────────────────
     if verbose:
         total_pairs = len(submissions) * (len(submissions) - 1) // 2
-        print(f"  ⚖️  Comparing {total_pairs} pairs...")
+        print(f"  ⚖️  Comparing {total_pairs} pairs (with IDF + function-level)...")
 
-    fp_list = list(fp_map.values())
     flagged_scores = compare_all(
         fp_list,
         jaccard_threshold=jaccard_threshold,
         containment_threshold=containment_threshold,
+        idf_weights=idf_weights,
+        func_fingerprints=func_fp_map,
     )
 
     if verbose:
