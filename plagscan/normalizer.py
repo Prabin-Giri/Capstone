@@ -97,9 +97,22 @@ def _remove_comments(text: str, lang: str) -> str:
         text = re.sub(r'"""[\s\S]*?"""', '', text)
         text = re.sub(r"'''[\s\S]*?'''", '', text)
     elif lang in ('javascript', 'java', 'cpp'):
-        # Remove // and /* */ comments
+        # Protect string literals first, then remove comments
+        # This prevents "http://url" from being treated as a // comment
+        protected = []
+        def _protect_string(m):
+            protected.append(m.group())
+            return f'__STR_{len(protected) - 1}__'
+        # Protect double-quoted, single-quoted, and backtick strings
+        text = re.sub(r'"(?:[^"\\]|\\.)*"', _protect_string, text)
+        text = re.sub(r"'(?:[^'\\]|\\.)*'", _protect_string, text)
+        text = re.sub(r'`(?:[^`\\]|\\.)*`', _protect_string, text)
+        # Now safely remove comments
         text = re.sub(r'//.*$', '', text, flags=re.MULTILINE)
         text = re.sub(r'/\*[\s\S]*?\*/', '', text)
+        # Restore protected strings
+        for i, s in enumerate(protected):
+            text = text.replace(f'__STR_{i}__', s)
     elif lang == 'html':
         text = re.sub(r'<!--[\s\S]*?-->', '', text)
     elif lang == 'css':
@@ -288,12 +301,16 @@ def _split_text_into_functions(text: str, lang: str) -> List[Tuple[str, int, int
 def _split_python_functions(lines: List[str]) -> List[Tuple[str, int, int]]:
     """
     Split Python code into functions/classes using indentation.
+    Also captures top-level code (imports, if __name__ blocks, etc.)
     """
     func_pattern = re.compile(r'^(def|class)\s+\w+')
     functions: List[Tuple[str, int, int]] = []
 
     func_start = None
     func_lines: List[str] = []
+    # Collect top-level code before the first function
+    top_level_lines: List[str] = []
+    top_level_start = 0
 
     for i, line in enumerate(lines):
         stripped = line.lstrip()
@@ -301,6 +318,17 @@ def _split_python_functions(lines: List[str]) -> List[Tuple[str, int, int]]:
         # Check if this line starts a new top-level function/class
         if func_pattern.match(stripped) and (len(line) - len(stripped) == 0 or
                                               (len(line) - len(stripped) <= 4)):
+            # Save top-level code before first function
+            if func_start is None and top_level_lines:
+                # Only add if there's meaningful content (not just blank lines)
+                content = ''.join(top_level_lines).strip()
+                if content:
+                    functions.append((
+                        ''.join(top_level_lines),
+                        top_level_start + 1,
+                        top_level_start + len(top_level_lines),
+                    ))
+
             # Save previous function if exists
             if func_start is not None and func_lines:
                 functions.append((
@@ -313,6 +341,9 @@ def _split_python_functions(lines: List[str]) -> List[Tuple[str, int, int]]:
             func_lines = [line]
         elif func_start is not None:
             func_lines.append(line)
+        else:
+            # Top-level code before first function
+            top_level_lines.append(line)
 
     # Save last function
     if func_start is not None and func_lines:

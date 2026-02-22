@@ -1,5 +1,5 @@
 {
-  "assignment": "Sorting (IDF+Function)",
+  "assignment": "Review Test",
   "summary": {
     "total_submissions": 6,
     "total_pairs_checked": 15,
@@ -13,9 +13,9 @@
       "sub_b": "s002",
       "jaccard": 1.0,
       "containment": 1.0,
-      "shared_fingerprints": 64,
-      "total_fingerprints_a": 64,
-      "total_fingerprints_b": 64,
+      "shared_fingerprints": 57,
+      "total_fingerprints_a": 57,
+      "total_fingerprints_b": 57,
       "matched_regions_count": 1,
       "matched_regions": [
         {
@@ -37,11 +37,11 @@
     {
       "sub_a": "s001",
       "sub_b": "s004",
-      "jaccard": 0.128,
-      "containment": 0.5319,
-      "shared_fingerprints": 29,
-      "total_fingerprints_a": 64,
-      "total_fingerprints_b": 70,
+      "jaccard": 0.1193,
+      "containment": 0.5122,
+      "shared_fingerprints": 24,
+      "total_fingerprints_a": 57,
+      "total_fingerprints_b": 65,
       "matched_regions_count": 1,
       "matched_regions": [
         {
@@ -63,11 +63,11 @@
     {
       "sub_a": "s001",
       "sub_b": "s005",
-      "jaccard": 0.0714,
-      "containment": 0.5319,
-      "shared_fingerprints": 27,
-      "total_fingerprints_a": 64,
-      "total_fingerprints_b": 107,
+      "jaccard": 0.0685,
+      "containment": 0.5122,
+      "shared_fingerprints": 23,
+      "total_fingerprints_a": 57,
+      "total_fingerprints_b": 99,
       "matched_regions_count": 1,
       "matched_regions": [
         {
@@ -89,11 +89,11 @@
     {
       "sub_a": "s002",
       "sub_b": "s004",
-      "jaccard": 0.128,
-      "containment": 0.5319,
-      "shared_fingerprints": 29,
-      "total_fingerprints_a": 64,
-      "total_fingerprints_b": 70,
+      "jaccard": 0.1193,
+      "containment": 0.5122,
+      "shared_fingerprints": 24,
+      "total_fingerprints_a": 57,
+      "total_fingerprints_b": 65,
       "matched_regions_count": 1,
       "matched_regions": [
         {
@@ -115,11 +115,11 @@
     {
       "sub_a": "s002",
       "sub_b": "s005",
-      "jaccard": 0.0714,
-      "containment": 0.5319,
-      "shared_fingerprints": 27,
-      "total_fingerprints_a": 64,
-      "total_fingerprints_b": 107,
+      "jaccard": 0.0685,
+      "containment": 0.5122,
+      "shared_fingerprints": 23,
+      "total_fingerprints_a": 57,
+      "total_fingerprints_b": 99,
       "matched_regions_count": 1,
       "matched_regions": [
         {
@@ -141,11 +141,11 @@
     {
       "sub_a": "s004",
       "sub_b": "s005",
-      "jaccard": 0.0611,
-      "containment": 0.4902,
-      "shared_fingerprints": 27,
-      "total_fingerprints_a": 70,
-      "total_fingerprints_b": 107,
+      "jaccard": 0.0577,
+      "containment": 0.4667,
+      "shared_fingerprints": 23,
+      "total_fingerprints_a": 65,
+      "total_fingerprints_b": 99,
       "matched_regions_count": 1,
       "matched_regions": [
         {

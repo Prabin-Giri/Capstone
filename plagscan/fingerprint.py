@@ -6,6 +6,7 @@ using k-gram hashing and the winnowing selection algorithm.
 """
 
 from typing import Dict, List, Set, Tuple
+import hashlib
 
 from .models import FingerprintResult, TokenizedSubmission
 
@@ -17,9 +18,11 @@ DEFAULT_W = 4     # winnowing window size
 def _hash_kgram(tokens: List[str], start: int, k: int) -> int:
     """
     Hash a k-gram of tokens starting at position `start`.
-    Uses Python's built-in hash on the tuple of tokens for speed.
+    Uses a deterministic hash (MD5-based) to ensure reproducible results
+    across Python runs (unlike Python's built-in hash() which is randomized).
     """
-    return hash(tuple(tokens[start:start + k]))
+    gram = '\x00'.join(tokens[start:start + k])
+    return int(hashlib.md5(gram.encode('utf-8')).hexdigest()[:16], 16)
 
 
 def _build_kgram_hashes(
@@ -35,7 +38,8 @@ def _build_kgram_hashes(
     if len(tokens) < k:
         # If fewer tokens than k, hash whatever we have
         if len(tokens) > 0:
-            return [(hash(tuple(tokens)), 0)]
+            gram = '\x00'.join(tokens)
+            return [(int(hashlib.md5(gram.encode('utf-8')).hexdigest()[:16], 16), 0)]
         return []
 
     return [
