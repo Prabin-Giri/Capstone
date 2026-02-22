@@ -1,40 +1,70 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryOne } = require('../db');
+const { getDb, saveDb } = require('../db');
 
-// POST /api/users/login - Simple login check (Auto-create for students)
-router.post('/login', (req, res, next) => {
+// Helper: run parameterized SELECT and return rows (sql.js ignores params in exec(), so we use prepare/bind)
+function selectUsers(db, sql, params = []) {
+    const stmt = db.prepare(sql);
+    if (params.length) stmt.bind(params);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+    return rows;
+}
+
+// POST /api/users/signup - Register new user
+router.post('/signup', (req, res, next) => {
     try {
-        const { email, role } = req.body;
-        if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
+        const { name, email, password, role } = req.body;
+        if (!name || !email || !password || !role) {
+            return res.status(400).json({ error: 'All fields are required' });
         }
 
         const db = getDb();
-        let result = db.exec('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
-        let user = queryOne(result);
+        // Check if user exists
+        const stmt = db.prepare('SELECT id FROM users WHERE email = ?');
+        stmt.bind([email]);
+        if (stmt.step()) {
+            stmt.free();
+            return res.status(400).json({ error: 'User with this email already exists' });
+        }
+        stmt.free();
 
-        if (!user) {
-            // Auto-create strictly for students
-            if (role === 'student') {
-                const name = email.split('@')[0]; // Simple name derivation
-                // Use email as ID for simplicity and stability, or generate one
-                const id = email;
+        // Create user
+        const id = email; // Using email as ID for consistency with existing code
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)", [id, name, email, password, role]);
+        saveDb();
 
-                db.run("INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, 'student')", [id, name, email]);
+        res.status(201).json({ id, name, email, role });
+    } catch (err) {
+        next(err);
+    }
+});
 
-                // Save DB
-                const { saveDb } = require('../db');
-                saveDb();
-
-                // Fetch new user
-                result = db.exec('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
-                user = queryOne(result);
-            } else {
-                return res.status(404).json({ error: 'Faculty account not found. Please contact administrator.' });
-            }
+// POST /api/users/login - Simple login check
+router.post('/login', (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
         }
 
+        const db = getDb();
+        const stmt = db.prepare('SELECT id, name, email, role, password FROM users WHERE email = ?');
+        stmt.bind([email]);
+
+        let user = null;
+        if (stmt.step()) {
+            user = stmt.getAsObject();
+        }
+        stmt.free();
+
+        if (!user || user.password !== password) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Remove password from response
+        delete user.password;
         res.json(user);
     } catch (err) {
         next(err);
@@ -42,3 +72,4 @@ router.post('/login', (req, res, next) => {
 });
 
 module.exports = router;
+
