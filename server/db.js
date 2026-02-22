@@ -27,6 +27,7 @@ async function initDb() {
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT UNIQUE,
+            password TEXT,
             role TEXT NOT NULL CHECK(role IN ('student', 'faculty', 'admin')),
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -117,8 +118,8 @@ async function initDb() {
 
     if (count === 0) {
         // Users
-        db.run("INSERT OR IGNORE INTO users (id, name, email, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'student')");
-        db.run("INSERT OR IGNORE INTO users (id, name, email, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'faculty')");
+        db.run("INSERT OR IGNORE INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
+        db.run("INSERT OR IGNORE INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
 
         // Courses
         db.run("INSERT OR IGNORE INTO courses (id, name, term) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026')");
