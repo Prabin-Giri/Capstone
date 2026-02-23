@@ -1,0 +1,77 @@
+PLAGIARISM DETECTION EXPLAINED
+==============================
+
+This document explains how our custom plagiarism detector works, why we built the features we did, what its limitations are, and how it compares to existing academic tools like MOSS or JPlag.
+
+HOW IT WORKS (The Pipeline)
+---------------------------
+Our plagiarism detector is a multi-stage pipeline designed specifically for source code. When you point it at a folder of student submissions, it performs the following steps:
+
+1. Loading (The "Bag of Code" approach)
+   It recursively finds every code file (.py, .js, .java, etc.) in a student's submission folder and concatenates them into a single virtual "document". 
+   Why? This defeats students who try to hide plagiarism by splitting a copied function across multiple files or merging multiple copied files into one script.
+
+2. Normalization
+   Code is not treated like regular text. The normalizer strips out all comments and whitespace (to defeat students who add fake comments to hide copied code). It also replaces user-defined variable names with a generic "ID" token, strings with "STR", and numbers with "NUM".
+   Why? This defeats the most common cheating technique: copying code but renaming all the variables (e.g., changing `user_count` to `numUsers`).
+
+3. Multi-Granularity Fingerprinting (Winnowing)
+   We use an algorithm called "Winnowing" (the same math behind Stanford's MOSS) to create digital fingerprints of the code. We run two passes:
+   - A wide pass (k-gram=25) to detect large copied algorithms.
+   - A narrow pass (k-gram=10) to detect small, copied helper functions or 5-line snippets.
+
+4. Function-Level Splitting
+   The code is automatically split into individual functions and classes. These are fingerprinted independently.
+   Why? If a student copies 5 functions from a classmate but scrambles the order they appear in the file, standard comparison tools get confused. Function-level comparison catches this because it compares Function A to Function B regardless of where they live in the file.
+
+5. Starter Code Suppression
+   If a professor provided starter code, we fingerprint it first. These fingerprints are then permanently deleted from every student's submission before comparison happens.
+   Why? Without this, every student in the class would have a 30% plagiarism score just because they all used the professor's template.
+
+6. IDF Weighting (Inverse Document Frequency)
+   We calculate how common every code pattern is across the entire class. If 90% of the class wrote `for i in range(len(arr)):`, that fingerprint gets a very low weight. If only two students share a highly specific, strange line of code, it gets a massive weight bump.
+   Why? This prevents false positives on standard boilerplate code while highlighting truly suspicious unique matches.
+
+7. Structural Metric Analysis
+   Independent of the code text, we extract structural metrics for every function: how many loops it has, how deep the nesting goes, the cyclomatic complexity, and conditional counts.
+   Why? If a student completely rewrites a copied algorithm (changes `for` loops to `while` loops, changes the logic flow), the text fingerprints might miss it, but the structural "shape" of the code will still trigger a flag.
+
+8. Comparison & Scoring
+   We compare every student against every other student using two metrics:
+   - Jaccard Similarity (Overall match percentage)
+   - Containment (Did Student A's entire small file come from Student B's massive project?)
+
+HOW IS IT BETTER THAN OTHER PROGRAMS?
+-------------------------------------
+While tools like Stanford's MOSS and JPlag are excellent, our custom engine has several advantages tailored to modern grading:
+
+1. Structural Metrics Backup
+   MOSS relies entirely on token fingerprinting. If a student heavily restructures the code, MOSS will miss it. Our addition of Structural Metric Analysis catches logical clones that evade standard token matchers.
+
+2. True Multi-Granularity
+   Most tools force you to pick a single sensitivity level (k-gram size). If you pick a large size, you miss small copied functions. If you pick a small size, you get overwhelmed with false positives. Our dual-pass (k=25 + k=10) combined with IDF weighting gets the best of both worlds.
+
+3. "Bag of Code" Multi-file handling
+   Many generic tools compare File A against File B. Our tool compares Student A forming a single cohesive unit against Student B. File boundary manipulation is fully neutralized.
+
+4. Fully Offline & Private
+   MOSS requires uploading student code to Stanford's servers. Our tool runs 100% locally on your machine or private server, ensuring FERPA compliance and complete data privacy.
+
+REMAINING EDGE CASES & HOW IT MIGHT FAIL
+----------------------------------------
+No plagiarism detector is perfect. A highly determined student could still defeat this system via the following edge cases:
+
+1. Logic Reversal / Heavy Refactoring
+   If a student takes an iterative algorithm and rewrites it as a recursive algorithm, the token sequence and structural metrics will change completely. The tool will not catch this. (This level of rewrite often demonstrates they actually learned the material, however).
+
+2. Dead Code Injection (Dilution)
+   If a student copies 50 lines of code, and then writes 500 lines of completely unused, garbage functions that do nothing, their overlap percentage drops significantly. (Our 'Containment' metric helps mitigate this, but massive dilution can still hide signals).
+
+3. The ZIP File Problem (Pending Feature)
+   Currently, the tool expects folders. Since students often upload `.zip` files, the system handling the file drop (the backend server) MUST unzip the files before passing the directory to the detector. If it passes raw `.zip` binaries, the detector will ignore them.
+
+4. Invisible Unicode Characters (Homoglyphs)
+   A malicious student could replace the standard English "a" with a Cyrillic "а" in variable names. Since they look identical but have different byte values, they defeat simple tokenizers. (Our variable normalizer replaces all identifiers with generic tokens anyway, which heavily mitigates this attack, but string literals could still be exploited).
+
+5. Third-Party Library Plagiarism
+   If two students both copy the same 100-line function from a StackOverflow post or a public GitHub repo, the tool will flag them as plagiarizing *each other*. The tool only compares students within the provided assignment folder; it does not search the internet.
