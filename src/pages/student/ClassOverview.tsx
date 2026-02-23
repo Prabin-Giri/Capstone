@@ -1,14 +1,40 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ASSIGNMENT_STATUS } from '../../lib/constants';
-import { assignments, courses } from '../../lib/mockData';
+import { getCourse, getCourseAssignments } from '../../lib/api';
+import type { Course, Assignment } from '../../lib/api';
 import './ClassOverview.css';
 
 const ClassOverview: React.FC = () => {
     const { courseId } = useParams();
-    const selectedCourse = courses.find((course) => course.id === courseId);
+    const [course, setCourse] = useState<Course | null>(null);
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    if (!selectedCourse) {
+    useEffect(() => {
+        async function loadData() {
+            if (!courseId) return;
+            try {
+                const [courseData, assignmentsData] = await Promise.all([
+                    getCourse(courseId),
+                    getCourseAssignments(courseId)
+                ]);
+                setCourse(courseData);
+                setAssignments(assignmentsData);
+            } catch (err) {
+                console.error(err);
+                setError('Failed to load course data.');
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadData();
+    }, [courseId]);
+
+    if (loading) return <div className="p-8">Loading...</div>;
+    if (error) return <div className="p-8 text-red-600">{error}</div>;
+
+    if (!course) {
         return (
             <div className="class-overview">
                 <div className="state-card">
@@ -22,35 +48,32 @@ const ClassOverview: React.FC = () => {
         );
     }
 
-    const courseAssignments = assignments.filter(
-        (assignment) => assignment.courseId === selectedCourse.id
-    );
-    const openAssignments = courseAssignments.filter(
-        (assignment) => assignment.status === ASSIGNMENT_STATUS.OPEN
+    const activeAssignments = assignments.filter(
+        (assignment) => assignment.status === 'active'
     );
 
     return (
         <div className="class-overview">
             <div className="overview-header">
                 <div>
-                    <h1 className="overview-title">{selectedCourse.name}</h1>
+                    <h1 className="overview-title">{course.name}</h1>
                     <p className="overview-subtitle">
-                        {selectedCourse.id} &bull; {selectedCourse.term}
+                        {course.name} &bull; {course.term}
                     </p>
                 </div>
-                <Link to={`/student/courses/${selectedCourse.id}/assignments`} className="btn-primary">
+                <Link to={`/student/courses/${course.id}/assignments`} className="btn-view-assignments">
                     View Assignments
                 </Link>
             </div>
 
             <div className="overview-card">
                 <div className="overview-stat">
-                    <span className="stat-value">{courseAssignments.length}</span>
+                    <span className="stat-value">{assignments.length}</span>
                     <span className="stat-label">Assignments</span>
                 </div>
                 <div className="overview-stat">
-                    <span className="stat-value">{openAssignments.length}</span>
-                    <span className="stat-label">Open</span>
+                    <span className="stat-value">{activeAssignments.length}</span>
+                    <span className="stat-label">Active</span>
                 </div>
             </div>
         </div>

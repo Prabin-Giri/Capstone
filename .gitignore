@@ -23,7 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
+# Env (secrets – do not commit)
+.env
+
 # Server specific
 server/node_modules
 server/uploads/
 server/*.db
+.vite/

@@ -8,7 +8,7 @@
 
 .login-card {
     background-color: white;
-    padding: 2.5rem;
+    padding: 1.75rem;
     border-radius: 0.5rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     width: 100%;
@@ -17,7 +17,7 @@
 
 .login-header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .app-name {

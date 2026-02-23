@@ -1,114 +1,18 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+/**
+ * Database layer: uses MySQL when DATABASE_URL or MYSQL_HOST is set, otherwise SQLite (sql.js).
+ * Set DATABASE_URL (e.g. mysql://user:pass@host:3306/dbname) or MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE for cloud MySQL.
+ */
+const useMySQL = Boolean(process.env.DATABASE_URL || process.env.MYSQL_HOST);
 
-const dbPath = path.join(__dirname, 'autograde.db');
+const adapter = useMySQL ? require('./db-mysql') : require('./db-sqlite');
 
-let db = null;
-
-// Initialize database
-async function initDb() {
-    const SQL = await initSqlJs();
-
-    // Load existing database or create new one
-    if (fs.existsSync(dbPath)) {
-        const buffer = fs.readFileSync(dbPath);
-        db = new SQL.Database(buffer);
-    } else {
-        db = new SQL.Database();
-    }
-
-    // Enable foreign keys
-    db.run('PRAGMA foreign_keys = ON');
-
-    // Create tables
-    db.run(`
-        CREATE TABLE IF NOT EXISTS courses (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            term TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS assignments (
-            id TEXT PRIMARY KEY,
-            course_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            due_date TEXT NOT NULL,
-            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'closed', 'late')),
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
-        )
-    `);
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS submissions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            assignment_id TEXT NOT NULL,
-            student_id TEXT NOT NULL,
-            file_name TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'graded', 'returned')),
-            grade REAL DEFAULT NULL,
-            feedback TEXT DEFAULT NULL,
-            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
-            UNIQUE(assignment_id, student_id)
-        )
-    `);
-
-    // Insert sample data if tables are empty
-    const result = db.exec('SELECT COUNT(*) as count FROM courses');
-    const count = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : 0;
-
-    if (count === 0) {
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026')");
-
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'open')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'open')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
-
-        console.log('Database initialized with sample data');
-        saveDb();
-    }
-
-    return db;
-}
-
-// Save database to file
-function saveDb() {
-    if (db) {
-        const data = db.export();
-        const buffer = Buffer.from(data);
-        fs.writeFileSync(dbPath, buffer);
-    }
-}
-
-// Helper to convert sql.js results to array of objects
-function queryToObjects(result) {
-    if (!result || result.length === 0) return [];
-    const columns = result[0].columns;
-    return result[0].values.map(row => {
-        const obj = {};
-        columns.forEach((col, i) => {
-            obj[col] = row[i];
-        });
-        return obj;
-    });
-}
-
-// Get single row as object
-function queryOne(result) {
-    const rows = queryToObjects(result);
-    return rows.length > 0 ? rows[0] : null;
-}
-
-module.exports = { initDb, getDb: () => db, saveDb, queryToObjects, queryOne };
+module.exports = {
+    initDb: adapter.initDb,
+    getDb: adapter.getDb,
+    saveDb: adapter.saveDb,
+    query: adapter.query,
+    run: adapter.run,
+    queryOne: adapter.queryOne,
+    queryToObjects: adapter.queryToObjects,
+    isMySQL: adapter.isMySQL,
+};

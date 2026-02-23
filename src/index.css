@@ -1,20 +1,50 @@
 :root {
-  --primary-color: #4f46e5; /* indigo-600 */
-  --primary-hover: #4338ca; /* indigo-700 */
-  --primary-light: #eef2ff; /* indigo-50 */
-  --text-primary: #111827; /* gray-900 */
-  --text-secondary: #4b5563; /* gray-600 */
-  --text-tertiary: #9ca3af; /* gray-400 */
-  --bg-body: #f9fafb; /* gray-50 */
+  /* University Brand Colors */
+  --primary-color: #840029;
+  /* Warhawk Maroon */
+  --primary-hover: #6a0021;
+  --primary-light: #f5e6ea;
+
+  --secondary-color: #FDB913;
+  /* Heritage Gold */
+  --secondary-hover: #e5a711;
+
+  --dark-grey: #646469;
+  --mid-grey: #C8C9C7;
+  --light-grey: #f3f4f6;
+
+  /* Text & Surface */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #9ca3af;
+  --bg-body: #f8f9fb;
   --bg-surface: #ffffff;
-  --border-color: #e5e7eb; /* gray-200 */
-  --danger-color: #dc2626; /* red-600 */
-  --danger-bg: #fef2f2; /* red-50 */
-  
-  --global-sidebar-width: 120px;
+  --border-color: #e5e7eb;
+
+  /* Status Colors */
+  --danger-color: #dc2626;
+  --danger-bg: #fef2f2;
+  --success-color: #059669;
+  --success-bg: #ecfdf5;
+
+  /* Effects */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-blur: blur(12px);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --global-sidebar-width: 100px;
   --course-sidebar-width: 200px;
-  --course-sidebar-collapsed-width: 96px;
   --header-height: 64px;
+}
+
+html {
+  font-size: 93.75%;
+  /* 15px base */
 }
 
 body {

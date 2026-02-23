@@ -1,0 +1,175 @@
+/* Page Container */
+.assignment-wizard-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px;
+}
+
+/* Title */
+.wizard-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 20px;
+    letter-spacing: -0.025em;
+}
+
+/* Form Container */
+.wizard-form {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Form Elements */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-hint {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.form-label {
+    font-size: 0.875rem;
+    /* 14px */
+    font-weight: 500;
+    color: #374151;
+    /* gray-700 */
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #111827;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    border-color: #4f46e5;
+    /* indigo-600 */
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+/* Grid Layout for Date/Status */
+.form-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 24px;
+    align-items: end;
+}
+
+/* Actions */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid #f3f4f6;
+    /* gray-100 */
+    margin-top: 8px;
+}
+
+.upload-box-wizard {
+    padding: 1rem;
+    background: rgba(132, 0, 41, 0.03);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    transition: all 0.2s;
+}
+
+.upload-box-wizard:hover {
+    border-color: var(--primary-color);
+    background: rgba(132, 0, 41, 0.05);
+}
+
+.form-input-file {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.file-info-wizard {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23646469' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(132, 0, 41, 0.1);
+}
+
+/* Test case I/O mode row (stdin vs file input, stdout vs file output) */
+.tc-io-mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.tc-io-mode .form-group {
+    margin-bottom: 0;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+    .assignment-wizard-container {
+        padding: 16px 12px;
+    }
+
+    .wizard-form {
+        padding: 16px;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions button {
+        width: 100%;
+    }
+}

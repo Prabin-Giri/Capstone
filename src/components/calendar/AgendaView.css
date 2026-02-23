@@ -1,0 +1,205 @@
+.agenda-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 1.5rem;
+}
+
+.agenda-date-header {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-tertiary);
+    font-weight: 600;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-tertiary);
+    padding: 3rem;
+    background-color: var(--bg-surface);
+    border-radius: 0.5rem;
+    border: 1px dashed var(--border-color);
+}
+
+.agenda-day {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.agenda-date {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-body);
+    padding: 0.5rem 0;
+    z-index: 10;
+}
+
+.agenda-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.agenda-item {
+    display: flex;
+    background-color: var(--bg-surface);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    transition: transform 0.1s;
+}
+
+.agenda-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.item-color-strip {
+    width: 6px;
+    flex-shrink: 0;
+}
+
+.item-content {
+    flex: 1;
+    padding: 0.375rem 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    overflow: hidden;
+}
+
+/* Todo Styles */
+.todo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.todo-checkbox {
+    width: 1.1rem;
+    height: 1.1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    accent-color: var(--primary-color);
+}
+
+.agenda-item .todo-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.todo-time {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-left: auto;
+}
+
+.todo-title.completed {
+    text-decoration: line-through;
+    color: var(--text-tertiary);
+}
+
+.delete-todo-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.agenda-item:hover .delete-todo-btn {
+    opacity: 1;
+}
+
+.delete-todo-btn:hover {
+    color: #ef4444;
+}
+
+/* Assignment Styles */
+.assignment-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.assignment-icon {
+    font-size: 1rem;
+}
+
+.agenda-item .assignment-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.assignment-time {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-left: auto;
+}
+
+/* Course Tag */
+.item-course-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    background-color: var(--bg-body);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+    .item-content {
+        padding: 0.5rem 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .todo-row,
+    .assignment-row {
+        width: 100%;
+    }
+
+    .todo-title,
+    .assignment-title {
+        font-size: 0.875rem;
+    }
+
+    .todo-time,
+    .assignment-time {
+        font-size: 0.75rem;
+    }
+
+    .item-course-tag {
+        font-size: 0.7rem;
+        margin-left: 0;
+    }
+
+    .delete-todo-btn {
+        opacity: 1;
+        /* Always show delete on mobile since there is no hover */
+    }
+}
