@@ -74,6 +74,7 @@ def _pair_result_to_dict(pr: PairResult) -> dict:
         "sub_b": pr.score.sub_b,
         "jaccard": pr.score.jaccard,
         "containment": pr.score.containment,
+        "metric_similarity": pr.score.metric_similarity,
         "shared_fingerprints": pr.score.shared_fingerprints,
         "total_fingerprints_a": pr.score.total_fingerprints_a,
         "total_fingerprints_b": pr.score.total_fingerprints_b,
@@ -135,7 +136,7 @@ def write_pairs_csv(report: Report, output_dir: str) -> str:
         writer = csv.writer(f)
         writer.writerow([
             "Submission A", "Submission B",
-            "Jaccard", "Containment",
+            "Jaccard", "Containment", "Metric Similarity",
             "Shared Fingerprints",
             "Fingerprints A", "Fingerprints B",
             "Matched Regions",
@@ -147,6 +148,7 @@ def write_pairs_csv(report: Report, output_dir: str) -> str:
                 pr.score.sub_b,
                 f"{pr.score.jaccard:.4f}",
                 f"{pr.score.containment:.4f}",
+                f"{pr.score.metric_similarity:.4f}",
                 pr.score.shared_fingerprints,
                 pr.score.total_fingerprints_a,
                 pr.score.total_fingerprints_b,
@@ -175,8 +177,12 @@ def print_summary(report: Report) -> None:
         for i, pr in enumerate(report.pairs[:10], 1):
             sc = pr.score
             flag = "🔴" if sc.containment >= 0.7 else "🟡" if sc.containment >= 0.4 else "🟢"
+            # Override to red if metric similarity is very high
+            if sc.metric_similarity >= 0.9:
+                flag = "🔴"
             print(f"  {flag} {i}. {sc.sub_a} ↔ {sc.sub_b}")
             print(f"       Jaccard: {sc.jaccard:.1%}  |  Containment: {sc.containment:.1%}  |  "
+                  f"Structure: {sc.metric_similarity:.1%}  |  "
                   f"Shared: {sc.shared_fingerprints}  |  Regions: {len(pr.matched_regions)}")
 
     print("\n" + "=" * 60)

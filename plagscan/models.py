@@ -66,6 +66,7 @@ class PairScore:
     shared_fingerprints: int
     total_fingerprints_a: int
     total_fingerprints_b: int
+    metric_similarity: float = 0.0  # structural similarity (0-1)
 
 
 # ── Step 6: Evidence ───────────────────────────────────────────────

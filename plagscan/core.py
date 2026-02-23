@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 from .models import (
     FingerprintResult,
     PairResult,
+    PairScore,
     Report,
     Submission,
     TokenizedSubmission,
@@ -30,6 +31,10 @@ from .compare import (
 )
 from .evidence import generate_evidence
 from .report import build_report
+from .metrics import extract_metrics, compute_metric_similarity, SubmissionMetrics
+
+# Secondary k-gram size for multi-granularity matching
+SMALL_K = 10
 
 
 def run_detector(
@@ -83,7 +88,26 @@ def run_detector(
         fp = fingerprint_submission(ts, k=k, w=w)
         fp_map[sub_id] = fp
         if verbose:
-            print(f"     {sub_id}: {len(fp.fingerprints)} fingerprints")
+            print(f"     {sub_id}: {len(fp.fingerprints)} fingerprints (k={k})")
+
+    # ── Step 3a: Multi-granularity — second pass with smaller k ─────
+    if verbose:
+        print(f"  🔍 Generating fine-grained fingerprints (k={SMALL_K})...")
+
+    for sub_id, ts in tokenized_map.items():
+        small_fp = fingerprint_submission(ts, k=SMALL_K, w=w)
+        # Merge small-k fingerprints into the main set
+        original_count = len(fp_map[sub_id].fingerprints)
+        fp_map[sub_id].fingerprints |= small_fp.fingerprints
+        # Merge positions too
+        for h, positions in small_fp.fp_positions.items():
+            if h not in fp_map[sub_id].fp_positions:
+                fp_map[sub_id].fp_positions[h] = positions
+            else:
+                fp_map[sub_id].fp_positions[h].extend(positions)
+        if verbose:
+            added = len(fp_map[sub_id].fingerprints) - original_count
+            print(f"     {sub_id}: +{added} snippet fingerprints (total: {len(fp_map[sub_id].fingerprints)})")
 
     # ── Step 3.5: Starter code suppression ──────────────────────────
     if starter_code and starter_code.files:
@@ -152,6 +176,66 @@ def run_detector(
         idf_weights=idf_weights,
         func_fingerprints=func_fp_map,
     )
+
+    # ── Step 4.5: Code metrics ──────────────────────────────────────
+    if verbose:
+        print("  📚 Extracting code metrics...")
+
+    metrics_map: Dict[str, SubmissionMetrics] = {}
+    for sub in submissions:
+        sm = extract_metrics(sub)
+        metrics_map[sub.id] = sm
+        if verbose:
+            print(f"     {sub.id}: {sm.total_functions} functions, {sm.total_lines} lines")
+
+    # Compute metric similarity for flagged pairs and attach to scores
+    for score in flagged_scores:
+        if score.sub_a in metrics_map and score.sub_b in metrics_map:
+            ms = compute_metric_similarity(
+                metrics_map[score.sub_a],
+                metrics_map[score.sub_b],
+            )
+            score.metric_similarity = ms
+
+    # Also check: any unflagged pairs with very high metric similarity?
+    # This catches structurally identical code that bypassed fingerprint matching.
+    # Requires BOTH high metric similarity AND some fingerprint overlap to avoid
+    # false positives on independent code that happens to have similar structure.
+    flagged_pair_keys = {(s.sub_a, s.sub_b) for s in flagged_scores}
+    from itertools import combinations as combs
+    for sub_a, sub_b in combs(submissions, 2):
+        pair_key = (sub_a.id, sub_b.id)
+        if pair_key in flagged_pair_keys:
+            continue
+        if sub_a.id in metrics_map and sub_b.id in metrics_map:
+            ms = compute_metric_similarity(
+                metrics_map[sub_a.id], metrics_map[sub_b.id]
+            )
+            if ms >= 0.95:  # Near-identical structure
+                # Also verify there's some fingerprint overlap
+                fp_a_set = fp_map.get(sub_a.id)
+                fp_b_set = fp_map.get(sub_b.id)
+                if fp_a_set and fp_b_set:
+                    shared = fp_a_set.fingerprints & fp_b_set.fingerprints
+                    min_fps = min(len(fp_a_set.fingerprints), len(fp_b_set.fingerprints))
+                    overlap_ratio = len(shared) / min_fps if min_fps > 0 else 0
+                    # Only flag if there's at least 5% fingerprint overlap
+                    if overlap_ratio >= 0.05:
+                        if verbose:
+                            print(f"     ⚠️  {sub_a.id} ↔ {sub_b.id}: metric similarity {ms:.1%} + {overlap_ratio:.1%} overlap (flagged)")
+                        flagged_scores.append(
+                            PairScore(
+                                sub_a=sub_a.id, sub_b=sub_b.id,
+                                jaccard=0.0, containment=0.0,
+                                shared_fingerprints=len(shared),
+                                total_fingerprints_a=len(fp_a_set.fingerprints),
+                                total_fingerprints_b=len(fp_b_set.fingerprints),
+                                metric_similarity=ms,
+                            )
+                        )
+
+    # Re-sort by containment
+    flagged_scores.sort(key=lambda s: s.containment, reverse=True)
 
     if verbose:
         print(f"     {len(flagged_scores)} pairs exceed threshold")
