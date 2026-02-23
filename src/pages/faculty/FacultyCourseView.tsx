@@ -13,7 +13,7 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, AlertCircle, X } from 'lucide-react';
 import './FacultyCourseView.css';
 
 const FacultyCourseView: React.FC = () => {
@@ -160,69 +160,71 @@ const FacultyCourseView: React.FC = () => {
                     <p className="header-metadata">{course.name} • {course.id}</p>
                 </div>
 
-                <div className="dropdown-container" ref={dropdownRef}>
-                    <button
-                        onClick={() => setShowDropdown(!showDropdown)}
-                        className="create-btn"
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
-                    >
-                        <Plus size={20} />
-                        Manage Course
-                        <ChevronDown size={14} />
-                    </button>
+                <div className="header-actions">
+                    <div className="dropdown-container" ref={dropdownRef}>
+                        <button
+                            onClick={() => setShowDropdown(!showDropdown)}
+                            className="create-btn"
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+                        >
+                            <Plus size={20} />
+                            Manage Course
+                            <ChevronDown size={14} />
+                        </button>
 
-                    {showDropdown && (
-                        <div className="dropdown-menu">
-                            <button
-                                className="dropdown-item"
-                                onClick={() => navigate('assignments/new')}
-                            >
-                                <Plus size={16} />
-                                Manual Assignment
-                            </button>
-                            <div className="dropdown-divider"></div>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => syllabusInputRef.current?.click()}
-                            >
-                                <Upload size={16} />
-                                Upload Syllabus
-                            </button>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => scheduleInputRef.current?.click()}
-                            >
-                                <Upload size={16} />
-                                Upload Assignment Schedule
-                            </button>
-                            <div className="dropdown-divider"></div>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => {
-                                    setShowArchiveModal(true);
-                                    setShowDropdown(false);
-                                    setArchiveInput('');
-                                    setActionError(null);
-                                }}
-                                style={{ color: course.is_archived ? 'var(--primary-color)' : '#ef4444' }}
-                            >
-                                <Archive size={16} />
-                                {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                <button
-                    onClick={() => navigate('gradebook')}
-                    className="create-btn"
-                    style={{ background: 'var(--primary-color)', color: 'white', marginLeft: '10px', border: 'none' }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={18} />
-                        View Gradebook
+                        {showDropdown && (
+                            <div className="dropdown-menu">
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => navigate('assignments/new')}
+                                >
+                                    <Plus size={16} />
+                                    Manual Assignment
+                                </button>
+                                <div className="dropdown-divider"></div>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => syllabusInputRef.current?.click()}
+                                >
+                                    <Upload size={16} />
+                                    Upload Syllabus
+                                </button>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => scheduleInputRef.current?.click()}
+                                >
+                                    <Upload size={16} />
+                                    Upload Assignment Schedule
+                                </button>
+                                <div className="dropdown-divider"></div>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => {
+                                        setShowArchiveModal(true);
+                                        setShowDropdown(false);
+                                        setArchiveInput('');
+                                        setActionError(null);
+                                    }}
+                                    style={{ color: course.is_archived ? 'var(--primary-color)' : '#ef4444' }}
+                                >
+                                    <Archive size={16} />
+                                    {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
+                                </button>
+                            </div>
+                        )}
                     </div>
-                </button>
+
+                    <button
+                        onClick={() => navigate('gradebook')}
+                        className="create-btn"
+                        style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FileText size={18} />
+                            View Gradebook
+                        </div>
+                    </button>
+                </div>
             </div>
 
             {/* Faculty Analytics Bar */}
@@ -357,52 +359,62 @@ const FacultyCourseView: React.FC = () => {
 
             {/* Archive Confirmation Modal */}
             {showArchiveModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
-                                <AlertTriangle size={24} />
+                <div className="archive-modal-overlay" onClick={() => setShowArchiveModal(false)}>
+                    <div className="archive-modal-card" onClick={(e) => e.stopPropagation()}>
+                        <div className="archive-header">
+                            <div className="archive-title-container">
+                                <h2>{course.is_archived ? 'Unarchive Course' : 'Archive Course'}</h2>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
-                                {course.is_archived ? 'Unarchive Course?' : 'Archive Course?'}
-                            </h3>
-                            <p className="text-gray-500 mb-6 font-medium">
-                                To confirm, type <span className="font-mono bg-gray-100 px-1 rounded select-all">{course.name}</span> below.
+                            <button className="archive-close-btn" onClick={() => setShowArchiveModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="archive-body">
+                            <p className="archive-instruction">
+                                To confirm, please type <strong>{course.id}</strong> below.
                             </p>
 
-                            <input
-                                type="text"
-                                value={archiveInput}
-                                onChange={(e) => {
-                                    setArchiveInput(e.target.value);
-                                    setActionError(null);
-                                }}
-                                placeholder="Type course name"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            />
+                            <div className="archive-input-container">
+                                <input
+                                    type="text"
+                                    value={archiveInput}
+                                    onChange={(e) => {
+                                        setArchiveInput(e.target.value);
+                                        setActionError(null);
+                                    }}
+                                    placeholder={`Type course code (e.g., ${course.id})`}
+                                    autoFocus
+                                />
+                            </div>
 
                             {actionError && (
-                                <p className="text-red-600 text-sm mb-4">{actionError}</p>
+                                <div className="archive-warning" style={{ background: '#fef2f2', borderColor: '#fee2e2' }}>
+                                    <AlertCircle size={16} color="#b91c1c" />
+                                    <span className="archive-warning-text">{actionError}</span>
+                                </div>
                             )}
 
                             {!course.is_archived && (
-                                <p className="text-xs text-gray-400 mb-6">
-                                    Archiving will make this course read-only for all students.
-                                </p>
+                                <div className="archive-warning">
+                                    <AlertCircle size={16} color="#b91c1c" />
+                                    <span className="archive-warning-text">
+                                        Archiving will make this course read-only for all students.
+                                    </span>
+                                </div>
                             )}
 
-                            <div className="flex gap-3 w-full">
+                            <div className="archive-footer">
                                 <button
+                                    className="archive-btn archive-btn-cancel"
                                     onClick={() => setShowArchiveModal(false)}
-                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    className={`archive-btn archive-btn-confirm ${course.is_archived ? 'archive-btn-unarchive' : ''}`}
                                     onClick={handleArchiveCourse}
-                                    disabled={archiveInput !== course.name}
-                                    className={`flex-1 px-5 py-2.5 rounded-lg font-medium text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${course.is_archived ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
-                                        }`}
+                                    disabled={archiveInput !== course.id}
                                 >
                                     {course.is_archived ? 'Unarchive' : 'Archive'}
                                 </button>
@@ -414,33 +426,35 @@ const FacultyCourseView: React.FC = () => {
 
             {/* Delete Confirmation Modal */}
             {assignmentToDelete && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h3>Delete Assignment?</h3>
+                            <button onClick={() => setAssignmentToDelete(null)} className="modal-close">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="modal-body text-center">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
                                 <AlertTriangle size={24} />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
-                                Delete Assignment?
-                            </h3>
                             <p className="text-gray-500 mb-6">
                                 Are you sure you want to delete this assignment? This action cannot be undone and will delete all student submissions.
                             </p>
-
-                            <div className="flex gap-3 w-full">
-                                <button
-                                    onClick={() => setAssignmentToDelete(null)}
-                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={confirmDelete}
-                                    className="flex-1 px-5 py-2.5 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
-                                >
-                                    Delete Assignment
-                                </button>
-                            </div>
+                        </div>
+                        <div className="modal-footer flex gap-3">
+                            <button
+                                onClick={() => setAssignmentToDelete(null)}
+                                className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="flex-1 px-5 py-2.5 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                            >
+                                Delete Assignment
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -1,9 +1,12 @@
-import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Menu } from 'lucide-react';
 import './Layout.css';
 
-const Topbar: React.FC = () => {
+interface TopbarProps {
+    toggleSidebar?: () => void;
+}
+
+const Topbar = ({ toggleSidebar }: TopbarProps) => {
     const location = useLocation();
 
     const getPageTitle = () => {
@@ -16,7 +19,12 @@ const Topbar: React.FC = () => {
 
     return (
         <header className="topbar">
-            <div className="page-title">{getPageTitle()}</div>
+            <div className="header-left">
+                <button className="mobile-menu-btn" onClick={toggleSidebar} aria-label="Toggle Menu">
+                    <Menu size={24} />
+                </button>
+                <div className="page-title">{getPageTitle()}</div>
+            </div>
 
             <div className="user-profile">
                 <div className="icon-group" style={{ display: 'flex', gap: '1rem', marginRight: '1rem', color: 'var(--text-secondary)' }}>

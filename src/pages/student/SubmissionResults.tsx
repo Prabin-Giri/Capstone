@@ -47,7 +47,7 @@ const SubmissionResults: React.FC = () => {
     if (error || !submission) {
         return (
             <div className="submission-results">
-                <div className="mb-4">
+                <div className="back-link-container">
                     <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                         &larr; Back to Assignment
                     </Link>
@@ -62,7 +62,7 @@ const SubmissionResults: React.FC = () => {
 
     return (
         <div className="submission-results">
-            <div className="mb-4">
+            <div className="back-link-container">
                 <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                     &larr; Back to Assignment
                 </Link>

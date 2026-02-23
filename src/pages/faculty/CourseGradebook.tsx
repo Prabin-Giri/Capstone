@@ -162,7 +162,7 @@ const CourseGradebook: React.FC = () => {
                 <table className="gradebook-table">
                     <thead>
                         <tr>
-                            <th style={{ position: 'sticky', left: 0, zIndex: 10 }}>Student Name</th>
+                            <th className="gradebook-sticky-col">Student Name</th>
                             <th>Student ID</th>
                             {assignments.map(a => (
                                 <th key={a.id}>
@@ -179,7 +179,7 @@ const CourseGradebook: React.FC = () => {
                     <tbody>
                         {students.map(student => (
                             <tr key={student.id}>
-                                <td style={{ position: 'sticky', left: 0, background: 'white', zIndex: 10, borderRight: '1px solid #e5e7eb' }}>
+                                <td className="gradebook-sticky-col">
                                     <div className="student-name">{student.name}</div>
                                 </td>
                                 <td>

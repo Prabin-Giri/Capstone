@@ -3,7 +3,7 @@
 .ac-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(8px);
     z-index: 1000;
     display: flex;
@@ -26,8 +26,8 @@
 }
 
 .ac-header {
-    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
-    padding: 24px 32px;
+    background: linear-gradient(135deg, var(--primary-color, #840029) 0%, var(--primary-hover, #6a0021) 100%);
+    padding: 1rem 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -52,7 +52,7 @@
 }
 
 .ac-title {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 700;
     margin: 0;
     letter-spacing: -0.025em;
@@ -77,7 +77,7 @@
 }
 
 .ac-body {
-    padding: 32px;
+    padding: 1.5rem;
 }
 
 .ac-section {
@@ -97,8 +97,8 @@
     width: 100%;
     border: 2px solid #e5e7eb;
     border-radius: 12px;
-    padding: 12px 16px;
-    font-size: 0.95rem;
+    padding: 10px 14px;
+    font-size: 0.875rem;
     color: #111827;
     background: #f9fafb;
     transition: all 0.2s;
@@ -107,9 +107,9 @@
 
 .ac-select:focus,
 .ac-input:focus {
-    border-color: #8b5cf6;
+    border-color: var(--primary-color, #840029);
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+    box-shadow: 0 0 0 4px rgba(132, 0, 41, 0.1);
 }
 
 .ac-help-text {
@@ -153,10 +153,10 @@
 }
 
 .ac-btn {
-    padding: 12px 24px;
+    padding: 10px 20px;
     border-radius: 12px;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -176,15 +176,15 @@
 }
 
 .ac-btn-primary {
-    background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+    background: linear-gradient(135deg, var(--primary-color, #840029) 0%, var(--primary-hover, #6a0021) 100%);
     border: none;
     color: white;
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    box-shadow: 0 4px 12px rgba(132, 0, 41, 0.3);
 }
 
 .ac-btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 6px 16px rgba(132, 0, 41, 0.4);
 }
 
 .ac-btn-primary:active {

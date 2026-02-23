@@ -1,17 +1,27 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle, User, LogOut, Database } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle, User, LogOut, Database, X } from 'lucide-react';
 import { getRole, AUTH_ROLES, logout } from '../../lib/auth';
+import logoUrl from '../../assets/logo.png';
 import './Layout.css';
 
-const GlobalSidebar: React.FC = () => {
+interface GlobalSidebarProps {
+    isMobileOpen?: boolean;
+    onClose?: () => void;
+}
+
+const GlobalSidebar = ({ isMobileOpen, onClose }: GlobalSidebarProps) => {
     const role = getRole();
     const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
 
     return (
-        <aside className="global-sidebar">
+        <aside className={`global-sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
+            <button className="mobile-close-btn" onClick={onClose} aria-label="Close Menu">
+                <X size={24} />
+            </button>
             <div className="global-sidebar-header">
-                <h1 className="brand-title">AutoGrade</h1>
+                <NavLink to={dashboardPath} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
+                    <img src={logoUrl} alt="AutoGrade Logo" style={{ width: 'auto', height: '100%', maxHeight: '60px', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+                </NavLink>
             </div>
 
             <nav className="global-nav">

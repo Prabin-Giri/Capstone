@@ -141,11 +141,7 @@ const StudentDashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '1.5rem' }}>
-                                <Button variant="ghost" size="sm" className="w-full" style={{ justifyContent: 'center' }}>
-                                    View Course Details
-                                </Button>
-                            </div>
+
                         </Card>
                     );
                 })}
