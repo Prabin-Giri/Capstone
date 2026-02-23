@@ -37,9 +37,14 @@
   --radius-md: 12px;
   --radius-lg: 16px;
 
-  --global-sidebar-width: 120px;
-  --course-sidebar-width: 220px;
-  --header-height: 72px;
+  --global-sidebar-width: 100px;
+  --course-sidebar-width: 200px;
+  --header-height: 64px;
+}
+
+html {
+  font-size: 93.75%;
+  /* 15px base */
 }
 
 body {

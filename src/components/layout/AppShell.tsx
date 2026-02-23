@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, matchPath, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import GlobalSidebar from './GlobalSidebar';
 import CourseSidebar from './CourseSidebar';
 import Breadcrumbs from './Breadcrumbs';
@@ -13,13 +14,24 @@ const AppShell: React.FC = () => {
         matchPath('/student/courses/:courseId', location.pathname);
     const courseId = courseMatch?.params.courseId;
 
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Close sidebar on route change
+    useEffect(() => {
+        setIsSidebarOpen(false);
+    }, [location.pathname]);
+
     return (
         <div className="app-shell">
-            <GlobalSidebar />
+            <GlobalSidebar isMobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
+            {isSidebarOpen && (
+                <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} />
+            )}
 
             <div className="app-body">
                 <div className="main-wrapper">
-                    <Topbar />
+                    <Topbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
                     <main className="content-area">
                         {courseId ? (

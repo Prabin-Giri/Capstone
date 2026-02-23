@@ -16,6 +16,19 @@
     animation: fadeIn 0.2s ease-out;
 }
 
+.pr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: pr-fadeIn 0.3s ease-out;
+}
+
 .plagiarism-modal-card {
     background: white;
     width: 100%;
@@ -31,8 +44,8 @@
 
 /* Header */
 .pm-header {
-    background: linear-gradient(to right, #faf5ff, #ffffff);
-    padding: 24px;
+    background: linear-gradient(to right, var(--primary-light, #f5e6ea), #ffffff);
+    padding: 1.25rem;
     border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
@@ -48,17 +61,17 @@
 .pm-icon-wrapper {
     width: 48px;
     height: 48px;
-    background-color: #f3e8ff;
+    background-color: var(--primary-light, #f5e6ea);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #7e22ce;
+    color: var(--primary-color, #840029);
 }
 
 .pm-title {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 700;
     color: #111827;
 }
@@ -70,7 +83,7 @@
 }
 
 .pm-highlight {
-    color: #7e22ce;
+    color: var(--primary-color, #840029);
     font-weight: 600;
 }
 
@@ -94,7 +107,7 @@
 
 /* Body */
 .pm-body {
-    padding: 32px;
+    padding: 1.5rem;
     overflow-y: auto;
     flex: 1;
     background-color: #f9fafb;
@@ -110,7 +123,7 @@
 
 .pm-empty-card {
     background: white;
-    padding: 40px;
+    padding: 24px;
     border-radius: 16px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -120,8 +133,8 @@
 }
 
 .pm-hero-icon {
-    width: 80px;
-    height: 80px;
+    width: 64px;
+    height: 64px;
     background-color: #fef3c7;
     /* yellow-100 */
     color: #d97706;
@@ -134,7 +147,7 @@
 }
 
 .pm-hero-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: #111827;
     margin-bottom: 12px;
@@ -148,13 +161,13 @@
 
 /* Action Button */
 .pm-btn-primary {
-    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    background: linear-gradient(135deg, var(--primary-color, #840029) 0%, var(--primary-hover, #6a0021) 100%);
     color: white;
     border: none;
-    padding: 16px 32px;
+    padding: 12px 24px;
     border-radius: 12px;
     font-weight: 600;
-    font-size: 1.125rem;
+    font-size: 1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -162,12 +175,12 @@
     width: 100%;
     justify-content: center;
     transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 14px 0 rgba(124, 58, 237, 0.3);
+    box-shadow: 0 4px 14px 0 rgba(132, 0, 41, 0.3);
 }
 
 .pm-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px 0 rgba(124, 58, 237, 0.4);
+    box-shadow: 0 6px 20px 0 rgba(132, 0, 41, 0.4);
 }
 
 /* Loading State */
@@ -183,8 +196,8 @@
 .pm-spinner {
     width: 60px;
     height: 60px;
-    border: 5px solid #f3e8ff;
-    border-top: 5px solid #7c3aed;
+    border: 5px solid var(--primary-light, #f5e6ea);
+    border-top: 5px solid var(--primary-color, #840029);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 24px;
@@ -242,7 +255,7 @@
 }
 
 .pm-match-card:hover {
-    border-color: #d8b4fe;
+    border-color: var(--primary-color, #840029);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
