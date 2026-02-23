@@ -8,11 +8,12 @@ import {
     uploadSyllabus,
     uploadSchedule,
     getFileUrl,
-    getAssignmentGradesExportUrl
+    getAssignmentGradesExportUrl,
+    updateCourse
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle } from 'lucide-react';
 import './FacultyCourseView.css';
 
 const FacultyCourseView: React.FC = () => {
@@ -23,6 +24,10 @@ const FacultyCourseView: React.FC = () => {
     const [documents, setDocuments] = useState<CourseDocuments | null>(null);
     const [loading, setLoading] = useState(true);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
+    const [archiveInput, setArchiveInput] = useState('');
+    const [actionError, setActionError] = useState<string | null>(null);
 
     const syllabusInputRef = useRef<HTMLInputElement>(null);
     const scheduleInputRef = useRef<HTMLInputElement>(null);
@@ -60,11 +65,16 @@ const FacultyCourseView: React.FC = () => {
         }
     }
 
-    async function handleDelete(id: string) {
-        if (!confirm('Are you sure you want to delete this assignment?')) return;
+    function handleDeleteClick(id: string) {
+        setAssignmentToDelete(id);
+    }
+
+    async function confirmDelete() {
+        if (!assignmentToDelete) return;
         try {
-            await deleteAssignment(id);
-            setAssignments(assignments.filter(a => a.id !== id));
+            await deleteAssignment(assignmentToDelete);
+            setAssignments(assignments.filter(a => a.id !== assignmentToDelete));
+            setAssignmentToDelete(null);
         } catch (err) {
             console.error('Failed to delete', err);
             alert('Failed to delete assignment');
@@ -89,6 +99,29 @@ const FacultyCourseView: React.FC = () => {
             alert('Upload failed');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleArchiveCourse = async () => {
+        if (!courseId || !course) return;
+
+        if (archiveInput !== course.name) {
+            setActionError('Course name does not match');
+            return;
+        }
+
+        try {
+            await updateCourse(courseId, { is_archived: !course.is_archived });
+            // Refresh course data
+            const courseData = await getCourse(courseId);
+            setCourse(courseData);
+            setShowArchiveModal(false);
+            setShowDropdown(false);
+            setArchiveInput('');
+            setActionError(null);
+        } catch (err) {
+            console.error('Failed to archive course', err);
+            setActionError('Failed to update course status. Please try again.');
         }
     };
 
@@ -134,7 +167,7 @@ const FacultyCourseView: React.FC = () => {
                         style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
                     >
                         <Plus size={20} />
-                        Add Course Content
+                        Manage Course
                         <ChevronDown size={14} />
                     </button>
 
@@ -162,12 +195,39 @@ const FacultyCourseView: React.FC = () => {
                                 <Upload size={16} />
                                 Upload Assignment Schedule
                             </button>
+                            <div className="dropdown-divider"></div>
+                            <button
+                                className="dropdown-item"
+                                onClick={() => {
+                                    setShowArchiveModal(true);
+                                    setShowDropdown(false);
+                                    setArchiveInput('');
+                                    setActionError(null);
+                                }}
+                                style={{ color: course.is_archived ? 'var(--primary-color)' : '#ef4444' }}
+                            >
+                                <Archive size={16} />
+                                {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
+                            </button>
                         </div>
                     )}
                 </div>
+
+                <button
+                    onClick={() => navigate('gradebook')}
+                    className="create-btn"
+                    style={{ background: 'var(--primary-color)', color: 'white', marginLeft: '10px', border: 'none' }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FileText size={18} />
+                        View Gradebook
+                    </div>
+                </button>
             </div>
 
             {/* Faculty Analytics Bar */}
+
+
             <div className="analytics-bar">
                 <div className="analytics-card glass">
                     <span className="analytics-label">Total Assignments</span>
@@ -230,7 +290,11 @@ const FacultyCourseView: React.FC = () => {
                             <div className="card-content">
                                 {/* Row 1: Title */}
                                 <div className="card-title-row">
-                                    <h3 className="assignment-title">
+                                    <h3
+                                        className="assignment-title"
+                                        onClick={() => navigate(`assignments/${assignment.id}/grading`)}
+                                        style={{ cursor: 'pointer', color: 'var(--primary-color)' }}
+                                    >
                                         {assignment.title}
                                     </h3>
                                 </div>
@@ -278,7 +342,7 @@ const FacultyCourseView: React.FC = () => {
                                         </div>
 
                                         <button
-                                            onClick={() => handleDelete(assignment.id)}
+                                            onClick={() => handleDeleteClick(assignment.id)}
                                             className="delete-btn"
                                         >
                                             Delete
@@ -290,6 +354,97 @@ const FacultyCourseView: React.FC = () => {
                     ))
                 )}
             </div>
+
+            {/* Archive Confirmation Modal */}
+            {showArchiveModal && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                {course.is_archived ? 'Unarchive Course?' : 'Archive Course?'}
+                            </h3>
+                            <p className="text-gray-500 mb-6 font-medium">
+                                To confirm, type <span className="font-mono bg-gray-100 px-1 rounded select-all">{course.name}</span> below.
+                            </p>
+
+                            <input
+                                type="text"
+                                value={archiveInput}
+                                onChange={(e) => {
+                                    setArchiveInput(e.target.value);
+                                    setActionError(null);
+                                }}
+                                placeholder="Type course name"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                            />
+
+                            {actionError && (
+                                <p className="text-red-600 text-sm mb-4">{actionError}</p>
+                            )}
+
+                            {!course.is_archived && (
+                                <p className="text-xs text-gray-400 mb-6">
+                                    Archiving will make this course read-only for all students.
+                                </p>
+                            )}
+
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setShowArchiveModal(false)}
+                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleArchiveCourse}
+                                    disabled={archiveInput !== course.name}
+                                    className={`flex-1 px-5 py-2.5 rounded-lg font-medium text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${course.is_archived ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
+                                        }`}
+                                >
+                                    {course.is_archived ? 'Unarchive' : 'Archive'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {assignmentToDelete && (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                Delete Assignment?
+                            </h3>
+                            <p className="text-gray-500 mb-6">
+                                Are you sure you want to delete this assignment? This action cannot be undone and will delete all student submissions.
+                            </p>
+
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setAssignmentToDelete(null)}
+                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 px-5 py-2.5 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                                >
+                                    Delete Assignment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -38,8 +38,23 @@ export async function createCourse(course: Course): Promise<Course> {
     });
 }
 
-export function getCourseGradesExportUrl(id: string): string {
-    return `${API_BASE}/courses/${id}/grades/export`;
+export function getCourseGradesExportUrl(id: string, format: 'csv' | 'excel' = 'csv'): string {
+    return `${API_BASE}/courses/${id}/grades/export?format=${format}`;
+}
+
+export interface GradebookData {
+    course: Course;
+    assignments: Assignment[];
+    students: {
+        id: string;
+        name: string;
+        email: string;
+        grades: Record<string, number | null>;
+    }[];
+}
+
+export async function getCourseGrades(courseId: string): Promise<GradebookData> {
+    return apiFetch<GradebookData>(`/courses/${courseId}/grades`);
 }
 
 export function getAssignmentGradesExportUrl(id: string): string {
@@ -70,9 +85,7 @@ export interface Assignment {
     starter_code_path?: string;
     style_points_possible?: number;
     efficiency_points_possible?: number;
-    /** For Java: main class to run (e.g. "LoadShipping"). Overrides inference from filename. */
     java_main_class?: string | null;
-    /** 'program' = stdin/stdout or files; 'function' = LeetCode-style, student defines solution(), we call it with test input. */
     run_mode?: 'program' | 'function';
     created_at?: string;
 }
@@ -144,11 +157,25 @@ export async function getSubmissions(params?: {
     if (params?.assignment_id) searchParams.set('assignment_id', params.assignment_id);
     if (params?.student_id) searchParams.set('student_id', params.student_id);
     const query = searchParams.toString();
-    return apiFetch<Submission[]>(`/submissions${query ? `?${query}` : ''}`);
+    const res = await apiFetch<Submission[]>(`/submissions${query ? `?${query}` : ''}`);
+    return res.map(sub => {
+        try {
+            sub.files = JSON.parse(sub.file_path);
+        } catch (e) {
+            sub.files = [{ name: sub.file_name, path: sub.file_path }];
+        }
+        return sub;
+    });
 }
 
 export async function getSubmission(id: number): Promise<Submission> {
-    return apiFetch<Submission>(`/submissions/${id}`);
+    const sub = await apiFetch<Submission>(`/submissions/${id}`);
+    try {
+        sub.files = JSON.parse(sub.file_path);
+    } catch (e) {
+        sub.files = [{ name: sub.file_name, path: sub.file_path }];
+    }
+    return sub;
 }
 
 export async function createSubmission(
@@ -173,7 +200,13 @@ export async function createSubmission(
         throw new Error(error.error || 'Upload failed');
     }
 
-    return response.json();
+    const sub = await response.json();
+    try {
+        sub.files = JSON.parse(sub.file_path);
+    } catch (e) {
+        sub.files = [{ name: sub.file_name, path: sub.file_path }];
+    }
+    return sub;
 }
 
 export async function updateSubmission(
@@ -207,7 +240,13 @@ export async function updateSubmission(
         throw new Error(error.error || 'Update failed');
     }
 
-    return response.json();
+    const sub = await response.json();
+    try {
+        sub.files = JSON.parse(sub.file_path);
+    } catch (e) {
+        sub.files = [{ name: sub.file_name, path: sub.file_path }];
+    }
+    return sub;
 }
 
 export async function deleteSubmission(id: number): Promise<void> {
@@ -452,12 +491,53 @@ export interface User {
     role: 'student' | 'faculty' | 'admin';
 }
 
-export async function loginRequest(email: string): Promise<User> {
+export async function loginRequest(email: string, role: string): Promise<User> {
     return apiFetch<User>('/users/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, role }),
+    });
+}
+
+export interface PlagiarismResult {
+    student1: { name: string; id: string };
+    student2: { name: string; id: string };
+    similarity: number;
+    matchedTokens: number;
+    totalTokens: number;
+}
+
+export interface PlagiarismResponse {
+    assignmentId: string;
+    totalSubmissions: number;
+    flaggedPairs: PlagiarismResult[];
+    message?: string;
+}
+
+export async function runPlagiarismCheck(assignmentId: string): Promise<PlagiarismResponse> {
+    return apiFetch<PlagiarismResponse>(`/assignments/${assignmentId}/plagiarism-check`, {
+        method: 'POST',
+    });
+}
+
+export interface AutoGradeSummary {
+    graded: number;
+    failed: number;
+    average: number;
+}
+
+export async function autoGradeAssignment(
+    assignmentId: string,
+    latePenalty: string,
+    timeout: number
+): Promise<AutoGradeSummary> {
+    return apiFetch<AutoGradeSummary>(`/assignments/${assignmentId}/autograde`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ latePenalty, timeout }),
     });
 }

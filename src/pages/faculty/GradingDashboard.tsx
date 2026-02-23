@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getAssignment, getSubmissions } from '../../lib/api';
+import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
+import { FileText, BarChart2, Search, Play } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import PlagiarismReportModal from './PlagiarismReportModal';
+import AutoGradingConfigModal from './AutoGradingConfigModal';
 
 import './GradingDashboard.css';
 
@@ -14,6 +17,8 @@ const GradingDashboard: React.FC = () => {
     const [groupedSubmissions, setGroupedSubmissions] = useState<Record<string, Submission[]>>({});
     const [selectedStudentSubmissions, setSelectedStudentSubmissions] = useState<Submission[] | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
+    const [showAutoGradeModal, setShowAutoGradeModal] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -52,12 +57,18 @@ const GradingDashboard: React.FC = () => {
         }
     }
 
+    const handleAutoGrade = async (config: { latePenalty: string; timeout: number }) => {
+        if (!assignmentId) return;
+        await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
+        await loadData(); // Reload to show new grades
+    };
+
     if (loading) return <div className="grading-dashboard-container">Loading...</div>;
     if (!assignment) return <div className="grading-dashboard-container">Assignment not found</div>;
 
     return (
         <div className="grading-dashboard-container">
-            <div className="dashboard-header">
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
                 <div>
                     <div className="breadcrumb">
                         <Link to={`/faculty/courses/${courseId}`}>Back to Course</Link>
@@ -65,6 +76,30 @@ const GradingDashboard: React.FC = () => {
                         <span>{assignment.title}</span>
                     </div>
                     <h1 className="dashboard-title">Grading Dashboard</h1>
+                </div>
+                <div className="flex gap-4" style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={() => setShowAutoGradeModal(true)}
+                        className="btn-dashboard-action"
+                        style={{ backgroundColor: 'white', border: '2px solid #d8b4fe', color: '#7e22ce' }}
+                    >
+                        <Play size={20} />
+                        Auto-Grade All
+                    </button>
+                    <button
+                        onClick={() => setShowPlagiarismModal(true)}
+                        className="btn-dashboard-action btn-plagiarism"
+                    >
+                        <Search size={20} />
+                        Check Plagiarism
+                    </button>
+                    <Link
+                        to={`/faculty/courses/${courseId}/gradebook`}
+                        className="btn-dashboard-action btn-gradebook"
+                    >
+                        <BarChart2 size={20} />
+                        View Reports & Gradebook
+                    </Link>
                 </div>
             </div>
 
@@ -152,33 +187,57 @@ const GradingDashboard: React.FC = () => {
                             <div className="submission-list">
                                 {selectedStudentSubmissions.map((sub) => (
                                     <div key={sub.id} className="submission-item">
-                                        <div className="submission-info">
-                                            <span className="file-name">{sub.file_name}</span>
+                                        <div className="submission-info" style={{ marginBottom: '8px' }}>
                                             <span className="submission-date">
                                                 Submitted: {new Date(sub.submitted_at).toLocaleString()}
                                             </span>
                                         </div>
-                                        <a
-                                            href={`http://localhost:3001/uploads/${sub.file_path}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="btn btn-sm btn-outline text-gray-700 hover:bg-gray-50 border-gray-300"
-                                            style={{
-                                                textDecoration: 'none',
-                                                color: '#374151',
-                                                borderColor: '#d1d5db',
-                                                boxShadow: 'none',
-                                                outline: 'none'
-                                            }}
-                                        >
-                                            Download
-                                        </a>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb', padding: '8px 12px', borderRadius: '6px' }}>
+                                                    <span className="file-name" style={{ fontSize: '14px' }}>{f.name}</span>
+                                                    <a
+                                                        href={getFileUrl(f.path)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="btn btn-sm btn-outline text-gray-700 hover:bg-gray-50 border-gray-300"
+                                                        style={{
+                                                            textDecoration: 'none',
+                                                            color: '#374151',
+                                                            borderColor: '#d1d5db',
+                                                            boxShadow: 'none',
+                                                            outline: 'none'
+                                                        }}
+                                                    >
+                                                        Download
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Plagiarism Report Modal */}
+            {showPlagiarismModal && assignment && (
+                <PlagiarismReportModal
+                    assignmentId={assignment.id}
+                    assignmentTitle={assignment.title}
+                    onClose={() => setShowPlagiarismModal(false)}
+                />
+            )}
+
+            {/* Auto-Grading Config Modal */}
+            {showAutoGradeModal && assignment && (
+                <AutoGradingConfigModal
+                    assignmentId={assignment.id}
+                    onClose={() => setShowAutoGradeModal(false)}
+                    onStart={handleAutoGrade}
+                />
             )}
         </div>
     );

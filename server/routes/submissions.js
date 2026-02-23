@@ -51,7 +51,7 @@ router.get('/:id', async (req, res, next) => {
     }
 });
 
-// POST /api/submissions - Create new submission (code file required; optional second file e.g. test cases doc)
+// POST /api/submissions - Create new submission (code file required; optional second file)
 router.post('/', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'testCasesFile', maxCount: 1 }]), async (req, res, next) => {
     try {
         const { assignment_id, student_id } = req.body;
@@ -91,9 +91,13 @@ router.put('/:id', upload.single('file'), async (req, res, next) => {
         const updates = [];
         const params = [];
 
-        if (req.file) {
+        if (req.files && req.files.length > 0) {
+            const filesData = req.files.map(f => ({
+                name: f.originalname,
+                path: f.filename
+            }));
             updates.push('file_name = ?', 'file_path = ?');
-            params.push(req.file.originalname, req.file.filename);
+            params.push(`${req.files.length} file${req.files.length > 1 ? 's' : ''}`, JSON.stringify(filesData));
         }
         if (status) { updates.push('status = ?'); params.push(status); }
         if (feedback !== undefined) { updates.push('feedback = ?'); params.push(feedback); }

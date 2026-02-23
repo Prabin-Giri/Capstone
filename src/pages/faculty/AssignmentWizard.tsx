@@ -295,6 +295,17 @@ const AssignmentWizard: React.FC = () => {
                             <option value="late">Late</option>
                         </select>
                     </div>
+                    <div className="form-group">
+                        <label className="form-label">Type</label>
+                        <select
+                            className="form-select"
+                            value={formData.type}
+                            onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                        >
+                            <option value="individual">Individual</option>
+                            <option value="group">Group</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div className="form-row">

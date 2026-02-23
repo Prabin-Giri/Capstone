@@ -12,6 +12,17 @@ router.get('/', async (req, res, next) => {
     }
 });
 
+// GET /api/courses/:id/documents (before /:id)
+router.get('/:id/documents', async (req, res, next) => {
+    try {
+        const row = await queryOne('SELECT syllabus_path, schedule_path FROM course_documents WHERE course_id = ?', [req.params.id]);
+        if (!row) return res.status(404).json({ error: 'Course not found' });
+        res.json(row);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /api/courses/:id/grades/export (before /:id)
 router.get('/:id/grades/export', async (req, res, next) => {
     try {

@@ -20,7 +20,7 @@ const Login: React.FC = () => {
         setLoading(true);
 
         try {
-            const user = await loginRequest(email);
+            const user = await loginRequest(email, targetRole);
 
             // Check if role matches
             if (user.role !== targetRole) {

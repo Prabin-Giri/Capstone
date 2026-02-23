@@ -59,7 +59,7 @@
 }
 
 .btn-view-assignments {
-    background-color: #4f46e5;
+    background-color: var(--primary-color);
     color: white;
     padding: 0.5rem 1rem;
     border-radius: 0.375rem;
@@ -70,5 +70,7 @@
 }
 
 .btn-view-assignments:hover {
-    background-color: #4338ca;
+    background-color: var(--primary-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
 }
