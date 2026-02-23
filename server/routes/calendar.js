@@ -49,6 +49,7 @@ router.get('/todos', async (req, res) => {
     if (!student_id) return res.status(400).json({ error: 'Student ID required' });
     try {
         const todos = await query('SELECT * FROM todos WHERE student_id = ? ORDER BY due_date ASC', [student_id]);
+        // Convert 1/0 to boolean
         todos.forEach(t => t.completed = !!t.completed);
         res.json(todos);
     } catch (err) {

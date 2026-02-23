@@ -2,11 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { query, run, queryOne, saveDb } = require('../db');
 
+// Helper for dynamic status check
+const checkStatus = (assignment) => {
+    if (assignment.status === 'active') {
+        const dueDate = new Date(assignment.due_date);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Start of day comparison
+        if (dueDate < now) {
+            assignment.status = 'late';
+        }
+    }
+    return assignment;
+};
+
 // GET /api/assignments
 router.get('/', async (req, res, next) => {
     try {
         const rows = await query('SELECT * FROM assignments ORDER BY due_date');
-        res.json(rows);
+        const assignments = rows.map(checkStatus);
+        res.json(assignments);
     } catch (err) {
         next(err);
     }
@@ -43,7 +57,7 @@ router.get('/:id', async (req, res, next) => {
     try {
         const row = await queryOne('SELECT * FROM assignments WHERE id = ?', [req.params.id]);
         if (!row) return res.status(404).json({ error: 'Assignment not found' });
-        res.json(row);
+        res.json(checkStatus(row));
     } catch (err) {
         next(err);
     }
