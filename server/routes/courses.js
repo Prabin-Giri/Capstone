@@ -63,7 +63,21 @@ router.get('/:id/grades/export', async (req, res, next) => {
 router.get('/:id/assignments', async (req, res, next) => {
     try {
         const rows = await query('SELECT * FROM assignments WHERE course_id = ? ORDER BY due_date', [req.params.id]);
-        res.json(rows);
+
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Start of day for comparison
+
+        const assignments = rows.map(assignment => {
+            if (assignment.status === 'active') {
+                const dueDate = new Date(assignment.due_date);
+                if (dueDate < now) {
+                    assignment.status = 'late';
+                }
+            }
+            return assignment;
+        });
+
+        res.json(assignments);
     } catch (err) {
         next(err);
     }

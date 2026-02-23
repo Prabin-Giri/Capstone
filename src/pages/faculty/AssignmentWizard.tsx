@@ -25,6 +25,7 @@ const AssignmentWizard: React.FC = () => {
         efficiency_points_possible: 0,
         java_main_class: '',
         run_mode: 'program' as 'program' | 'function',
+        type: 'individual' as 'individual' | 'group',
     });
     const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
     const [testCases, setTestCases] = useState<Partial<TestCase>[]>([]);
@@ -53,6 +54,7 @@ const AssignmentWizard: React.FC = () => {
                 efficiency_points_possible: data.efficiency_points_possible ?? 0,
                 java_main_class: (data as any).java_main_class || '',
                 run_mode: (data as any).run_mode === 'function' ? 'function' : 'program',
+                type: 'individual',
             });
             setTestCases(Array.isArray(cases) ? cases : []);
             setLoading(false);

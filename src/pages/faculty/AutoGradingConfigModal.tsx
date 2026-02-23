@@ -8,7 +8,7 @@ interface AutoGradingConfigModalProps {
     onStart: (config: { latePenalty: string; timeout: number }) => Promise<void>;
 }
 
-const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ assignmentId, onClose, onStart }) => {
+const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose, onStart }) => {
     const [latePenalty, setLatePenalty] = useState('none');
     const [timeout, setTimeout] = useState(2000);
     const [isRunning, setIsRunning] = useState(false);

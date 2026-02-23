@@ -36,30 +36,30 @@ const StudentDashboard: React.FC = () => {
     if (loading) {
         return (
             <div className="dashboard-container">
-                <div className="dashboard-header">
-                    <div>
-                        <h1 className="dashboard-title">Dashboard</h1>
-                        <p className="dashboard-subtitle">Loading...</p>
+                        <div className="dashboard-header">
+                            <div>
+                                <h1 className="dashboard-title">Dashboard</h1>
+                                <p className="dashboard-subtitle">Loading...</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        );
+                    );
     }
 
-    if (error) {
+                    if (error) {
         return (
             <div className="dashboard-container">
-                <div className="dashboard-header">
-                    <div>
-                        <h1 className="dashboard-title">Dashboard</h1>
-                        <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
-                    </div>
+            <div className="dashboard-header">
+                <div>
+                    <h1 className="dashboard-title">Dashboard</h1>
+                    <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
                 </div>
             </div>
+        </div>
         );
     }
 
-    return (
+        return (
         <div className="dashboard-container">
             <div className="dashboard-header">
                 <div>
@@ -141,17 +141,13 @@ const StudentDashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '1.5rem' }}>
-                                <Button variant="ghost" size="sm" className="w-full" style={{ justifyContent: 'center' }}>
-                                    View Course Details
-                                </Button>
-                            </div>
+
                         </Card>
                     );
                 })}
             </div>
         </div>
-    );
+        );
 };
 
-export default StudentDashboard;
+        export default StudentDashboard;

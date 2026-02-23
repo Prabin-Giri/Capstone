@@ -147,6 +147,7 @@ export interface Submission {
     style_points?: number | null;
     efficiency_points?: number | null;
     deduction_points?: number | null;
+    files?: { name: string; path: string }[];
 }
 
 export async function getSubmissions(params?: {

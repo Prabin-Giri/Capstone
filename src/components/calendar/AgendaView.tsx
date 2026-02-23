@@ -37,14 +37,22 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
     endDate.setDate(startDate.getDate() + 6);
     endDate.setHours(23, 59, 59, 999);
 
-    // Filter items for the selected range
+    const parseDateLocal = (dateStr: string | undefined | null) => {
+        if (!dateStr) return new Date();
+        if (dateStr.length === 10) {
+            // It's YYYY-MM-DD, parse as local midnight
+            const [y, m, d] = dateStr.split('-');
+            return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        }
+        return new Date(dateStr);
+    };
+
     const items: AgendaItem[] = [
         ...assignments.map(a => ({
             type: 'assignment' as const,
             id: a.id,
             title: a.title,
-            // Safe date parsing
-            date: a.due_date ? new Date(a.due_date) : new Date(8640000000000000),
+            date: a.due_date ? parseDateLocal(a.due_date) : new Date(8640000000000000),
             courseId: a.course_id,
             original: a
         })),
@@ -52,7 +60,7 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
             type: 'todo' as const,
             id: t.id,
             title: t.title,
-            date: t.due_date ? new Date(t.due_date) : new Date(),
+            date: parseDateLocal(t.due_date),
             courseId: t.course_id,
             completed: t.completed,
             original: t
@@ -114,19 +122,21 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                                                     <span className={`todo-title ${item.completed ? 'completed' : ''}`}>
                                                         {item.title}
                                                     </span>
-                                                    <button
-                                                        onClick={() => onDeleteTodo(item.id)}
-                                                        className="delete-todo-btn"
-                                                        aria-label="Delete todo"
-                                                    >
-                                                        &times;
-                                                    </button>
+                                                    {(item.date.getHours() !== 0 || item.date.getMinutes() !== 0) && (
+                                                        <span className="todo-time">
+                                                            Due {item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="assignment-row">
                                                     <span className="assignment-icon" role="img" aria-label="assignment">📝</span>
                                                     <span className="assignment-title">{item.title}</span>
-                                                    <span className="assignment-time">Due 11:59 PM</span>
+                                                    <span className="assignment-time">
+                                                        Due {(item.date.getHours() !== 0 || item.date.getMinutes() !== 0)
+                                                            ? item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                            : '11:59 PM'}
+                                                    </span>
                                                 </div>
                                             )}
                                             {item.courseId && (
@@ -136,6 +146,15 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                                                 >
                                                     {item.courseId}
                                                 </div>
+                                            )}
+                                            {item.type === 'todo' && (
+                                                <button
+                                                    onClick={() => onDeleteTodo(item.id)}
+                                                    className="delete-todo-btn"
+                                                    aria-label="Delete todo"
+                                                >
+                                                    &times;
+                                                </button>
                                             )}
                                         </div>
                                     </div>

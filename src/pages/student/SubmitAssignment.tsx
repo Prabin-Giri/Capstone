@@ -85,11 +85,6 @@ const SubmitAssignment: React.FC = () => {
         }
     };
 
-    const handleTestCasesFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) setTestCasesFile(e.target.files[0]);
-        else setTestCasesFile(null);
-    };
-
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(true);
@@ -154,7 +149,7 @@ const SubmitAssignment: React.FC = () => {
                                         </span>
                                     </p>
                                     <ul className="file-list" style={{ margin: 0, paddingLeft: '20px', fontSize: '14px' }}>
-                                        {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => (
+                                        {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f: { name: string, path: string }, i: number) => (
                                             <li key={i} style={{ marginBottom: '4px' }}>
                                                 <span>{f.name}</span>{' '}
                                                 <a
@@ -185,6 +180,48 @@ const SubmitAssignment: React.FC = () => {
                         {error}
                     </div>
                 )}
+
+                {
+                    existingSubmission && (
+                        <div style={{
+                            background: '#fef3c7',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            marginBottom: '16px'
+                        }}>
+                            <p style={{ margin: 0, fontSize: '14px' }}>
+                                <strong>Previous submission:</strong> {existingSubmission.file_name}
+                                <br />
+                                <span style={{ color: '#666' }}>
+                                    Submitted: {new Date(existingSubmission.submitted_at).toLocaleString()}
+                                </span>
+                                <br />
+                                <a
+                                    href={getFileUrl(existingSubmission.file_path)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#2563eb' }}
+                                >
+                                    Download previous file
+                                </a>
+                            </p>
+                        </div>
+                    )
+                }
+
+                {
+                    error && (
+                        <div style={{
+                            background: '#fee2e2',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            color: '#dc2626'
+                        }}>
+                            {error}
+                        </div>
+                    )
+                }
 
                 <form onSubmit={handleSubmit}>
                     <div
@@ -263,9 +300,9 @@ const SubmitAssignment: React.FC = () => {
                             {isSubmitting ? 'Submitting...' : existingSubmission ? 'Resubmit Assignment' : 'Submit Assignment'}
                         </button>
                     )}
-                </form>
-            </div>
-        </div>
+                </form >
+            </div >
+        </div >
     );
 };
 

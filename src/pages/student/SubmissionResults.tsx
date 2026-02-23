@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getSubmission, getFileUrl, runAutoGrader } from '../../lib/api';
+import { getSubmission, getFileUrl, runAutoGrader, getSubmissions } from '../../lib/api';
 import type { Submission, AutoGradeResult } from '../../lib/api';
 import { Play, Check, X } from 'lucide-react';
 import { getUser } from '../../lib/auth';
@@ -50,7 +50,7 @@ const SubmissionResults: React.FC = () => {
     if (error || !submission) {
         return (
             <div className="submission-results">
-                <div className="mb-4">
+                <div className="back-link-container">
                     <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                         &larr; Back to Assignment
                     </Link>
@@ -65,7 +65,7 @@ const SubmissionResults: React.FC = () => {
 
     return (
         <div className="submission-results">
-            <div className="mb-4">
+            <div className="back-link-container">
                 <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                     &larr; Back to Assignment
                 </Link>
@@ -101,31 +101,34 @@ const SubmissionResults: React.FC = () => {
                                 <td style={{ padding: '8px 0', color: '#6b7280', verticalAlign: 'top' }}>Files Submitted:</td>
                                 <td style={{ padding: '8px 0', fontWeight: 500 }}>
                                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
+                                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f: { name: string, path: string }, i: number) => (
                                             <li key={i}>{f.name}</li>
                                         ))}
                                     </ul>
                                 </td>
-                            </tr>
+                            </tr >
                             <tr>
                                 <td style={{ padding: '8px 0', color: '#6b7280' }}>Submitted At:</td>
                                 <td style={{ padding: '8px 0' }}>{new Date(submission.submitted_at).toLocaleString()}</td>
                             </tr>
-                            {submission.updated_at !== submission.submitted_at && (
-                                <tr>
-                                    <td style={{ padding: '8px 0', color: '#6b7280' }}>Last Updated:</td>
-                                    <td style={{ padding: '8px 0' }}>{new Date(submission.updated_at).toLocaleString()}</td>
-                                </tr>
-                            )}
+                            {
+                                submission.updated_at !== submission.submitted_at && (
+                                    <tr>
+                                        <td style={{ padding: '8px 0', color: '#6b7280' }}>Last Updated:</td>
+                                        <td style={{ padding: '8px 0' }}>{new Date(submission.updated_at).toLocaleString()}</td>
+                                    </tr>
+                                )
+                            }
                             {submission.grade !== null && submission.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') && (
                                 <tr>
                                     <td style={{ padding: '8px 0', color: '#6b7280' }}>Grade:</td>
                                     <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>{submission.grade}/100</td>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                            )
+                            }
+                        </tbody >
+                    </table >
+                </div >
 
                 {submission.feedback && (submission.status === 'graded' || submission.status === 'returned') && (
                     <div style={{
@@ -137,7 +140,8 @@ const SubmissionResults: React.FC = () => {
                         <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600 }}>Instructor Feedback</h3>
                         <p style={{ margin: 0, lineHeight: 1.6 }}>{submission.feedback}</p>
                     </div>
-                )}
+                )
+                }
 
                 <div style={{
                     background: '#f9fafb',
@@ -331,8 +335,8 @@ const SubmissionResults: React.FC = () => {
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

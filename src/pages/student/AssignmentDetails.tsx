@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases, runAutoGrader, getFileUrl } from '../../lib/api';
+import { getAssignment, getSubmissions, getTestCases, runAutoGrader } from '../../lib/api';
 import type { Assignment, Submission, TestCase, AutoGradeResult } from '../../lib/api';
-import { Code, Download, Eye, Play, Check, X, CheckCircle, XCircle } from 'lucide-react';
+import { Code, Download, Eye, Play, Check, X, CheckCircle, XCircle, Zap, Clock, PenTool } from 'lucide-react';
 import './AssignmentDetails.css';
 
 import { getUser } from '../../lib/auth';
