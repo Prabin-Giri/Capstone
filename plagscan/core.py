@@ -219,8 +219,8 @@ def run_detector(
                     shared = fp_a_set.fingerprints & fp_b_set.fingerprints
                     min_fps = min(len(fp_a_set.fingerprints), len(fp_b_set.fingerprints))
                     overlap_ratio = len(shared) / min_fps if min_fps > 0 else 0
-                    # Only flag if there's at least 5% fingerprint overlap
-                    if overlap_ratio >= 0.05:
+                    # Only flag if there's meaningful fingerprint overlap (not just noise)
+                    if overlap_ratio >= 0.15:
                         if verbose:
                             print(f"     ⚠️  {sub_a.id} ↔ {sub_b.id}: metric similarity {ms:.1%} + {overlap_ratio:.1%} overlap (flagged)")
                         flagged_scores.append(
