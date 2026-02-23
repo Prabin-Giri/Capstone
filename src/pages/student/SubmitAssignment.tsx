@@ -11,6 +11,7 @@ const SubmitAssignment: React.FC = () => {
     const user = getUser();
     const studentId = user?.id || 'student-001';
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [testCasesFile, setTestCasesFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [existingSubmission, setExistingSubmission] = useState<Submission | null>(null);
@@ -50,7 +51,7 @@ const SubmitAssignment: React.FC = () => {
 
         try {
             if (assignmentId) {
-                await createSubmission(assignmentId, studentId, selectedFile);
+                await createSubmission(assignmentId, studentId, selectedFile, testCasesFile ?? undefined);
                 navigate(`/student/courses/${courseId}/assignments/${assignmentId}`);
             }
         } catch (err) {
@@ -120,6 +121,25 @@ const SubmitAssignment: React.FC = () => {
                                 <span className="text-gray-900 font-semibold">{selectedFile.name}</span>
                             ) : (
                                 <span>Click to upload file</span>
+                            )}
+                        </label>
+                    </div>
+                    <p className="description-text" style={{ marginTop: '8px', marginBottom: '12px', fontSize: '14px' }}>Code file (required)</p>
+
+                    <div className="upload-area" style={{ marginTop: '16px' }}>
+                        <input
+                            type="file"
+                            id="test-cases-upload"
+                            className="hidden"
+                            onChange={(e) => setTestCasesFile(e.target.files?.[0] ?? null)}
+                            style={{ display: 'none' }}
+                            disabled={isSubmitting}
+                        />
+                        <label htmlFor="test-cases-upload" className="file-input-label cursor-pointer block h-full">
+                            {testCasesFile ? (
+                                <span className="text-gray-900 font-semibold">{testCasesFile.name}</span>
+                            ) : (
+                                <span>Test cases file (optional, e.g. Excel)</span>
                             )}
                         </label>
                     </div>

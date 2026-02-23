@@ -36,6 +36,11 @@
     gap: 8px;
 }
 
+.form-hint {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
 .form-label {
     font-size: 0.875rem;
     /* 14px */
@@ -137,6 +142,18 @@
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(132, 0, 41, 0.1);
+}
+
+/* Test case I/O mode row (stdin vs file input, stdout vs file output) */
+.tc-io-mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.tc-io-mode .form-group {
+    margin-bottom: 0;
 }
 
 @media (max-width: 640px) {

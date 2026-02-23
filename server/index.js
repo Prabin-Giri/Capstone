@@ -1,3 +1,6 @@
+// Load .env from project root (Capstone/.env) so MYSQL_* vars are set
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -11,6 +14,8 @@ const uploadsRouter = require('./routes/uploads');
 const adminRouter = require('./routes/admin');
 const testCasesRouter = require('./routes/testCases');
 const usersRouter = require('./routes/users');
+const graderRouter = require('./routes/grader');
+const { initGraderSchema } = require('./grader/initGraderSchema');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,6 +36,7 @@ app.use('/api/uploads', uploadsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/test-cases', testCasesRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/grader', graderRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -44,10 +50,12 @@ app.use((err, req, res, next) => {
 });
 
 // Initialize database then start server
-initDb().then(() => {
+const db = require('./db');
+initDb().then(async () => {
+    await require('./grader/initGraderSchema').initGraderSchema();
     app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log('Database: SQLite (autograde.db)');
+        console.log('Database:', db.isMySQL ? 'MySQL (cloud)' : 'SQLite (autograde.db)');
     });
 }).catch(err => {
     console.error('Failed to initialize database:', err);

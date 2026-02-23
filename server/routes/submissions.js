@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { getDb, saveDb } = require('../db');
+const { query, run, saveDb } = require('../db');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -24,101 +24,70 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Helper to get rows from prepared statement
-function getRows(db, sql, params = []) {
-    const stmt = db.prepare(sql);
-    if (params.length) stmt.bind(params);
-    const rows = [];
-    while (stmt.step()) {
-        rows.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return rows;
-}
-
 // GET /api/submissions - Get all submissions (optionally filter)
-router.get('/', (req, res, next) => {
+router.get('/', async (req, res, next) => {
     try {
-        const db = getDb();
         const { assignment_id, student_id } = req.query;
         let sql = 'SELECT * FROM submissions WHERE 1=1';
         const params = [];
-
-        if (assignment_id) {
-            sql += ' AND assignment_id = ?';
-            params.push(assignment_id);
-        }
-        if (student_id) {
-            sql += ' AND student_id = ?';
-            params.push(student_id);
-        }
+        if (assignment_id) { sql += ' AND assignment_id = ?'; params.push(assignment_id); }
+        if (student_id) { sql += ' AND student_id = ?'; params.push(student_id); }
         sql += ' ORDER BY submitted_at DESC';
-
-        res.json(getRows(db, sql, params));
+        const rows = await query(sql, params);
+        res.json(rows);
     } catch (err) {
         next(err);
     }
 });
 
 // GET /api/submissions/:id - Get single submission
-router.get('/:id', (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
     try {
-        const db = getDb();
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
+        const rows = await query('SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         res.json(rows[0]);
     } catch (err) {
         next(err);
     }
 });
 
-// POST /api/submissions - Create new submission (with file upload)
-router.post('/', upload.single('file'), (req, res, next) => {
+// POST /api/submissions - Create new submission (code file required; optional second file e.g. test cases doc)
+router.post('/', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'testCasesFile', maxCount: 1 }]), async (req, res, next) => {
     try {
-        const db = getDb();
         const { assignment_id, student_id } = req.body;
+        const mainFile = req.files && req.files['file'] && req.files['file'][0];
+        const testCasesFile = req.files && req.files['testCasesFile'] && req.files['testCasesFile'][0];
 
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-        if (!assignment_id || !student_id) {
-            return res.status(400).json({ error: 'assignment_id and student_id are required' });
-        }
+        if (!mainFile) return res.status(400).json({ error: 'No file uploaded' });
+        if (!assignment_id || !student_id) return res.status(400).json({ error: 'assignment_id and student_id are required' });
 
-        const file_name = req.file.originalname;
-        const file_path = req.file.filename;
+        const file_name = mainFile.originalname;
+        const file_path = mainFile.filename;
+        const file_name_2 = testCasesFile ? testCasesFile.originalname : null;
+        const file_path_2 = testCasesFile ? testCasesFile.filename : null;
 
-        // Check for existing submission
-        const existing = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?',
-            [assignment_id, student_id]);
-
+        const existing = await query('SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?', [assignment_id, student_id]);
         if (existing.length > 0) {
-            // Update existing
-            db.run("UPDATE submissions SET file_name = ?, file_path = ?, updated_at = datetime('now'), status = 'pending' WHERE assignment_id = ? AND student_id = ?",
-                [file_name, file_path, assignment_id, student_id]);
+            await run("UPDATE submissions SET file_name = ?, file_path = ?, file_name_2 = ?, file_path_2 = ?, updated_at = CURRENT_TIMESTAMP, status = 'pending' WHERE assignment_id = ? AND student_id = ?",
+                [file_name, file_path, file_name_2, file_path_2, assignment_id, student_id]);
         } else {
-            // Insert new
-            db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, submitted_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
-                [assignment_id, student_id, file_name, file_path]);
+            await run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, file_name_2, file_path_2, submitted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                [assignment_id, student_id, file_name, file_path, file_name_2, file_path_2]);
         }
-        saveDb();
+        await saveDb();
 
-        // Return the submission
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?',
-            [assignment_id, student_id]);
+        const rows = await query('SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?', [assignment_id, student_id]);
         res.status(201).json(rows[0]);
     } catch (err) {
         next(err);
     }
 });
 
-// PUT /api/submissions/:id - Update submission
-router.put('/:id', upload.single('file'), (req, res, next) => {
+// PUT /api/submissions/:id - Update submission (supports rubric: style_points, efficiency_points, deduction_points)
+router.put('/:id', upload.single('file'), async (req, res, next) => {
     try {
-        const db = getDb();
-        const { status, grade, feedback } = req.body;
+        const id = parseInt(req.params.id, 10);
+        const { status, grade, feedback, style_points, efficiency_points, deduction_points } = req.body;
         const updates = [];
         const params = [];
 
@@ -126,33 +95,45 @@ router.put('/:id', upload.single('file'), (req, res, next) => {
             updates.push('file_name = ?', 'file_path = ?');
             params.push(req.file.originalname, req.file.filename);
         }
-        if (status) {
-            updates.push('status = ?');
-            params.push(status);
-        }
-        if (grade !== undefined) {
+        if (status) { updates.push('status = ?'); params.push(status); }
+        if (feedback !== undefined) { updates.push('feedback = ?'); params.push(feedback); }
+        if (style_points !== undefined) { updates.push('style_points = ?'); params.push(style_points === '' || style_points === null ? null : parseFloat(style_points)); }
+        if (efficiency_points !== undefined) { updates.push('efficiency_points = ?'); params.push(efficiency_points === '' || efficiency_points === null ? null : parseFloat(efficiency_points)); }
+        if (deduction_points !== undefined) { updates.push('deduction_points = ?'); params.push(parseFloat(deduction_points) || 0); }
+
+        if (style_points !== undefined || efficiency_points !== undefined || deduction_points !== undefined) {
+            const subRows = await query('SELECT * FROM submissions WHERE id = ?', [id]);
+            if (subRows.length > 0) {
+                const sub = subRows[0];
+                const assignRows = await query('SELECT * FROM assignments WHERE id = ?', [sub.assignment_id]);
+                const tcRows = await query('SELECT points FROM test_cases WHERE assignment_id = ?', [sub.assignment_id]);
+                const maxPossible = tcRows.reduce((s, r) => s + (Number(r.points) || 0), 0);
+                const stylePossible = assignRows.length ? (Number(assignRows[0].style_points_possible) || 0) : 0;
+                const efficiencyPossible = assignRows.length ? (Number(assignRows[0].efficiency_points_possible) || 0) : 0;
+                const totalPossible = maxPossible + stylePossible + efficiencyPossible;
+                const correctness = sub.correctness_score != null ? Number(sub.correctness_score) : 0;
+                const stylePts = style_points !== undefined && style_points !== '' && style_points !== null ? parseFloat(style_points) : (sub.style_points != null ? Number(sub.style_points) : 0);
+                const effPts = efficiency_points !== undefined && efficiency_points !== '' && efficiency_points !== null ? parseFloat(efficiency_points) : (sub.efficiency_points != null ? Number(sub.efficiency_points) : 0);
+                const dedPts = deduction_points !== undefined ? (parseFloat(deduction_points) || 0) : (Number(sub.deduction_points) || 0);
+                const rubricTotal = correctness + stylePts + effPts - dedPts;
+                const computedGrade = totalPossible > 0 ? Math.round((rubricTotal / totalPossible) * 10000) / 100 : null;
+                updates.push('grade = ?');
+                params.push(computedGrade);
+            }
+        } else if (grade !== undefined) {
             updates.push('grade = ?');
             params.push(parseFloat(grade));
         }
-        if (feedback !== undefined) {
-            updates.push('feedback = ?');
-            params.push(feedback);
-        }
 
-        if (updates.length === 0) {
-            return res.status(400).json({ error: 'No updates provided' });
-        }
+        if (updates.length === 0) return res.status(400).json({ error: 'No updates provided' });
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(id);
 
-        updates.push("updated_at = datetime('now')");
-        params.push(parseInt(req.params.id));
+        await run(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
+        await saveDb();
 
-        db.run(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
-        saveDb();
-
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
+        const rows = await query('SELECT * FROM submissions WHERE id = ?', [id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         res.json(rows[0]);
     } catch (err) {
         next(err);
@@ -160,22 +141,14 @@ router.put('/:id', upload.single('file'), (req, res, next) => {
 });
 
 // DELETE /api/submissions/:id - Delete submission
-router.delete('/:id', (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
     try {
-        const db = getDb();
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
-
-        // Delete file
+        const rows = await query('SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         const filePath = path.join(uploadsDir, rows[0].file_path);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-
-        db.run('DELETE FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
-        saveDb();
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await run('DELETE FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
+        await saveDb();
         res.json({ message: 'Submission deleted successfully' });
     } catch (err) {
         next(err);
