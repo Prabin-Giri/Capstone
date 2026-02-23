@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getSubmission, updateSubmission, getFileUrl, getAssignment, runAutoGrader, getTestCases } from '../../lib/api';
+import { getSubmission, updateSubmission, getFileUrl, getAssignment, runAutoGrader, getTestCases, getSubmissions } from '../../lib/api';
 import type { Submission, Assignment } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 
@@ -13,7 +13,6 @@ const SubmissionGrader: React.FC = () => {
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [loading, setLoading] = useState(true);
-    const [showPreview, setShowPreview] = useState(false);
     const [isGrading, setIsGrading] = useState(false);
     const [gradeError, setGradeError] = useState<string | null>(null);
 
@@ -23,6 +22,7 @@ const SubmissionGrader: React.FC = () => {
     const [deductionPoints, setDeductionPoints] = useState<string>('0');
     const [grade, setGrade] = useState('');
     const [feedback, setFeedback] = useState('');
+    const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -31,13 +31,15 @@ const SubmissionGrader: React.FC = () => {
     async function loadData() {
         if (!submissionId || !assignmentId) return;
         try {
-            const [subData, assignData, testCases] = await Promise.all([
-                getSubmission(parseInt(submissionId)),
+            const subData = await getSubmission(parseInt(submissionId));
+            const [assignData, testCases, submissionsData] = await Promise.all([
                 getAssignment(assignmentId),
                 getTestCases(assignmentId).catch(() => []),
+                getSubmissions({ assignment_id: assignmentId, student_id: subData.student_id })
             ]);
             setSubmission(subData);
             setAssignment(assignData);
+            setAllSubmissions(submissionsData);
             const cp = testCases.reduce((s, tc) => s + (tc.points || 0), 0);
             setCorrectnessPossible(cp);
 
@@ -118,7 +120,7 @@ const SubmissionGrader: React.FC = () => {
                                     Attempt {allSubmissions.length - idx} &bull; <span style={{ fontWeight: 'normal' }}>{new Date(sub.submitted_at).toLocaleString()}</span>
                                 </h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => {
+                                    {((sub as any).files || [{ name: sub.file_name, path: sub.file_path }]).map((f: any, i: number) => {
                                         const url = getFileUrl(f.path);
                                         const isPreviewing = previewFileUrl === url;
                                         return (
