@@ -20,7 +20,7 @@ const Login: React.FC = () => {
         setLoading(true);
 
         try {
-            const user = await loginRequest(email, targetRole);
+            const user = await loginRequest(email, password);
 
             // Check if role matches
             if (user.role !== targetRole) {
@@ -28,15 +28,12 @@ const Login: React.FC = () => {
                 return;
             }
 
-            // Mock password check for demo purposes (accept anything)
-            if (password) {
-                login({
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role
-                });
-            }
+            login({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            });
         } catch (err: any) {
             setError(err.message || 'Login failed. Please check your credentials.');
         } finally {
@@ -47,8 +44,10 @@ const Login: React.FC = () => {
     return (
         <div className="login-container">
             <div className="login-card">
-                <div className="login-header">
-                    <h1 className="app-name">AutoGrade</h1>
+                <div className="login-header" style={{ textAlign: 'center' }}>
+                    <div className="brand-container" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
+                        <div className="brand-ig" style={{ width: '80px', height: '80px', fontSize: '3rem' }}>Ig</div>
+                    </div>
                     <h2 className="login-title">{title}</h2>
                 </div>
 
@@ -87,6 +86,10 @@ const Login: React.FC = () => {
                     <button type="submit" className="submit-btn" disabled={loading}>
                         {loading ? 'Signing in...' : 'Sign in'}
                     </button>
+
+                    <div className="auth-footer">
+                        Don't have an account? <Link to={`/signup/${role}`}>Sign Up</Link>
+                    </div>
                 </form>
 
                 <Link to="/" className="back-link">
