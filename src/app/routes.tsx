@@ -3,6 +3,7 @@ import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/layout/ProtectedRoute';
 import LandingPage from '../pages/LandingPage';
 import Login from '../pages/auth/Login';
+import SignUp from '../pages/auth/SignUp';
 import StudentDashboard from '../pages/student/StudentDashboard';
 import Calendar from '../pages/student/Calendar';
 import ClassOverview from '../pages/student/ClassOverview';
@@ -18,7 +19,6 @@ import GradingDashboard from '../pages/faculty/GradingDashboard';
 import SubmissionGrader from '../pages/faculty/SubmissionGrader';
 import NewCourse from '../pages/faculty/NewCourse';
 import CourseGradebook from '../pages/faculty/CourseGradebook';
-import DatabaseExplorer from '../pages/admin/DatabaseExplorer';
 import NotFound from '../pages/NotFound';
 import { AUTH_ROLES } from '../lib/auth';
 
@@ -32,6 +32,10 @@ export const router = createBrowserRouter([
         element: <Login />,
     },
     {
+        path: '/signup/:role',
+        element: <SignUp />,
+    },
+    {
         path: '/',
         element: <AppShell />,
         errorElement: <NotFound />,
@@ -39,10 +43,6 @@ export const router = createBrowserRouter([
             {
                 path: 'calendar',
                 element: <Calendar />
-            },
-            {
-                path: 'db-explorer',
-                element: <DatabaseExplorer />
             },
             {
                 path: 'student',
@@ -78,3 +78,4 @@ export const router = createBrowserRouter([
         element: <NotFound />
     }
 ]);
+
