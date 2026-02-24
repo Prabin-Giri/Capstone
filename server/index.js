@@ -1,6 +1,3 @@
-// Load .env from project root (Capstone/.env) so MYSQL_* vars are set
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -11,11 +8,8 @@ const assignmentsRouter = require('./routes/assignments');
 const submissionsRouter = require('./routes/submissions');
 const calendarRouter = require('./routes/calendar');
 const uploadsRouter = require('./routes/uploads');
-const adminRouter = require('./routes/admin');
 const testCasesRouter = require('./routes/testCases');
 const usersRouter = require('./routes/users');
-const graderRouter = require('./routes/grader');
-const { initGraderSchema } = require('./grader/initGraderSchema');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,10 +27,8 @@ app.use('/api/assignments', assignmentsRouter);
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/calendar', calendarRouter);
 app.use('/api/uploads', uploadsRouter);
-app.use('/api/admin', adminRouter);
 app.use('/api/test-cases', testCasesRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/grader', graderRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -50,16 +42,40 @@ app.use((err, req, res, next) => {
 });
 
 // Initialize database then start server
-const db = require('./db');
-initDb().then(async () => {
-    await require('./grader/initGraderSchema').initGraderSchema();
-    app.listen(PORT, () => {
+initDb().then(() => {
+    const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log('Database:', db.isMySQL ? 'MySQL (cloud)' : 'SQLite (autograde.db)');
+        console.log(`Database: MySQL (${process.env.DB_NAME || 'intelligrade'})`);
     });
+
+    // Handle server errors (like EADDRINUSE)
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use. Please kill the process or use a different port.`);
+        } else {
+            console.error('Server error:', err);
+        }
+        process.exit(1);
+    });
+
+    // Graceful shutdown
+    const shutdown = async () => {
+        console.log('\nShutting down gracefully...');
+        try {
+            const { getDb } = require('./db');
+            const db = getDb();
+            await db.end();
+            console.log('Database pool closed.');
+        } catch (_) {
+            // Database was not initialized or already closed
+        }
+        process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+
 }).catch(err => {
     console.error('Failed to initialize database:', err);
     process.exit(1);
 });
-
-// Force restart to reload database changes and routes - Triggered at 2026-02-22T22:36:00
