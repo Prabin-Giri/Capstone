@@ -10,8 +10,8 @@ const SubmitAssignment: React.FC = () => {
     const navigate = useNavigate();
     const user = getUser();
     const studentId = user?.id || 'student-001';
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [testCasesFile, setTestCasesFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [fileInputKey, setFileInputKey] = useState(Date.now());
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [existingSubmission, setExistingSubmission] = useState<Submission | null>(null);
@@ -78,10 +78,14 @@ const SubmitAssignment: React.FC = () => {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            if (!validateFile(file)) return;
-            setSelectedFile(file);
+            const newFiles = Array.from(e.target.files);
+            // Validate each file
+            for (const file of newFiles) {
+                if (!validateFile(file)) return;
+            }
+            setSelectedFiles(prev => [...prev, ...newFiles]);
             setError(null);
+            setFileInputKey(Date.now()); // Forces DOM replacement of input to allow identical subsequent selections
         }
     };
 
@@ -99,23 +103,29 @@ const SubmitAssignment: React.FC = () => {
         e.preventDefault();
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            if (!validateFile(file)) return;
-            setSelectedFile(file);
+            const newFiles = Array.from(e.dataTransfer.files);
+            for (const file of newFiles) {
+                if (!validateFile(file)) return;
+            }
+            setSelectedFiles(prev => [...prev, ...newFiles]);
             setError(null);
         }
     };
 
+    const removeFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedFile || !assignmentId) return;
+        if (selectedFiles.length === 0 || !assignmentId) return;
 
         setIsSubmitting(true);
         setError(null);
 
         try {
             if (assignmentId) {
-                await createSubmission(assignmentId, studentId, selectedFile, testCasesFile ?? undefined);
+                await createSubmission(assignmentId, studentId, selectedFiles);
                 navigate(`/student/courses/${courseId}/assignments/${assignmentId}`);
             }
         } catch (err) {
@@ -149,7 +159,7 @@ const SubmitAssignment: React.FC = () => {
                                         </span>
                                     </p>
                                     <ul className="file-list" style={{ margin: 0, paddingLeft: '20px', fontSize: '14px' }}>
-                                        {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f: { name: string, path: string }, i: number) => (
+                                        {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => (
                                             <li key={i} style={{ marginBottom: '4px' }}>
                                                 <span>{f.name}</span>{' '}
                                                 <a
@@ -181,48 +191,6 @@ const SubmitAssignment: React.FC = () => {
                     </div>
                 )}
 
-                {
-                    existingSubmission && (
-                        <div style={{
-                            background: '#fef3c7',
-                            padding: '12px 16px',
-                            borderRadius: '8px',
-                            marginBottom: '16px'
-                        }}>
-                            <p style={{ margin: 0, fontSize: '14px' }}>
-                                <strong>Previous submission:</strong> {existingSubmission.file_name}
-                                <br />
-                                <span style={{ color: '#666' }}>
-                                    Submitted: {new Date(existingSubmission.submitted_at).toLocaleString()}
-                                </span>
-                                <br />
-                                <a
-                                    href={getFileUrl(existingSubmission.file_path)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ color: '#2563eb' }}
-                                >
-                                    Download previous file
-                                </a>
-                            </p>
-                        </div>
-                    )
-                }
-
-                {
-                    error && (
-                        <div style={{
-                            background: '#fee2e2',
-                            padding: '12px 16px',
-                            borderRadius: '8px',
-                            marginBottom: '16px',
-                            color: '#dc2626'
-                        }}>
-                            {error}
-                        </div>
-                    )
-                }
-
                 <form onSubmit={handleSubmit}>
                     <div
                         className={`upload-area ${isDragging ? 'dragging' : ''}`}
@@ -235,8 +203,10 @@ const SubmitAssignment: React.FC = () => {
                         }}
                     >
                         <input
+                            key={fileInputKey}
                             type="file"
                             id="file-upload"
+                            multiple
                             className="hidden"
                             onChange={handleFileChange}
                             style={{ display: 'none' }}
@@ -252,32 +222,17 @@ const SubmitAssignment: React.FC = () => {
                             </div>
                         </label>
                     </div>
-                    <p className="description-text" style={{ marginTop: '8px', marginBottom: '12px', fontSize: '14px' }}>Code file (required)</p>
 
-                    <div className="upload-area" style={{ marginTop: '16px' }}>
-                        <input
-                            type="file"
-                            id="test-cases-upload"
-                            className="hidden"
-                            onChange={(e) => setTestCasesFile(e.target.files?.[0] ?? null)}
-                            style={{ display: 'none' }}
-                            disabled={isSubmitting}
-                        />
-                        <label htmlFor="test-cases-upload" className="file-input-label cursor-pointer block h-full">
-                            {testCasesFile ? (
-                                <span className="text-gray-900 font-semibold">{testCasesFile.name}</span>
-                            ) : (
-                                <span>Test cases file (optional, e.g. Excel)</span>
-                            )}
-                        </label>
-                    </div>
-
-                    {(selectedFile || testCasesFile) && (
+                    {selectedFiles.length > 0 && (
                         <div style={{ background: '#f3f4f6', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px' }}>
                             <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Files to upload:</h4>
                             <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px' }}>
-                                {selectedFile && <li style={{ marginBottom: '4px' }}>{selectedFile.name} <button type="button" onClick={() => setSelectedFile(null)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Remove</button></li>}
-                                {testCasesFile && <li style={{ marginBottom: '4px' }}>{testCasesFile.name} (test cases) <button type="button" onClick={() => setTestCasesFile(null)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Remove</button></li>}
+                                {selectedFiles.map((f, i) => (
+                                    <li key={i} style={{ marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>{f.name}</span>
+                                        <button type="button" onClick={() => removeFile(i)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Remove</button>
+                                    </li>
+                                ))}
                             </ul>
                         </div>
                     )}
@@ -294,15 +249,15 @@ const SubmitAssignment: React.FC = () => {
                         <button
                             type="submit"
                             className="btn btn-primary w-full"
-                            disabled={!selectedFile || isSubmitting}
-                            style={{ width: '100%', opacity: selectedFile && !isSubmitting ? 1 : 0.5 }}
+                            disabled={selectedFiles.length === 0 || isSubmitting}
+                            style={{ width: '100%', opacity: (selectedFiles.length > 0) && !isSubmitting ? 1 : 0.5 }}
                         >
                             {isSubmitting ? 'Submitting...' : existingSubmission ? 'Resubmit Assignment' : 'Submit Assignment'}
                         </button>
                     )}
-                </form >
-            </div >
-        </div >
+                </form>
+            </div>
+        </div>
     );
 };
 

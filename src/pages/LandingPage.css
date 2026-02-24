@@ -14,16 +14,16 @@
 }
 
 .landing-title {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 800;
     color: #1f2937;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .landing-subtitle {
-    font-size: 1rem;
+    font-size: 1.125rem;
     color: #6b7280;
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
 }
 
 .role-cards {
@@ -40,7 +40,7 @@
 
 .role-card {
     background-color: white;
-    padding: 1.5rem;
+    padding: 2rem;
     border-radius: 0.75rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;

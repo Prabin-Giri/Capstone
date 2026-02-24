@@ -127,8 +127,8 @@ const ClassAssignments: React.FC = () => {
                             <th className="col-submitted">Submitted</th>
                             <th className="col-grade">Grade</th>
                             <th className="col-action">Action</th>
-                        </tr >
-                    </thead >
+                        </tr>
+                    </thead>
                     <tbody>
                         {assignments.map((assignment) => {
                             const submission = submissions.get(assignment.id);
@@ -198,10 +198,10 @@ const ClassAssignments: React.FC = () => {
                                 </tr>
                             );
                         })}
-                    </tbody >
-                </table >
-            </div >
-        </div >
+                    </tbody>
+                </table>
+            </div>
+        </div>
     );
 };
 

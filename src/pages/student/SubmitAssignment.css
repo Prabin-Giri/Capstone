@@ -8,16 +8,16 @@
     background-color: white;
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
-    padding: 1.5rem;
+    padding: 2rem;
 }
 
 .upload-area {
     border: 2px dashed var(--border-color);
     border-radius: 0.5rem;
-    padding: 2rem 1rem;
+    padding: 3rem 1.5rem;
     text-align: center;
     background-color: var(--bg-body);
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
     cursor: pointer;
     transition: all 0.2s;
 }

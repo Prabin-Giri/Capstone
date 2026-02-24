@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createCourse } from '../../lib/api';
+import { getUser } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
 import './NewCourse.css';
 
@@ -20,7 +21,8 @@ const NewCourse: React.FC = () => {
         setError(null);
 
         try {
-            await createCourse(formData);
+            const user = getUser();
+            await createCourse({ ...formData, instructor_id: user?.id });
             navigate('/faculty');
         } catch (err: any) {
             setError(err.message || 'Failed to create course');

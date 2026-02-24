@@ -3,8 +3,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, updateCourse, type Course } from '../../lib/api';
-import { Archive, RotateCcw, AlertCircle, X } from 'lucide-react';
-import './FacultyDashboard.css';
+import { getUser } from '../../lib/auth';
+import { Archive, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface ArchiveModalState {
     id: string;
@@ -24,7 +24,8 @@ const FacultyDashboard: React.FC = () => {
     const loadCourses = async () => {
         setLoading(true);
         try {
-            const data = await getCourses();
+            const user = getUser();
+            const data = await getCourses({ instructorId: user?.id });
             setCourses(data);
         } catch (err) {
             console.error('Failed to load courses', err);
@@ -51,8 +52,8 @@ const FacultyDashboard: React.FC = () => {
     const confirmArchive = async () => {
         if (!archiveModal) return;
 
-        if (archiveInput !== archiveModal.id) {
-            setActionError('Course code does not match');
+        if (archiveInput !== archiveModal.name) {
+            setActionError('Course name does not match');
             return;
         }
 
@@ -103,14 +104,19 @@ const FacultyDashboard: React.FC = () => {
                     filteredCourses.map((course) => (
                         <Card
                             key={course.id}
-                            className={`course-card-premium cursor-pointer ${course.is_archived ? 'archived-card' : ''}`}
+                            className={`cursor-pointer ${course.is_archived ? 'archived-card' : ''}`}
                             onClick={() => navigate(`/faculty/courses/${course.id}`)}
                             style={course.is_archived ? { opacity: 0.7, filter: 'grayscale(0.5)' } : {}}
                         >
                             <div className="course-card-header">
-                                <div className="course-id-display">{course.id}</div>
-                                <div className="flex justify-between items-center">
-                                    <h3 className="course-title-display" style={{ margin: 0 }}>{course.name}</h3>
+                                <div>
+                                    <h3 className="course-id">{course.name}</h3>
+                                    <p className="course-term">{course.term}</p>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                    <span className="tag-pill">
+                                        {course.id}
+                                    </span>
                                     <button
                                         className="archive-btn-mini"
                                         onClick={(e) => openArchiveModal(e, course)}
@@ -125,30 +131,29 @@ const FacultyDashboard: React.FC = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             borderRadius: '4px',
-                                            transition: 'all 0.2s',
-                                            marginLeft: '8px'
+                                            transition: 'all 0.2s'
                                         }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                                     >
                                         {course.is_archived ? <RotateCcw size={14} /> : <Archive size={14} />}
                                     </button>
                                 </div>
-                                <p className="course-term" style={{ marginTop: '2px' }}>{course.term}</p>
                             </div>
 
-                            <div className="course-stats-display">
-                                <div className="stat-item">
-                                    <span className="stat-label">Students</span>
-                                    <span className="stat-v">0</span>
+                            {/* Spacer to push stats to bottom */}
+                            <div style={{ flex: 1 }}></div>
+
+                            <div className="course-stats">
+                                <div>
+                                    <span className="stat-value">0</span>
+                                    <span>Students</span>
                                 </div>
-                                <div className="stat-item">
-                                    <span className="stat-label">Active Assignments</span>
-                                    <span className="stat-v">0</span>
+                                <div>
+                                    <span className="stat-value">0</span>
+                                    <span>Active Assignments</span>
                                 </div>
                             </div>
-
-
                         </Card>
                     ))
                 )}
@@ -156,62 +161,59 @@ const FacultyDashboard: React.FC = () => {
 
             {/* Archive/Unarchive Confirmation Modal */}
             {archiveModal && (
-                <div className="archive-modal-overlay" onClick={() => setArchiveModal(null)}>
-                    <div className="archive-modal-card" onClick={(e) => e.stopPropagation()}>
-                        <div className="archive-header">
-                            <div className="archive-title-container">
-                                <h2>{archiveModal.currentlyArchived ? 'Unarchive Course' : 'Archive Course'}</h2>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                                <AlertTriangle size={24} />
                             </div>
-                            <button className="archive-close-btn" onClick={() => setArchiveModal(null)}>
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="archive-body">
-                            <p className="archive-instruction">
-                                To confirm, please type <strong>{archiveModal.id}</strong> below.
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                {archiveModal.currentlyArchived ? 'Unarchive Course?' : 'Archive Course?'}
+                            </h3>
+                            <p className="text-gray-500 mb-6 font-medium">
+                                To confirm, type <span className="font-mono bg-gray-100 px-1 rounded select-all">{archiveModal.name}</span> below.
                             </p>
 
-                            <div className="archive-input-container">
-                                <input
-                                    type="text"
-                                    value={archiveInput}
-                                    onChange={(e) => {
-                                        setArchiveInput(e.target.value);
-                                        setActionError(null);
-                                    }}
-                                    placeholder={`Type course code (e.g., ${archiveModal.id})`}
-                                    autoFocus
-                                />
-                            </div>
+                            <input
+                                type="text"
+                                value={archiveInput}
+                                onChange={(e) => {
+                                    setArchiveInput(e.target.value);
+                                    setActionError(null);
+                                }}
+                                placeholder="Type course name"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                onClick={(e) => e.stopPropagation()}
+                            />
 
                             {actionError && (
-                                <div className="archive-warning" style={{ background: '#fef2f2', borderColor: '#fee2e2' }}>
-                                    <AlertCircle size={16} color="#b91c1c" />
-                                    <span className="archive-warning-text">{actionError}</span>
-                                </div>
+                                <p className="text-red-600 text-sm mb-4">{actionError}</p>
                             )}
 
                             {!archiveModal.currentlyArchived && (
-                                <div className="archive-warning">
-                                    <AlertCircle size={16} color="#b91c1c" />
-                                    <span className="archive-warning-text">
-                                        Archiving will make this course read-only for all students.
-                                    </span>
-                                </div>
+                                <p className="text-xs text-gray-400 mb-6">
+                                    Archiving will make this course read-only for all students.
+                                </p>
                             )}
 
-                            <div className="archive-footer">
+                            <div className="flex gap-3 w-full">
                                 <button
-                                    className="archive-btn archive-btn-cancel"
-                                    onClick={() => setArchiveModal(null)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setArchiveModal(null);
+                                    }}
+                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    className={`archive-btn archive-btn-confirm ${archiveModal.currentlyArchived ? 'archive-btn-unarchive' : ''}`}
-                                    onClick={confirmArchive}
-                                    disabled={archiveInput !== archiveModal.id}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        confirmArchive();
+                                    }}
+                                    disabled={archiveInput !== archiveModal.name}
+                                    className={`flex-1 px-5 py-2.5 rounded-lg font-medium text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${archiveModal.currentlyArchived ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
+                                        }`}
                                 >
                                     {archiveModal.currentlyArchived ? 'Unarchive' : 'Archive'}
                                 </button>
@@ -220,7 +222,7 @@ const FacultyDashboard: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div >
+        </div>
     );
 };
 

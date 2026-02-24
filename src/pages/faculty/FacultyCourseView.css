@@ -2,7 +2,7 @@
 .faculty-course-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 2.5rem 2rem;
 }
 
 /* Header Section */
@@ -10,12 +10,12 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
 }
 
 .header-title h1 {
-  font-size: 1.75rem;
+  font-size: 2.25rem;
   font-weight: 800;
   color: var(--primary-color);
   letter-spacing: -0.04em;
@@ -24,8 +24,8 @@
 
 .header-metadata {
   color: var(--text-secondary);
-  margin-top: 0.375rem;
-  font-size: 0.95rem;
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
   font-weight: 500;
 }
 
@@ -33,9 +33,9 @@
   background-color: var(--primary-color);
   color: white;
   font-weight: 600;
-  padding: 0.5rem 1rem;
+  padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
@@ -133,11 +133,129 @@
   background-color: transparent;
 }
 
+/* Main Content Layout */
+.course-main-content {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .course-main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+}
+
 /* Assignments List */
 .assignments-list {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+}
+
+/* Students Section */
+.students-list {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.5);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.student-item:hover {
+  background: white;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.student-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.student-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.student-email {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.student-id-tag {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--light-grey);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+}
+
+.empty-text {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.enroll-btn-small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.enroll-btn-small:hover {
+  background: var(--primary-color);
+  color: white;
 }
 
 /* Assignment Card Premium */
@@ -146,7 +264,7 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem 2rem;
   transition: all 0.3s ease;
   border-left: 4px solid var(--primary-color);
 }
@@ -157,7 +275,7 @@
 }
 
 .assignment-title {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
@@ -167,8 +285,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--light-grey);
 }
 
@@ -181,14 +299,14 @@
 .due-date {
   display: flex;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-secondary);
 }
 
 .due-label {
   text-transform: uppercase;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
   font-weight: 800;
   margin-right: 0.75rem;
@@ -243,98 +361,4 @@
 
 .delete-btn:hover {
   background-color: var(--danger-bg);
-}
-
-/* --- Responsive Adjustments --- */
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-@media (max-width: 1024px) {
-  .faculty-course-container {
-    padding: 1.5rem;
-  }
-
-  .faculty-course-container .analytics-bar {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .faculty-course-container {
-    padding: 1rem;
-  }
-
-  .faculty-course-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .header-actions {
-    width: 100%;
-    display: flex;
-    justify-content: flex-start;
-    gap: 12px;
-  }
-
-  .create-btn {
-    margin-right: 0;
-  }
-
-  .card-details-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .action-group {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .faculty-course-container .analytics-bar {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .faculty-course-container .analytics-card {
-    padding: 0.75rem 0.5rem;
-  }
-
-  .faculty-course-container .analytics-label {
-    font-size: 0.55rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .faculty-course-container .analytics-value {
-    font-size: 1rem;
-  }
-
-  .faculty-course-container .analytics-desc {
-    font-size: 0.65rem;
-    line-height: 1.25;
-    margin-top: 0;
-  }
-
-  .course-documents-section {
-    flex-wrap: nowrap;
-    gap: 0.5rem;
-  }
-
-  .doc-pill {
-    flex: 1;
-    justify-content: center;
-    padding: 0.5rem 0.25rem;
-    font-size: 0.65rem;
-  }
-
-  .dropdown-menu {
-    right: auto;
-    left: 0;
-  }
 }

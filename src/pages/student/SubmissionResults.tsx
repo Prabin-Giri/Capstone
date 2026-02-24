@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getSubmission, getFileUrl, runAutoGrader, getSubmissions } from '../../lib/api';
-import type { Submission, AutoGradeResult } from '../../lib/api';
-import { Play, Check, X } from 'lucide-react';
+import { getSubmission, getFileUrl, getSubmissions } from '../../lib/api';
+import type { Submission } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import './SubmissionResults.css';
 
@@ -14,8 +13,6 @@ const SubmissionResults: React.FC = () => {
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [publicTestRunning, setPublicTestRunning] = useState(false);
-    const [publicTestResult, setPublicTestResult] = useState<AutoGradeResult | null>(null);
 
     useEffect(() => {
         async function loadSubmission() {
@@ -50,7 +47,7 @@ const SubmissionResults: React.FC = () => {
     if (error || !submission) {
         return (
             <div className="submission-results">
-                <div className="back-link-container">
+                <div className="mb-4">
                     <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                         &larr; Back to Assignment
                     </Link>
@@ -65,7 +62,7 @@ const SubmissionResults: React.FC = () => {
 
     return (
         <div className="submission-results">
-            <div className="back-link-container">
+            <div className="mb-4">
                 <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                     &larr; Back to Assignment
                 </Link>
@@ -101,34 +98,31 @@ const SubmissionResults: React.FC = () => {
                                 <td style={{ padding: '8px 0', color: '#6b7280', verticalAlign: 'top' }}>Files Submitted:</td>
                                 <td style={{ padding: '8px 0', fontWeight: 500 }}>
                                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f: { name: string, path: string }, i: number) => (
+                                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
                                             <li key={i}>{f.name}</li>
                                         ))}
                                     </ul>
                                 </td>
-                            </tr >
+                            </tr>
                             <tr>
                                 <td style={{ padding: '8px 0', color: '#6b7280' }}>Submitted At:</td>
                                 <td style={{ padding: '8px 0' }}>{new Date(submission.submitted_at).toLocaleString()}</td>
                             </tr>
-                            {
-                                submission.updated_at !== submission.submitted_at && (
-                                    <tr>
-                                        <td style={{ padding: '8px 0', color: '#6b7280' }}>Last Updated:</td>
-                                        <td style={{ padding: '8px 0' }}>{new Date(submission.updated_at).toLocaleString()}</td>
-                                    </tr>
-                                )
-                            }
+                            {submission.updated_at !== submission.submitted_at && (
+                                <tr>
+                                    <td style={{ padding: '8px 0', color: '#6b7280' }}>Last Updated:</td>
+                                    <td style={{ padding: '8px 0' }}>{new Date(submission.updated_at).toLocaleString()}</td>
+                                </tr>
+                            )}
                             {submission.grade !== null && submission.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') && (
                                 <tr>
                                     <td style={{ padding: '8px 0', color: '#6b7280' }}>Grade:</td>
                                     <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>{submission.grade}/100</td>
                                 </tr>
-                            )
-                            }
-                        </tbody >
-                    </table >
-                </div >
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
                 {submission.feedback && (submission.status === 'graded' || submission.status === 'returned') && (
                     <div style={{
@@ -140,109 +134,38 @@ const SubmissionResults: React.FC = () => {
                         <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600 }}>Instructor Feedback</h3>
                         <p style={{ margin: 0, lineHeight: 1.6 }}>{submission.feedback}</p>
                     </div>
-                )
-                }
+                )}
 
-                <div style={{
-                    background: '#f9fafb',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    marginBottom: '20px',
-                    border: '1px solid #e5e7eb'
-                }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600 }}>Public tests</h3>
-                    <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#6b7280' }}>
-                        Run your submission against public test cases only. Your saved grade is not changed.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={async () => {
-                            setPublicTestRunning(true);
-                            setPublicTestResult(null);
-                            try {
-                                const result = await runAutoGrader(submission.id, true);
-                                setPublicTestResult(result);
-                            } catch (e) {
-                                setPublicTestResult({
-                                    grade: null,
-                                    feedback: e instanceof Error ? e.message : 'Run failed',
-                                    results: [],
-                                    rawScore: 0,
-                                    maxPossible: 0,
-                                    latePenaltyPercent: 0,
-                                });
-                            } finally {
-                                setPublicTestRunning(false);
-                            }
-                        }}
-                        disabled={publicTestRunning}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 16px',
-                            background: '#2563eb',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 500,
-                            cursor: publicTestRunning ? 'wait' : 'pointer',
-                        }}
-                    >
-                        <Play size={18} />
-                        {publicTestRunning ? 'Running…' : 'Run public tests'}
-                    </button>
-                    {publicTestResult && (
-                        <div style={{ marginTop: '16px' }}>
-                            <p style={{ margin: '0 0 8px', fontWeight: 600 }}>
-                                Score: {publicTestResult.rawScore.toFixed(0)} / {publicTestResult.maxPossible} points
-                            </p>
-                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                {publicTestResult.results.map((r, i) => (
-                                    <li key={i} style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '8px',
-                                        padding: '6px 0',
-                                        borderBottom: i < publicTestResult.results.length - 1 ? '1px solid #e5e7eb' : 'none',
-                                        fontSize: '14px',
-                                    }}>
-                                        {r.passed ? <Check size={18} color="#16a34a" /> : <X size={18} color="#dc2626" />}
-                                        <span>Test {i + 1}:</span>
-                                        <span>{r.passed ? 'Passed' : 'Failed'}</span>
-                                        <span style={{ color: '#6b7280' }}>({r.points}/{r.maxPoints} pts)</span>
-                                        {!r.passed && (r.actual !== undefined || r.expected !== undefined || r.error) && (
-                                            <div style={{ width: '100%', marginTop: '4px', fontSize: '13px', color: '#374151' }}>
-                                                {r.error && <div>Error: {r.error}</div>}
-                                                {r.actual !== undefined && <div><strong>Your output:</strong> <pre style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{r.actual.slice(0, 300)}{r.actual.length > 300 ? '…' : ''}</pre></div>}
-                                                {r.expected !== undefined && <div><strong>Expected:</strong> <pre style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{r.expected.slice(0, 300)}{r.expected.length > 300 ? '…' : ''}</pre></div>}
-                                            </div>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                    <a
-                        href={getFileUrl(submission.file_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-primary"
-                        style={{
-                            display: 'inline-block',
-                            padding: '10px 20px',
-                            background: '#2563eb',
-                            color: 'white',
-                            borderRadius: '6px',
-                            textDecoration: 'none',
-                            fontWeight: 500
-                        }}
-                    >
-                        Download Submitted File
-                    </a>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '24px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
+                            <a
+                                key={i}
+                                href={getFileUrl(f.path)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary"
+                                style={{
+                                    display: 'inline-block',
+                                    padding: '10px 20px',
+                                    background: 'var(--primary, #9f1239)',
+                                    color: 'white',
+                                    borderRadius: '6px',
+                                    textDecoration: 'none',
+                                    fontWeight: 500,
+                                    transition: 'box-shadow 0.2s ease-in-out'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(159, 18, 57, 0.5), 0 2px 4px -1px rgba(159, 18, 57, 0.3)'; // Primary theme shadow
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.boxShadow = 'none';
+                                }}
+                            >
+                                Download {f.name}
+                            </a>
+                        ))}
+                    </div>
                     <Link
                         to={`/student/courses/${courseId}/assignments/${assignmentId}/submit`}
                         className="btn-secondary resubmit-button"
@@ -335,8 +258,8 @@ const SubmissionResults: React.FC = () => {
                         </div>
                     </div>
                 )}
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
 

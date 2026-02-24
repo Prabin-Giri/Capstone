@@ -18,7 +18,7 @@ const StudentDashboard: React.FC = () => {
         async function loadData() {
             try {
                 const [coursesData, assignmentsData] = await Promise.all([
-                    getCourses(),
+                    getCourses({ studentId: user?.id }),
                     getAssignments()
                 ]);
                 setCourses(coursesData);
@@ -36,30 +36,30 @@ const StudentDashboard: React.FC = () => {
     if (loading) {
         return (
             <div className="dashboard-container">
-                        <div className="dashboard-header">
-                            <div>
-                                <h1 className="dashboard-title">Dashboard</h1>
-                                <p className="dashboard-subtitle">Loading...</p>
-                            </div>
-                        </div>
+                <div className="dashboard-header">
+                    <div>
+                        <h1 className="dashboard-title">Dashboard</h1>
+                        <p className="dashboard-subtitle">Loading...</p>
                     </div>
-                    );
-    }
-
-                    if (error) {
-        return (
-            <div className="dashboard-container">
-            <div className="dashboard-header">
-                <div>
-                    <h1 className="dashboard-title">Dashboard</h1>
-                    <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
                 </div>
             </div>
-        </div>
         );
     }
 
+    if (error) {
         return (
+            <div className="dashboard-container">
+                <div className="dashboard-header">
+                    <div>
+                        <h1 className="dashboard-title">Dashboard</h1>
+                        <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
         <div className="dashboard-container">
             <div className="dashboard-header">
                 <div>
@@ -141,13 +141,17 @@ const StudentDashboard: React.FC = () => {
                                 </div>
                             </div>
 
-
+                            <div style={{ marginTop: '1.5rem' }}>
+                                <Button variant="ghost" size="sm" className="w-full" style={{ justifyContent: 'center' }}>
+                                    View Course Details
+                                </Button>
+                            </div>
                         </Card>
                     );
                 })}
             </div>
         </div>
-        );
+    );
 };
 
-        export default StudentDashboard;
+export default StudentDashboard;

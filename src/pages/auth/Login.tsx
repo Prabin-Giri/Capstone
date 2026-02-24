@@ -46,7 +46,7 @@ const Login: React.FC = () => {
             <div className="login-card">
                 <div className="login-header" style={{ textAlign: 'center' }}>
                     <div className="brand-container" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
-                        <div className="brand-ig" style={{ width: '80px', height: '80px', fontSize: '3rem' }}>Ig</div>
+                        <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
                     </div>
                     <h2 className="login-title">{title}</h2>
                 </div>
