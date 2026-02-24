@@ -1,90 +1,66 @@
 const express = require('express');
 const router = express.Router();
-const { query, run, queryOne, saveDb } = require('../db');
+const { getDb, queryToObjects, queryOne } = require('../db');
 
-// Helper for dynamic status check
-const checkStatus = (assignment) => {
-    if (assignment.status === 'active') {
-        const dueDate = new Date(assignment.due_date);
-        const now = new Date();
-        now.setHours(0, 0, 0, 0); // Start of day comparison
-        if (dueDate < now) {
-            assignment.status = 'late';
-        }
-    }
-    return assignment;
-};
-
-// GET /api/assignments
+// GET /api/assignments - Get all assignments
 router.get('/', async (req, res, next) => {
     try {
-        const rows = await query('SELECT * FROM assignments ORDER BY due_date');
-        const assignments = rows.map(checkStatus);
-        res.json(assignments);
+        const db = getDb();
+        const result = await db.execute('SELECT * FROM assignments ORDER BY due_date');
+        res.json(queryToObjects(result));
     } catch (err) {
         next(err);
     }
 });
 
-// GET /api/assignments/:id/grades/export (must be before /:id)
-router.get('/:id/grades/export', async (req, res, next) => {
-    try {
-        const assignmentId = req.params.id;
-        const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-        if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
-        const course = await queryOne('SELECT id FROM courses WHERE id = ?', [assignment.course_id]);
-        const students = await query("SELECT id, name FROM users WHERE role = 'student' ORDER BY name");
-        const submissions = await query('SELECT student_id, grade FROM submissions WHERE assignment_id = ?', [assignmentId]);
-        const gradeMap = {};
-        submissions.forEach(s => { gradeMap[s.student_id] = s.grade; });
-        const headers = ['Student Name', 'Student ID', `Grade (${assignment.title})`];
-        const rows = students.map(student => {
-            const grade = gradeMap[student.id];
-            return [student.name, student.id, grade !== undefined && grade !== null ? grade : ''];
-        });
-        const csvContent = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
-        const filename = `${course?.id || 'Course'}_${assignment.title.replace(/[^a-z0-9]/gi, '_')}_Grades.csv`;
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(csvContent);
-    } catch (err) {
-        next(err);
-    }
-});
-
-// GET /api/assignments/:id
+// GET /api/assignments/:id - Get single assignment
 router.get('/:id', async (req, res, next) => {
     try {
-        const row = await queryOne('SELECT * FROM assignments WHERE id = ?', [req.params.id]);
-        if (!row) return res.status(404).json({ error: 'Assignment not found' });
-        res.json(checkStatus(row));
+        const db = getDb();
+        const result = await db.execute('SELECT * FROM assignments WHERE id = ?', [req.params.id]);
+        const assignment = queryOne(result);
+
+        if (!assignment) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        res.json(assignment);
     } catch (err) {
         next(err);
     }
 });
 
-// POST /api/assignments
+// POST /api/assignments - Create new assignment
 router.post('/', async (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, style_points_possible = 0, efficiency_points_possible = 0, java_main_class, run_mode = 'program' } = req.body;
-        if (!course_id || !title || !due_date) return res.status(400).json({ error: 'Missing required fields' });
+        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, type = 'individual' } = req.body;
+
+        if (!course_id || !title || !due_date) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Convert ISO 8601 (e.g. "2026-03-01T05:59:00.000Z") to MySQL DATETIME format "YYYY-MM-DD HH:MM:SS"
+        const mysqlDueDate = new Date(due_date).toISOString().slice(0, 19).replace('T', ' ');
+
         const id = req.body.id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
-        await run(
-            'INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, style_points_possible, efficiency_points_possible, java_main_class, run_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, course_id, title, description, due_date, status, points, language, starter_code_path, style_points_possible, efficiency_points_possible, java_main_class ?? null, run_mode === 'function' ? 'function' : 'program']
-        );
-        await saveDb();
-        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, style_points_possible, efficiency_points_possible, java_main_class: java_main_class ?? null, run_mode: run_mode === 'function' ? 'function' : 'program' });
+
+        const db = getDb();
+        await db.execute('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, type]);
+
+        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, type });
     } catch (err) {
         next(err);
     }
 });
 
-// PUT /api/assignments/:id
+// PUT /api/assignments/:id - Update assignment
 router.put('/:id', async (req, res, next) => {
     try {
-        const { title, description, due_date, status, points, language, starter_code_path, style_points_possible, efficiency_points_possible, java_main_class, run_mode } = req.body;
+        const { title, description, due_date, status, points, language, starter_code_path, type } = req.body;
         const id = req.params.id;
+
+        const db = getDb();
+
         const updates = [];
         const values = [];
         if (title !== undefined) { updates.push('title = ?'); values.push(title); }
@@ -94,26 +70,357 @@ router.put('/:id', async (req, res, next) => {
         if (points !== undefined) { updates.push('points = ?'); values.push(points); }
         if (language !== undefined) { updates.push('language = ?'); values.push(language); }
         if (starter_code_path !== undefined) { updates.push('starter_code_path = ?'); values.push(starter_code_path); }
-        if (style_points_possible !== undefined) { updates.push('style_points_possible = ?'); values.push(parseFloat(style_points_possible)); }
-        if (efficiency_points_possible !== undefined) { updates.push('efficiency_points_possible = ?'); values.push(parseFloat(efficiency_points_possible)); }
-        if (java_main_class !== undefined) { updates.push('java_main_class = ?'); values.push(java_main_class === '' ? null : java_main_class); }
-        if (run_mode !== undefined) { updates.push('run_mode = ?'); values.push(run_mode === 'function' ? 'function' : 'program'); }
-        if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
+        if (type !== undefined) { updates.push('type = ?'); values.push(type); }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
         values.push(id);
-        await run(`UPDATE assignments SET ${updates.join(', ')} WHERE id = ?`, values);
-        await saveDb();
+        await db.execute(`UPDATE assignments SET ${updates.join(', ')} WHERE id = ?`, values);
+
         res.json({ message: 'Assignment updated successfully' });
     } catch (err) {
         next(err);
     }
 });
 
-// DELETE /api/assignments/:id
+// DELETE /api/assignments/:id - Delete assignment
 router.delete('/:id', async (req, res, next) => {
     try {
-        await run('DELETE FROM assignments WHERE id = ?', [req.params.id]);
-        await saveDb();
+        const db = getDb();
+        await db.execute('DELETE FROM assignments WHERE id = ?', [req.params.id]);
         res.json({ message: 'Assignment deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/assignments/:id/grades/export - Export single assignment grades as CSV
+router.get('/:id/grades/export', async (req, res, next) => {
+    try {
+        const db = getDb();
+        const assignmentId = req.params.id;
+
+        // 1. Get assignment info
+        const [aRows] = await db.execute('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+        const assignment = aRows[0];
+        if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+
+        // 2. Get course info for context
+        const [cRows] = await db.execute('SELECT id FROM courses WHERE id = ?', [assignment.course_id]);
+        const course = cRows[0];
+
+        // 3. Get all students
+        const [students] = await db.execute("SELECT id, name FROM users WHERE role = 'student' ORDER BY name");
+
+        // 4. Get submissions for this specific assignment
+        const [submissions] = await db.execute(`
+            SELECT student_id, grade 
+            FROM submissions 
+            WHERE assignment_id = ?
+        `, [assignmentId]);
+
+        // 5. Create a map for quick lookup
+        const gradeMap = {};
+        submissions.forEach(s => {
+            gradeMap[s.student_id] = s.grade;
+        });
+
+        // 6. Generate CSV
+        const headers = ['Student Name', 'Student ID', `Grade (${assignment.title})`];
+        const dataRows = students.map(student => {
+            const grade = gradeMap[student.id];
+            return [student.name, student.id, grade !== undefined && grade !== null ? grade : ''];
+        });
+
+        const csvContent = [
+            headers.join(','),
+            ...dataRows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const filename = `${course?.id || 'Course'}_${assignment.title.replace(/[^a-z0-9]/gi, '_')}_Grades.csv`;
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csvContent);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/test - Run tests for a specific assignment
+router.post('/:id/test', async (req, res, next) => {
+    try {
+        const { code, language } = req.body;
+        const assignmentId = req.params.id;
+
+        if (!code) {
+            return res.status(400).json({ error: 'Code is required' });
+        }
+
+        const db = getDb();
+
+        // Get test cases
+        const [testCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+
+        if (testCases.length === 0) {
+            return res.json({ results: [], summary: 'No test cases defined.' });
+        }
+
+        const results = [];
+        const fs = require('fs');
+        const path = require('path');
+        const { exec } = require('child_process');
+        const os = require('os');
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograder-'));
+        const fileName = language === 'python' ? 'main.py' : (language === 'javascript' ? 'main.js' : 'main.txt');
+        const filePath = path.join(tmpDir, fileName);
+
+        fs.writeFileSync(filePath, code);
+
+        const runTestCase = (testCase) => {
+            return new Promise((resolve) => {
+                let command = '';
+                if (language === 'python') {
+                    command = `py "${filePath}"`;
+                } else if (language === 'javascript') {
+                    command = `node "${filePath}"`;
+                } else {
+                    return resolve({
+                        id: testCase.id,
+                        passed: false,
+                        output: 'Unsupported language for testing',
+                        expected: testCase.expected_output,
+                        is_public: testCase.is_public
+                    });
+                }
+
+                const child = exec(command, { timeout: 2000 }, (error, stdout, stderr) => {
+                    const output = stdout.trim();
+                    const expected = testCase.expected_output.trim();
+                    const passed = output === expected;
+
+                    resolve({
+                        id: testCase.id,
+                        input: testCase.input,
+                        expected: expected,
+                        actual: output,
+                        error: stderr ? stderr.trim() : error ? error.message : null,
+                        passed,
+                        is_public: testCase.is_public
+                    });
+                });
+
+                if (testCase.input) {
+                    child.stdin.write(testCase.input);
+                    child.stdin.end();
+                }
+            });
+        };
+
+        for (const tc of testCases) {
+            const result = await runTestCase(tc);
+            results.push(result);
+        }
+
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        res.json({ results });
+
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/plagiarism-check - Run plagiarism detection
+router.post('/:id/plagiarism-check', async (req, res, next) => {
+    try {
+        const db = getDb();
+        const assignmentId = req.params.id;
+        const fs = require('fs');
+        const path = require('path');
+
+        const [submissions] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ?', [assignmentId]);
+        const submissionMap = new Map();
+
+        submissions.forEach(sub => {
+            const existing = submissionMap.get(sub.student_id);
+            if (!existing || new Date(sub.submitted_at) > new Date(existing.submitted_at)) {
+                submissionMap.set(sub.student_id, sub);
+            }
+        });
+
+        const tokenize = (code) => {
+            return code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '')
+                .replace(/\s+/g, ' ')
+                .toLowerCase()
+                .split(' ')
+                .filter(t => t.length > 0);
+        };
+
+        const students = Array.from(submissionMap.values());
+        const flaggedPairs = [];
+        const threshold = 50;
+
+        for (let i = 0; i < students.length; i++) {
+            for (let j = i + 1; j < students.length; j++) {
+                const sub1 = students[i];
+                const sub2 = students[j];
+
+                const path1 = path.join(__dirname, '../../uploads', sub1.file_path);
+                const path2 = path.join(__dirname, '../../uploads', sub2.file_path);
+
+                if (fs.existsSync(path1) && fs.existsSync(path2)) {
+                    const code1 = fs.readFileSync(path1, 'utf8');
+                    const code2 = fs.readFileSync(path2, 'utf8');
+
+                    const tokens1 = new Set(tokenize(code1));
+                    const tokens2 = new Set(tokenize(code2));
+
+                    const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
+                    const union = new Set([...tokens1, ...tokens2]);
+
+                    const similarity = (intersection.size / union.size) * 100;
+
+                    if (similarity >= threshold) {
+                        const [s1Rows] = await db.execute('SELECT name FROM users WHERE id = ?', [sub1.student_id]);
+                        const s1 = s1Rows[0];
+                        const [s2Rows] = await db.execute('SELECT name FROM users WHERE id = ?', [sub2.student_id]);
+                        const s2 = s2Rows[0];
+
+                        flaggedPairs.push({
+                            student1: { id: sub1.student_id, name: s1 ? s1.name : sub1.student_id },
+                            student2: { id: sub2.student_id, name: s2 ? s2.name : sub2.student_id },
+                            similarity: Math.round(similarity),
+                            matchedTokens: intersection.size,
+                            totalTokens: union.size
+                        });
+                    }
+                }
+            }
+        }
+
+        flaggedPairs.sort((a, b) => b.similarity - a.similarity);
+
+        res.json({
+            assignmentId: req.params.id,
+            totalSubmissions: students.length,
+            flaggedPairs
+        });
+
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/autograde - Batch auto-grade all submissions
+router.post('/:id/autograde', async (req, res, next) => {
+    try {
+        const { latePenalty, timeout = 2000 } = req.body;
+        const assignmentId = req.params.id;
+        const db = getDb();
+        const fs = require('fs');
+        const path = require('path');
+        const { exec } = require('child_process');
+        const os = require('os');
+
+        // 1. Get Assignment
+        const [aRows] = await db.execute('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+        const assignment = aRows[0];
+        if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+
+        // 2. Get Test Cases
+        const [testCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+        if (testCases.length === 0) return res.json({ graded: 0, message: 'No test cases found' });
+
+        // 3. Get Latest Submissions
+        const [submissions] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ?', [assignmentId]);
+        const submissionMap = new Map();
+        submissions.forEach(sub => {
+            const existing = submissionMap.get(sub.student_id);
+            if (!existing || new Date(sub.submitted_at) > new Date(existing.submitted_at)) {
+                submissionMap.set(sub.student_id, sub);
+            }
+        });
+        const latestSubmissions = Array.from(submissionMap.values());
+
+        // 4. Helper: Run Tests
+        const runTestsForSubmission = async (sub) => {
+            const filePath = path.join(__dirname, '../../uploads', sub.file_path);
+            if (!fs.existsSync(filePath)) return 0;
+
+            const code = fs.readFileSync(filePath, 'utf8');
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograder-batch-'));
+            const scriptName = assignment.language === 'python' ? 'main.py' : 'main.js';
+            const scriptPath = path.join(tmpDir, scriptName);
+
+            fs.writeFileSync(scriptPath, code);
+
+            let totalScore = 0;
+
+            for (const tc of testCases) {
+                await new Promise((resolve) => {
+                    let command = '';
+                    if (assignment.language === 'python') {
+                        command = `py "${scriptPath}"`;
+                    } else {
+                        command = `node "${scriptPath}"`;
+                    }
+
+                    const child = exec(command, { timeout: Number(timeout) }, (error, stdout, stderr) => {
+                        const output = stdout.trim();
+                        const expected = tc.expected_output.trim();
+                        if (output === expected) {
+                            totalScore += tc.points;
+                        }
+                        resolve();
+                    });
+
+                    if (tc.input) {
+                        child.stdin.write(tc.input);
+                        child.stdin.end();
+                    }
+                });
+            }
+
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+            return totalScore;
+        };
+
+        // 5. Process All
+        let gradedCount = 0;
+        let totalGrades = 0;
+
+        for (const sub of latestSubmissions) {
+            let score = await runTestsForSubmission(sub);
+
+            const submittedAt = new Date(sub.submitted_at);
+            const dueDateTime = new Date(assignment.due_date);
+            dueDateTime.setHours(23, 59, 59, 999);
+
+            if (submittedAt > dueDateTime) {
+                if (latePenalty === 'zero') {
+                    score = 0;
+                } else if (latePenalty === 'daily_10') {
+                    const diffTime = Math.abs(submittedAt - dueDateTime);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    const penalty = score * (0.10 * diffDays);
+                    score = Math.max(0, score - penalty);
+                }
+            }
+
+            await db.execute("UPDATE submissions SET grade = ?, status = 'graded' WHERE id = ?", [Math.round(score), sub.id]);
+
+            gradedCount++;
+            totalGrades += score;
+        }
+
+        res.json({
+            graded: gradedCount,
+            average: gradedCount > 0 ? Math.round(totalGrades / gradedCount) : 0
+        });
+
     } catch (err) {
         next(err);
     }
