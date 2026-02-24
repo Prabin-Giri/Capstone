@@ -118,6 +118,20 @@ export async function enrollStudent(courseId: string, studentId: string): Promis
     });
 }
 
+export interface CsvEnrollResult {
+    enrolled: { email: string; name: string }[];
+    notFound: string[];
+    alreadyEnrolled: { email: string; name: string }[];
+}
+
+export async function enrollStudentsByCSV(courseId: string, emails: string[]): Promise<CsvEnrollResult> {
+    return apiFetch<CsvEnrollResult>(`/courses/${courseId}/enroll-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+    });
+}
+
 export async function getEnrolledStudents(courseId: string): Promise<User[]> {
     return apiFetch<User[]>(`/courses/${courseId}/students`);
 }
@@ -399,6 +413,7 @@ export async function getTestCases(assignmentId: string): Promise<TestCase[]> {
 export async function createTestCase(testCase: Partial<TestCase>): Promise<{ message: string }> {
     return apiFetch<{ message: string }>('/test-cases', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testCase),
     });
 }
@@ -406,6 +421,7 @@ export async function createTestCase(testCase: Partial<TestCase>): Promise<{ mes
 export async function updateTestCase(id: number, testCase: Partial<TestCase>): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/test-cases/${id}`, {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testCase),
     });
 }
@@ -505,4 +521,3 @@ export async function autoGradeAssignment(
         body: JSON.stringify({ latePenalty, timeout }),
     });
 }
-

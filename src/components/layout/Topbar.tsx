@@ -1,13 +1,12 @@
+import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search } from 'lucide-react';
+import { getUser } from '../../lib/auth';
 import './Layout.css';
 
-interface TopbarProps {
-    toggleSidebar?: () => void;
-}
-
-const Topbar = ({ toggleSidebar }: TopbarProps) => {
+const Topbar: React.FC = () => {
     const location = useLocation();
+    const user = getUser();
 
     const getPageTitle = () => {
         const path = location.pathname;
@@ -17,14 +16,18 @@ const Topbar = ({ toggleSidebar }: TopbarProps) => {
         return 'AutoGrade Portal';
     };
 
+    const getInitials = () => {
+        if (!user || !user.name) return '??';
+        const names = user.name.split(' ');
+        if (names.length >= 2) {
+            return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+        }
+        return user.name.substring(0, 2).toUpperCase();
+    };
+
     return (
         <header className="topbar">
-            <div className="header-left">
-                <button className="mobile-menu-btn" onClick={toggleSidebar} aria-label="Toggle Menu">
-                    <Menu size={24} />
-                </button>
-                <div className="page-title">{getPageTitle()}</div>
-            </div>
+            <div className="page-title">{getPageTitle()}</div>
 
             <div className="user-profile">
                 <div className="icon-group" style={{ display: 'flex', gap: '1rem', marginRight: '1rem', color: 'var(--text-secondary)' }}>
@@ -32,7 +35,7 @@ const Topbar = ({ toggleSidebar }: TopbarProps) => {
                     <Bell size={20} className="cursor-pointer hover:text-primary" />
                 </div>
                 <div className="avatar-circle">
-                    PG
+                    {getInitials()}
                 </div>
             </div>
         </header>

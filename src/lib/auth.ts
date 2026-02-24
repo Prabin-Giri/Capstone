@@ -40,4 +40,3 @@ export const logout = () => {
 export const isAuthenticated = (): boolean => {
     return !!getSession();
 };
-

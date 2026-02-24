@@ -1,12 +1,12 @@
 .calendar-sidebar {
-    width: 260px;
+    width: 280px;
     height: 100vh;
     background-color: var(--bg-surface);
     border-right: 1px solid var(--border-color);
-    padding: 1.25rem;
+    padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2rem;
     overflow-y: auto;
     flex-shrink: 0;
 }
