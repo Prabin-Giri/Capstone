@@ -30,8 +30,8 @@
 .month-cell {
     border-right: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
-    padding: 0.375rem;
-    min-height: 80px;
+    padding: 0.5rem;
+    min-height: 100px;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;

@@ -7,11 +7,11 @@
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .assignments-title {
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
@@ -40,7 +40,7 @@
 
 .assignments-table th {
     background-color: #f9fafb;
-    padding: 8px 12px;
+    padding: 12px 24px;
     font-size: 0.875rem;
     font-weight: 600;
     color: #6b7280;
@@ -96,7 +96,7 @@
 }
 
 .assignments-table td {
-    padding: 8px 12px;
+    padding: 16px 24px;
     border-bottom: 1px solid #e5e7eb;
     color: #111827;
     font-size: 0.875rem;
@@ -208,41 +208,6 @@
     background-color: white;
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
-    padding: 1.25rem;
+    padding: 1.5rem;
     color: var(--text-secondary);
-}
-
-@media (max-width: 1024px) {
-    .class-assignments {
-        padding: 1rem;
-    }
-
-    .table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .assignments-table {
-        min-width: 700px;
-        /* Force minimum width to enable horizontal scroll */
-    }
-
-    .assignments-table th,
-    .assignments-table td {
-        padding: 12px 1rem;
-    }
-}
-
-@media (max-width: 640px) {
-    .assignments-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1.25rem;
-    }
-
-    .btn-course-home {
-        width: 100%;
-        text-align: center;
-        padding: 0.75rem;
-    }
 }

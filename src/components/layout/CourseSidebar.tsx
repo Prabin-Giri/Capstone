@@ -18,42 +18,23 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({ courseId }) => {
     ];
 
     return (
-        <aside className="course-sidebar-wrapper">
-            {/* Desktop Vertical Sidebar */}
-            <div className="course-sidebar desktop-only">
-                <div className="course-context">
-                    <div className="course-context-name">{course?.name ?? 'Course'}</div>
-                    <div className="course-context-id">{course?.id ?? ''}</div>
-                </div>
-
-                <nav className="course-nav">
-                    {navItems.map((item) => (
-                        <NavLink
-                            key={item.label}
-                            to={item.to}
-                            end={item.end}
-                            className={({ isActive }) =>
-                                `course-nav-link ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            <span className="course-label">{item.label}</span>
-                        </NavLink>
-                    ))}
-                </nav>
+        <aside className="course-sidebar">
+            <div className="course-context">
+                <div className="course-context-name">{course?.name ?? 'Course'}</div>
+                <div className="course-context-id">{course?.id ?? ''}</div>
             </div>
 
-            {/* Mobile Horizontal Navigation */}
-            <nav className="mobile-course-nav mobile-tablet-only">
+            <nav className="course-nav">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.label}
                         to={item.to}
                         end={item.end}
                         className={({ isActive }) =>
-                            `mobile-nav-pill ${isActive ? 'active' : ''}`
+                            `course-nav-link ${isActive ? 'active' : ''}`
                         }
                     >
-                        {item.label}
+                        <span className="course-label">{item.label}</span>
                     </NavLink>
                 ))}
             </nav>

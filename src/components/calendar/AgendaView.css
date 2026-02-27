@@ -1,8 +1,8 @@
 .agenda-view {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 1.5rem;
+    gap: 1rem;
+    padding-bottom: 2rem;
 }
 
 .agenda-date-header {
@@ -68,7 +68,7 @@
 
 .item-content {
     flex: 1;
-    padding: 0.375rem 0.75rem;
+    padding: 0.5rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -93,19 +93,12 @@
     accent-color: var(--primary-color);
 }
 
-.agenda-item .todo-title {
+.todo-title {
     font-size: 0.95rem;
-    font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.todo-time {
-    font-size: 0.8rem;
-    color: var(--text-tertiary);
-    margin-left: auto;
 }
 
 .todo-title.completed {
@@ -146,9 +139,9 @@
     font-size: 1rem;
 }
 
-.agenda-item .assignment-title {
+.assignment-title {
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -169,37 +162,4 @@
     background-color: var(--bg-body);
     border-radius: 4px;
     white-space: nowrap;
-}
-
-@media (max-width: 1024px) {
-    .item-content {
-        padding: 0.5rem 0.75rem;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .todo-row,
-    .assignment-row {
-        width: 100%;
-    }
-
-    .todo-title,
-    .assignment-title {
-        font-size: 0.875rem;
-    }
-
-    .todo-time,
-    .assignment-time {
-        font-size: 0.75rem;
-    }
-
-    .item-course-tag {
-        font-size: 0.7rem;
-        margin-left: 0;
-    }
-
-    .delete-todo-btn {
-        opacity: 1;
-        /* Always show delete on mobile since there is no hover */
-    }
 }

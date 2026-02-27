@@ -16,12 +16,21 @@ export interface Course {
     id: string;
     name: string;
     term: string;
+    instructor_id?: string;
     is_archived?: boolean;
     created_at?: string;
 }
 
-export async function getCourses(): Promise<Course[]> {
-    return apiFetch<Course[]>('/courses');
+export async function getCourses(filters?: { instructorId?: string; studentId?: string }): Promise<Course[]> {
+    let url = '/courses';
+    if (filters) {
+        const params = new URLSearchParams();
+        if (filters.instructorId) params.append('instructorId', filters.instructorId);
+        if (filters.studentId) params.append('studentId', filters.studentId);
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+    }
+    return apiFetch<Course[]>(url);
 }
 
 export async function getCourse(id: string): Promise<Course> {
@@ -83,10 +92,7 @@ export interface Assignment {
     points?: number;
     language?: string;
     starter_code_path?: string;
-    style_points_possible?: number;
-    efficiency_points_possible?: number;
-    java_main_class?: string | null;
-    run_mode?: 'program' | 'function';
+    type?: 'individual' | 'group';
     created_at?: string;
 }
 
@@ -100,6 +106,38 @@ export async function getAssignment(id: string): Promise<Assignment> {
 
 export async function getCourseAssignments(courseId: string): Promise<Assignment[]> {
     return apiFetch<Assignment[]>(`/courses/${courseId}/assignments`);
+}
+
+export async function enrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/courses/${courseId}/enroll`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ studentId }),
+    });
+}
+
+export interface CsvEnrollResult {
+    enrolled: { email: string; name: string }[];
+    notFound: string[];
+    alreadyEnrolled: { email: string; name: string }[];
+}
+
+export async function enrollStudentsByCSV(courseId: string, emails: string[]): Promise<CsvEnrollResult> {
+    return apiFetch<CsvEnrollResult>(`/courses/${courseId}/enroll-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+    });
+}
+
+export async function getEnrolledStudents(courseId: string): Promise<User[]> {
+    return apiFetch<User[]>(`/courses/${courseId}/students`);
+}
+
+export async function searchStudents(query: string): Promise<User[]> {
+    return apiFetch<User[]>(`/users/students?q=${encodeURIComponent(query)}`);
 }
 
 export async function createAssignment(assignment: Omit<Assignment, 'id' | 'created_at'> & { id?: string }): Promise<Assignment> {
@@ -136,18 +174,12 @@ export interface Submission {
     student_id: string;
     file_name: string;
     file_path: string;
-    file_name_2?: string | null;
-    file_path_2?: string | null;
     submitted_at: string;
     updated_at: string;
     status: 'pending' | 'graded' | 'returned';
-    grade?: number | null;
-    feedback?: string | null;
-    correctness_score?: number | null;
-    style_points?: number | null;
-    efficiency_points?: number | null;
-    deduction_points?: number | null;
-    files?: { name: string; path: string }[];
+    grade?: number;
+    feedback?: string;
+    files?: { name: string, path: string }[];
 }
 
 export async function getSubmissions(params?: {
@@ -182,14 +214,12 @@ export async function getSubmission(id: number): Promise<Submission> {
 export async function createSubmission(
     assignmentId: string,
     studentId: string,
-    file: File,
-    testCasesFile?: File | null
+    files: File[]
 ): Promise<Submission> {
     const formData = new FormData();
     formData.append('assignment_id', assignmentId);
     formData.append('student_id', studentId);
-    formData.append('file', file);
-    if (testCasesFile) formData.append('testCasesFile', testCasesFile);
+    files.forEach(f => formData.append('files', f));
 
     const response = await fetch(`${API_BASE}/submissions`, {
         method: 'POST',
@@ -212,24 +242,15 @@ export async function createSubmission(
 
 export async function updateSubmission(
     id: number,
-    data: {
-        file?: File;
-        status?: string;
-        grade?: number;
-        feedback?: string;
-        style_points?: number | null;
-        efficiency_points?: number | null;
-        deduction_points?: number | null;
-    }
+    data: { files?: File[]; status?: string; grade?: number; feedback?: string }
 ): Promise<Submission> {
     const formData = new FormData();
-    if (data.file) formData.append('file', data.file);
+    if (data.files) {
+        data.files.forEach(f => formData.append('files', f));
+    }
     if (data.status) formData.append('status', data.status);
     if (data.grade !== undefined) formData.append('grade', String(data.grade));
     if (data.feedback !== undefined) formData.append('feedback', data.feedback);
-    if (data.style_points !== undefined) formData.append('style_points', data.style_points === null ? '' : String(data.style_points));
-    if (data.efficiency_points !== undefined) formData.append('efficiency_points', data.efficiency_points === null ? '' : String(data.efficiency_points));
-    if (data.deduction_points !== undefined) formData.append('deduction_points', String(data.deduction_points ?? 0));
 
     const response = await fetch(`${API_BASE}/submissions/${id}`, {
         method: 'PUT',
@@ -252,22 +273,6 @@ export async function updateSubmission(
 
 export async function deleteSubmission(id: number): Promise<void> {
     await apiFetch<{ message: string }>(`/submissions/${id}`, { method: 'DELETE' });
-}
-
-// ============ Grader (auto-grade submission) ============
-
-export interface AutoGradeResult {
-    grade: number | null;
-    feedback: string;
-    results: Array<{ testId: number; passed: boolean; points: number; maxPoints: number; actual?: string; expected?: string; error?: string }>;
-    rawScore: number;
-    maxPossible: number;
-    latePenaltyPercent: number;
-}
-
-export async function runAutoGrader(submissionId: number, publicOnly = false): Promise<AutoGradeResult> {
-    const q = publicOnly ? '?publicOnly=1' : '';
-    return apiFetch<AutoGradeResult>(`/grader/submissions/${submissionId}/run${q}`, { method: 'POST' });
 }
 
 // Helper to get the full URL for a submitted file
@@ -398,21 +403,6 @@ export interface TestCase {
     expected_output: string;
     points: number;
     is_public: number;
-    /** 'stdin' = program reads from stdin; 'file' = input written to input_filename in work dir */
-    input_type?: 'stdin' | 'file';
-    /** e.g. 'input.txt'; used when input_type === 'file' */
-    input_filename?: string | null;
-    /** e.g. 'output.txt'; when set, grader reads this file after run and compares to expected_output */
-    output_filename?: string | null;
-    /** CLI args passed to the program (JSON array e.g. ["input.txt","output.txt"] or comma-separated) */
-    run_args?: string | null;
-    /** Second output file to compare (e.g. error report); both must match for full points */
-    output_filename_2?: string | null;
-    expected_output_2?: string | null;
-    /** 'exact' = full string match; 'lines_unordered' = sort lines then compare; 'run_only' = full points if run succeeds (no output check) */
-    compare_mode?: 'exact' | 'lines_unordered' | 'run_only';
-    /** When input_type is file (or file_and_stdin), optional stdin sent after the file is available (e.g. menu choices). */
-    stdin?: string | null;
     updated_at?: string;
 }
 
@@ -442,63 +432,52 @@ export async function deleteTestCase(id: number): Promise<{ message: string }> {
     });
 }
 
-export async function importTestCases(assignmentId: string, file: File): Promise<{ message: string; count: number }> {
-    const formData = new FormData();
-    formData.append('file', file);
+export interface TestResult {
+    id: number;
+    input: string;
+    expected: string;
+    actual: string;
+    error: string | null;
+    passed: boolean;
+    is_public: number;
+}
 
-    const response = await fetch(`${API_BASE}/test-cases/import?assignmentId=${encodeURIComponent(assignmentId)}`, {
+export async function runTests(assignmentId: string, code: string, language: string): Promise<{ results: TestResult[] }> {
+    return apiFetch<{ results: TestResult[] }>(`/assignments/${assignmentId}/test`, {
         method: 'POST',
-        body: formData,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, language }),
     });
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Import failed' }));
-        throw new Error(error.error || 'Import failed');
-    }
-
-    return response.json();
 }
 
-// ============ Admin / Database Explorer ============
-
-export interface DbColumn {
-    cid: number;
-    name: string;
-    type: string;
-    notnull: number;
-    dflt_value: any;
-    pk: number;
-}
-
-export interface TableData {
-    tableName: string;
-    columns: DbColumn[];
-    rows: any[];
-}
-
-export async function getDbTables(): Promise<string[]> {
-    return apiFetch<string[]>('/admin/tables');
-}
-
-export async function getTableData(tableName: string): Promise<TableData> {
-    return apiFetch<TableData>(`/admin/tables/${tableName}`);
-}
 // ============ Users ============
 
 export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'student' | 'faculty' | 'admin';
+    role: 'student' | 'faculty';
 }
 
-export async function loginRequest(email: string, role: string): Promise<User> {
+export async function loginRequest(email: string, password: string): Promise<User> {
     return apiFetch<User>('/users/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email, password }),
+    });
+}
+
+export async function signupRequest(data: { name: string; email: string; password: string; role: string }): Promise<User> {
+    return apiFetch<User>('/users/signup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
     });
 }
 

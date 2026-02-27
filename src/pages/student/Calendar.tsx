@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { AgendaView } from '../../components/calendar/AgendaView';
 import { CalendarSidebar } from '../../components/calendar/CalendarSidebar';
 import { MonthView } from '../../components/calendar/MonthView';
-import { PRESET_COLORS } from '../../lib/colors';
 import { getAssignments, getCourses, getTodos, createTodo, deleteTodo, updateTodo, getColors, saveColor } from '../../lib/api';
 import type { Assignment, Course, Todo } from '../../lib/api';
 import { getUser } from '../../lib/auth';
@@ -25,44 +24,11 @@ const Calendar: React.FC = () => {
     const [isTodoModalOpen, setIsTodoModalOpen] = useState(false);
     const [newTodoTitle, setNewTodoTitle] = useState('');
     const [newTodoDate, setNewTodoDate] = useState('');
-    const [newTodoTime, setNewTodoTime] = useState('');
     const [newTodoCourse, setNewTodoCourse] = useState('');
-    const [currentTimePlaceholder, setCurrentTimePlaceholder] = useState('');
-    const [currentDatePlaceholder, setCurrentDatePlaceholder] = useState('');
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [activeMobilePicker, setActiveMobilePicker] = useState<string | null>(null);
-
-    useEffect(() => {
-        const handleResize = () => {
-            const mobile = window.innerWidth < 1024;
-            setIsMobile(mobile);
-            if (mobile) setView('agenda');
-        };
-
-        window.addEventListener('resize', handleResize);
-        handleResize(); // Initial check
-
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     useEffect(() => {
         loadData();
     }, []);
-
-    useEffect(() => {
-        if (isTodoModalOpen) {
-            const now = new Date();
-            setCurrentTimePlaceholder(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            const yyyy = now.getFullYear();
-            setCurrentDatePlaceholder(`${mm}/${dd}/${yyyy}`);
-
-            // Clear date to show placeholder
-            setNewTodoDate('');
-        }
-    }, [isTodoModalOpen]);
 
     const loadData = async () => {
         try {
@@ -119,37 +85,19 @@ const Calendar: React.FC = () => {
     const handleAddTodo = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            let finalDate = newTodoDate;
-            if (!finalDate) {
-                const now = new Date();
-                finalDate = now.toISOString().split('T')[0];
-            }
-
-            let dueDateTime = undefined;
-            if (finalDate) {
-                const timeString = newTodoTime ? `T${newTodoTime}:00` : '';
-                try {
-                    dueDateTime = timeString ? new Date(`${finalDate}${timeString}`).toISOString() : new Date(`${finalDate}T00:00:00`).toISOString().split('T')[0];
-                } catch (e) {
-                    throw new Error("Invalid date format");
-                }
-            }
-
             const newTodo = await createTodo({
                 student_id: studentId,
                 title: newTodoTitle,
-                due_date: dueDateTime,
+                due_date: newTodoDate ? new Date(newTodoDate).toISOString() : undefined,
                 course_id: newTodoCourse || undefined
             });
             setTodos(prev => [...prev, newTodo]);
             setIsTodoModalOpen(false);
             setNewTodoTitle('');
             setNewTodoDate('');
-            setNewTodoTime('');
             setNewTodoCourse('');
         } catch (err) {
             console.error('Failed to create todo', err);
-            alert('Failed to save the event. Please ensure the date format is correct.');
         }
     };
 
@@ -176,62 +124,17 @@ const Calendar: React.FC = () => {
 
     return (
         <div className="calendar-page">
-            {!isMobile && (
-                <CalendarSidebar
-                    courses={courses}
-                    courseColors={courseColors}
-                    onColorChange={handleColorChange}
-                    selectedDate={selectedDate}
-                    onDateChange={handleDateChange}
-                />
-            )}
+            <CalendarSidebar
+                courses={courses}
+                courseColors={courseColors}
+                onColorChange={handleColorChange}
+                selectedDate={selectedDate}
+                onDateChange={handleDateChange}
+            />
 
             <div className="calendar-main">
-                {isMobile && courses.length > 0 && (
-                    <div className="mobile-course-colors">
-                        <div className="mobile-colors-scroll">
-                            {courses.map(course => (
-                                <div
-                                    key={course.id}
-                                    className={`mobile-color-pill ${activeMobilePicker === course.id ? 'active' : ''}`}
-                                    onClick={() => setActiveMobilePicker(activeMobilePicker === course.id ? null : course.id)}
-                                >
-                                    <div
-                                        className="mobile-color-indicator"
-                                        style={{ backgroundColor: courseColors[course.id] || '#3b82f6' }}
-                                    />
-                                    <span className="mobile-course-name">{course.name}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {activeMobilePicker && (
-                            <div className="mobile-color-picker-overlay animate-in" onClick={() => setActiveMobilePicker(null)}>
-                                <div className="mobile-color-picker-card" onClick={e => e.stopPropagation()}>
-                                    <div className="mobile-picker-header">
-                                        <h4>Pick color for {courses.find(c => c.id === activeMobilePicker)?.name}</h4>
-                                        <button className="close-picker-btn" onClick={() => setActiveMobilePicker(null)}>&times;</button>
-                                    </div>
-                                    <div className="mobile-color-grid">
-                                        {PRESET_COLORS.map(c => (
-                                            <button
-                                                key={c.value}
-                                                className="mobile-color-option"
-                                                style={{ backgroundColor: c.value }}
-                                                onClick={() => {
-                                                    handleColorChange(activeMobilePicker, c.value);
-                                                    setActiveMobilePicker(null);
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
                 <div className="calendar-header">
-                    <div className="calendar-header-left">
+                    <div className="header-left">
                         <button className="today-btn" onClick={() => setSelectedDate(new Date())}>Today</button>
                         <div className="nav-controls">
                             <button className="icon-nav-btn" onClick={handlePrev}><ChevronLeft size={20} /></button>
@@ -242,7 +145,7 @@ const Calendar: React.FC = () => {
                         </h2>
                     </div>
 
-                    <div className="calendar-header-right">
+                    <div className="header-right">
                         <div className="view-switcher">
                             <button
                                 className={`view-btn ${view === 'month' ? 'active' : ''}`}
@@ -307,27 +210,14 @@ const Calendar: React.FC = () => {
                                     placeholder="Event title..."
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                                    <label>Date</label>
-                                    <input
-                                        type="date"
-                                        value={newTodoDate}
-                                        onChange={e => setNewTodoDate(e.target.value)}
-                                        className={!newTodoDate ? 'date-placeholder' : ''}
-                                        style={{ '--date-placeholder': `"${currentDatePlaceholder}"` } as React.CSSProperties}
-                                    />
-                                </div>
-                                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                                    <label>Time (Optional)</label>
-                                    <input
-                                        type="time"
-                                        value={newTodoTime}
-                                        onChange={e => setNewTodoTime(e.target.value)}
-                                        className={!newTodoTime ? 'time-placeholder' : ''}
-                                        style={{ '--time-placeholder': `"${currentTimePlaceholder}"` } as React.CSSProperties}
-                                    />
-                                </div>
+                            <div className="form-group">
+                                <label>Date</label>
+                                <input
+                                    type="date"
+                                    value={newTodoDate}
+                                    onChange={e => setNewTodoDate(e.target.value)}
+                                    required
+                                />
                             </div>
                             <div className="form-group">
                                 <label>Course (Optional)</label>
@@ -342,10 +232,7 @@ const Calendar: React.FC = () => {
                                 </select>
                             </div>
                             <div className="modal-actions">
-                                <button type="button" className="ghost-btn" onClick={() => {
-                                    setIsTodoModalOpen(false);
-                                    setNewTodoTime('');
-                                }}>Cancel</button>
+                                <button type="button" className="ghost-btn" onClick={() => setIsTodoModalOpen(false)}>Cancel</button>
                                 <button type="submit" className="primary-btn">Save Event</button>
                             </div>
                         </form>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
-import { BarChart2, Search, Play } from 'lucide-react';
+import { FileText, BarChart2, Search, Play } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import PlagiarismReportModal from './PlagiarismReportModal';
@@ -68,7 +68,7 @@ const GradingDashboard: React.FC = () => {
 
     return (
         <div className="grading-dashboard-container">
-            <div className="dashboard-header">
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
                 <div>
                     <div className="breadcrumb">
                         <Link to={`/faculty/courses/${courseId}`}>Back to Course</Link>
@@ -80,7 +80,8 @@ const GradingDashboard: React.FC = () => {
                 <div className="flex gap-4" style={{ display: 'flex', gap: '1rem' }}>
                     <button
                         onClick={() => setShowAutoGradeModal(true)}
-                        className="btn-dashboard-action btn-autograde"
+                        className="btn-dashboard-action"
+                        style={{ backgroundColor: 'white', border: '2px solid #d8b4fe', color: '#7e22ce' }}
                     >
                         <Play size={20} />
                         Auto-Grade All
@@ -151,7 +152,7 @@ const GradingDashboard: React.FC = () => {
                                             <Button
                                                 size="sm"
                                                 onClick={() => navigate(`${latestSubmission.id}`)}
-                                                className="btn-primary"
+                                                className="bg-purple-600 hover:bg-purple-700 text-white border-transparent focus:ring-0 focus:outline-none"
                                             >
                                                 Grade
                                             </Button>
@@ -192,7 +193,7 @@ const GradingDashboard: React.FC = () => {
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f: { name: string, path: string }, i: number) => (
+                                            {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => (
                                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb', padding: '8px 12px', borderRadius: '6px' }}>
                                                     <span className="file-name" style={{ fontSize: '14px' }}>{f.name}</span>
                                                     <a

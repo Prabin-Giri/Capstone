@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases, runAutoGrader } from '../../lib/api';
-import type { Assignment, Submission, TestCase, AutoGradeResult } from '../../lib/api';
-import { Code, Download, Eye, Play, Check, X, CheckCircle, XCircle, Zap, Clock, PenTool } from 'lucide-react';
+import { getAssignment, getSubmissions, getTestCases, runTests, getFileUrl } from '../../lib/api';
+import { Code, Download, Eye, Play, CheckCircle, XCircle, Zap, Clock, PenTool } from 'lucide-react';
+import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
 
 import { getUser } from '../../lib/auth';
-
-type TestResult = AutoGradeResult['results'][0] & { is_public?: number };
 
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
@@ -22,8 +20,6 @@ const AssignmentDetails: React.FC = () => {
     const [isRunningTests, setIsRunningTests] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [publicTestRunning, setPublicTestRunning] = useState(false);
-    const [publicTestResult, setPublicTestResult] = useState<AutoGradeResult | null>(null);
 
     useEffect(() => {
         async function loadAssignment() {
@@ -92,11 +88,15 @@ const AssignmentDetails: React.FC = () => {
 
         setIsRunningTests(true);
         setTestResults(null);
-        setPublicTestResult(null);
         try {
-            const result = await runAutoGrader(submission.id, true);
-            setPublicTestResult(result);
-            setTestResults(result.results.map(r => ({ ...r, is_public: 1 })));
+            // 1. Fetch file content
+            const fileUrl = getFileUrl(submission.file_path);
+            const res = await fetch(fileUrl);
+            const code = await res.text();
+
+            // 2. Run tests
+            const { results } = await runTests(assignment.id, code, assignment.language || 'python');
+            setTestResults(results);
         } catch (err) {
             console.error(err);
             alert('Failed to run tests. Please try again.');
@@ -148,7 +148,7 @@ const AssignmentDetails: React.FC = () => {
                 <div className="section">
                     <h2 className="section-title">
                         <Eye size={20} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
-                        Sample Test Cases (Public)
+                        Sample Test Cases
                     </h2>
                     <div className="test-cases-display">
                         {testCases.map((tc, idx) => (
@@ -167,81 +167,6 @@ const AssignmentDetails: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                    {submission && (
-                        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-                                disabled={publicTestRunning}
-                                onClick={async () => {
-                                    if (!submission) return;
-                                    setPublicTestRunning(true);
-                                    setPublicTestResult(null);
-                                    try {
-                                        const result = await runAutoGrader(submission.id, true);
-                                        setPublicTestResult(result);
-                                    } catch (e) {
-                                        setPublicTestResult({
-                                            grade: null,
-                                            feedback: e instanceof Error ? e.message : 'Run failed',
-                                            results: [],
-                                            rawScore: 0,
-                                            maxPossible: 0,
-                                            latePenaltyPercent: 0,
-                                        });
-                                    } finally {
-                                        setPublicTestRunning(false);
-                                    }
-                                }}
-                            >
-                                <Play size={18} />
-                                {publicTestRunning ? 'Running public tests…' : 'Run public tests'}
-                            </button>
-                            <span className="form-hint" style={{ margin: 0 }}>
-                                Runs your latest submission against public test cases only. Your grade is not changed.
-                            </span>
-                        </div>
-                    )}
-                    {publicTestResult && (
-                        <div className="public-test-results" style={{
-                            marginTop: '1.25rem',
-                            padding: '1rem',
-                            background: 'var(--primary-light, #eff6ff)',
-                            borderRadius: '8px',
-                            border: '1px solid var(--primary-color, #2563eb)',
-                        }}>
-                            <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 600 }}>
-                                Public test results
-                            </h3>
-                            <p style={{ margin: '0 0 0.75rem', fontWeight: 600 }}>
-                                Score: {publicTestResult.rawScore.toFixed(0)} / {publicTestResult.maxPossible} points
-                            </p>
-                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                {publicTestResult.results.map((r, i) => (
-                                    <li key={i} style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '0.5rem',
-                                        padding: '0.5rem 0',
-                                        borderBottom: i < publicTestResult.results.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                                    }}>
-                                        {r.passed ? <Check size={18} color="#16a34a" /> : <X size={18} color="#dc2626" />}
-                                        <span style={{ fontWeight: 500 }}>Test {i + 1}:</span>
-                                        <span>{r.passed ? 'Passed' : 'Failed'}</span>
-                                        <span style={{ color: '#6b7280' }}>({r.points}/{r.maxPoints} pts)</span>
-                                        {!r.passed && (r.actual !== undefined || r.expected !== undefined || r.error) && (
-                                            <div style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.875rem', color: '#374151' }}>
-                                                {r.error && <div>Error: {r.error}</div>}
-                                                {r.actual !== undefined && <div><strong>Your output:</strong> <pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap' }}>{r.actual.slice(0, 300)}{r.actual.length > 300 ? '…' : ''}</pre></div>}
-                                                {r.expected !== undefined && <div><strong>Expected:</strong> <pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap' }}>{r.expected.slice(0, 300)}{r.expected.length > 300 ? '…' : ''}</pre></div>}
-                                            </div>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
                 </div>
             )}
 

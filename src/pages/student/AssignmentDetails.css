@@ -14,7 +14,7 @@
 }
 
 .details-title {
-    font-size: 1.5rem;
+    font-size: 1.875rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
@@ -32,15 +32,15 @@
     background-color: white;
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
-    padding: 1.25rem;
-    margin-bottom: 1.25rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .section-title {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     font-weight: 600;
     margin-top: 0;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     color: var(--text-primary);
 }
 
@@ -172,7 +172,7 @@
 
 .report-header {
     background: linear-gradient(to right, #f8fafc, #fff);
-    padding: 1rem 1.25rem;
+    padding: 1.5rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -189,7 +189,7 @@
 }
 
 .total-score-value {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 800;
     color: var(--primary-color);
     line-height: 1;

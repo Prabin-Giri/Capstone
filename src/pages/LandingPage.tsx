@@ -8,7 +8,7 @@ const LandingPage: React.FC = () => {
             <div className="landing-content">
                 <h1 className="landing-title">AutoGrade</h1>
                 <p className="landing-subtitle">
-                    Automated grading and assignment management system.
+                    Intelligent grading and assignment management system.
                 </p>
 
                 <div className="role-cards">
