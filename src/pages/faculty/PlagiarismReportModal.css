@@ -3,17 +3,29 @@
 .plagiarism-modal-overlay {
     position: fixed;
     top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    right: 0;
+    bottom: 0;
+    left: var(--global-sidebar-width);
+    background-color: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
     z-index: 1000;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 24px;
     animation: fadeIn 0.2s ease-out;
+}
+
+@media (max-width: 1024px) {
+    .plagiarism-modal-overlay {
+        left: 80px;
+    }
+}
+
+@media (max-width: 768px) {
+    .plagiarism-modal-overlay {
+        left: 0;
+    }
 }
 
 .plagiarism-modal-card {
@@ -48,12 +60,13 @@
 .pm-icon-wrapper {
     width: 48px;
     height: 48px;
-    background-color: #f3e8ff;
+    background-color: var(--primary-light);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #7e22ce;
+    color: var(--primary-color);
+    border: 1px solid rgba(132, 0, 41, 0.1);
 }
 
 .pm-title {
@@ -70,7 +83,7 @@
 }
 
 .pm-highlight {
-    color: #7e22ce;
+    color: var(--primary-color);
     font-weight: 600;
 }
 
@@ -148,7 +161,7 @@
 
 /* Action Button */
 .pm-btn-primary {
-    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
     color: white;
     border: none;
     padding: 16px 32px;
@@ -162,12 +175,12 @@
     width: 100%;
     justify-content: center;
     transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 14px 0 rgba(124, 58, 237, 0.3);
+    box-shadow: 0 4px 14px 0 rgba(132, 0, 41, 0.25);
 }
 
 .pm-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px 0 rgba(124, 58, 237, 0.4);
+    box-shadow: 0 6px 20px 0 rgba(132, 0, 41, 0.35);
 }
 
 /* Loading State */
@@ -183,8 +196,8 @@
 .pm-spinner {
     width: 60px;
     height: 60px;
-    border: 5px solid #f3e8ff;
-    border-top: 5px solid #7c3aed;
+    border: 5px solid var(--primary-light);
+    border-top: 5px solid var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 24px;

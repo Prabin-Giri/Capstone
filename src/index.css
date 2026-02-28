@@ -42,9 +42,15 @@
   --header-height: 72px;
 }
 
+html {
+  font-size: 14px;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   background-color: var(--bg-body);
   color: var(--text-primary);

@@ -8,17 +8,23 @@ router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
         let result;
+        const selectFields = `
+            c.*,
+            (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.course_id = c.id AND a.status = 'active') as active_assignment_count
+        `;
+
         if (instructorId) {
-            result = await db.execute('SELECT * FROM courses WHERE instructor_id = ? ORDER BY id', [instructorId]);
+            result = await db.execute(`SELECT ${selectFields} FROM courses c WHERE c.instructor_id = ? ORDER BY c.id`, [instructorId]);
         } else if (studentId) {
             result = await db.execute(`
-                SELECT c.* FROM courses c
+                SELECT ${selectFields} FROM courses c
                 JOIN course_enrollments ce ON c.id = ce.course_id
                 WHERE ce.student_id = ?
                 ORDER BY c.id
             `, [studentId]);
         } else {
-            result = await db.execute('SELECT * FROM courses ORDER BY id');
+            result = await db.execute(`SELECT ${selectFields} FROM courses c ORDER BY c.id`);
         }
         res.json(queryToObjects(result));
     } catch (err) {
@@ -30,7 +36,12 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT * FROM courses WHERE id = ?', [req.params.id]);
+        const result = await db.execute(`
+            SELECT c.*,
+            (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.course_id = c.id AND a.status = 'active') as active_assignment_count
+            FROM courses c WHERE c.id = ?
+        `, [req.params.id]);
         const course = queryOne(result);
         if (!course) {
             return res.status(404).json({ error: 'Course not found' });
@@ -311,6 +322,21 @@ router.get('/:id/students', async (req, res, next) => {
             WHERE ce.course_id = ?
         `, [courseId]);
         res.json(queryToObjects(result));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/courses/:id/enroll/:studentId - Unenroll a student
+router.delete('/:id/enroll/:studentId', async (req, res, next) => {
+    const { id: courseId, studentId } = req.params;
+    try {
+        const db = getDb();
+        await db.execute(
+            'DELETE FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+            [courseId, studentId]
+        );
+        res.json({ message: 'Student unenrolled successfully' });
     } catch (err) {
         next(err);
     }

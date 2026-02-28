@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import type { Assignment, Todo } from '../../lib/api';
 import './MonthView.css';
 
@@ -8,6 +9,8 @@ interface MonthViewProps {
     courseColors: Record<string, string>;
     selectedDate: Date;
     onDateChange: (date: Date) => void;
+    onDeleteTodo: (id: string) => void;
+    userRole?: string;
 }
 
 export const MonthView: React.FC<MonthViewProps> = ({
@@ -15,7 +18,9 @@ export const MonthView: React.FC<MonthViewProps> = ({
     todos,
     courseColors,
     selectedDate,
-    onDateChange
+    onDateChange,
+    onDeleteTodo,
+    userRole = 'student'
 }) => {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
@@ -51,14 +56,29 @@ export const MonthView: React.FC<MonthViewProps> = ({
     }
 
     const getItemsForDate = (date: Date) => {
-        const dStr = date.toISOString().split('T')[0];
+        const targetYear = date.getFullYear();
+        const targetMonth = date.getMonth();
+        const targetDay = date.getDate();
 
-        const dayAssignments = assignments.filter(a => a.due_date && a.due_date.startsWith(dStr));
-        const dayTodos = todos.filter(t => t.due_date && t.due_date.startsWith(dStr));
+        const dayAssignments = assignments.filter(a => {
+            if (!a.due_date) return false;
+            const d = new Date(a.due_date);
+            return d.getFullYear() === targetYear &&
+                d.getMonth() === targetMonth &&
+                d.getDate() === targetDay;
+        });
+
+        const dayTodos = todos.filter(t => {
+            if (!t.due_date) return false;
+            const d = new Date(t.due_date);
+            return d.getFullYear() === targetYear &&
+                d.getMonth() === targetMonth &&
+                d.getDate() === targetDay;
+        });
 
         return [
-            ...dayAssignments.map(a => ({ type: 'assignment', id: a.id, title: a.title, color: courseColors[a.course_id] || '#3b82f6' })),
-            ...dayTodos.map(t => ({ type: 'todo', id: t.id, title: t.title, color: t.course_id ? (courseColors[t.course_id] || '#3b82f6') : '#6b7280' }))
+            ...dayAssignments.map(a => ({ type: 'assignment' as const, id: a.id, title: a.title, color: courseColors[a.course_id] || '#3b82f6', courseId: a.course_id })),
+            ...dayTodos.map(t => ({ type: 'todo' as const, id: t.id, title: t.title, color: t.course_id ? (courseColors[t.course_id] || '#3b82f6') : '#6b7280', courseId: t.course_id, original: t }))
         ];
     };
 
@@ -91,15 +111,51 @@ export const MonthView: React.FC<MonthViewProps> = ({
                         >
                             <span className="cell-day">{day.date.getDate()}</span>
                             <div className="cell-events">
-                                {items.slice(0, 3).map((item) => (
-                                    <div
-                                        key={`${item.type}-${item.id}`}
-                                        className={`event-pill ${item.type}`}
-                                        style={{ backgroundColor: item.color }}
-                                    >
-                                        {item.title}
-                                    </div>
-                                ))}
+                                {items.slice(0, 3).map((item) => {
+                                    const pill = (
+                                        <div
+                                            key={`${item.type}-${item.id}`}
+                                            className={`event-pill ${item.type}`}
+                                            style={{ backgroundColor: item.color }}
+                                            title={item.type === 'todo' ? 'Personal Todo' : 'Course Assignment (Click to view)'}
+                                        >
+                                            <span className="pill-icon">
+                                                {item.type === 'assignment' ? '📝' : '🔘'}
+                                            </span>
+                                            <span className="pill-title">{item.title}</span>
+                                            {item.type === 'todo' && (
+                                                <button
+                                                    className="delete-pill-btn"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteTodo(item.id);
+                                                    }}
+                                                    aria-label="Delete todo"
+                                                >
+                                                    &times;
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+
+                                    if (item.type === 'assignment') {
+                                        return (
+                                            <Link
+                                                key={`${item.type}-${item.id}`}
+                                                to={userRole === 'faculty'
+                                                    ? `/faculty/courses/${item.courseId}/assignments/${item.id}/grading`
+                                                    : `/student/courses/${item.courseId}/assignments/${item.id}`
+                                                }
+                                                className="event-link"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {pill}
+                                            </Link>
+                                        );
+                                    }
+
+                                    return pill;
+                                })}
                                 {items.length > 3 && (
                                     <div className="more-events">+{items.length - 3} more</div>
                                 )}

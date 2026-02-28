@@ -4,12 +4,17 @@ import { LayoutDashboard, Calendar, Mail, HelpCircle, User, LogOut } from 'lucid
 import { getRole, AUTH_ROLES, logout } from '../../lib/auth';
 import './Layout.css';
 
-const GlobalSidebar: React.FC = () => {
+interface GlobalSidebarProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose }) => {
     const role = getRole();
     const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
 
     return (
-        <aside className="global-sidebar">
+        <aside className={`global-sidebar ${isOpen ? 'mobile-open' : ''}`}>
             <div className="global-sidebar-header" style={{ display: 'flex', justifyContent: 'center', padding: '1.5rem 0' }}>
                 <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
             </div>
@@ -18,6 +23,7 @@ const GlobalSidebar: React.FC = () => {
                 <NavLink
                     to={dashboardPath}
                     end
+                    onClick={onClose}
                     className={({ isActive }) =>
                         `global-nav-link ${isActive ? 'active' : ''}`
                     }
@@ -28,6 +34,7 @@ const GlobalSidebar: React.FC = () => {
 
                 <NavLink
                     to="/calendar"
+                    onClick={onClose}
                     className={({ isActive }) =>
                         `global-nav-link ${isActive ? 'active' : ''}`
                     }
@@ -55,7 +62,10 @@ const GlobalSidebar: React.FC = () => {
                 </span>
 
                 <button
-                    onClick={logout}
+                    onClick={() => {
+                        onClose();
+                        logout();
+                    }}
                     className="global-nav-link"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%' }}
                 >

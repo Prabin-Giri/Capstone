@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import type { Assignment, Todo } from '../../lib/api';
 import './AgendaView.css';
 
@@ -9,6 +10,7 @@ interface AgendaViewProps {
     onToggleTodo: (id: string, completed: boolean) => void;
     onDeleteTodo: (id: string) => void;
     selectedDate: Date;
+    userRole?: string;
 }
 
 interface AgendaItem {
@@ -27,7 +29,8 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
     courseColors,
     onToggleTodo,
     onDeleteTodo,
-    selectedDate
+    selectedDate,
+    userRole = 'student'
 }) => {
     // Calculate end date (selected date + 6 days = 7 days total)
     const startDate = new Date(selectedDate);
@@ -65,7 +68,8 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
     // Group by date (YYYY-MM-DD)
     const groupedItems: Record<string, AgendaItem[]> = {};
     items.forEach(item => {
-        const dateKey = item.date.toISOString().split('T')[0];
+        const d = item.date;
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (!groupedItems[dateKey]) groupedItems[dateKey] = [];
         groupedItems[dateKey].push(item);
     });
@@ -88,7 +92,9 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
             ) : (
                 sortedDates.map(dateKey => {
                     const dateItems = groupedItems[dateKey];
-                    const dateObj = new Date(dateKey + 'T12:00:00');
+                    // Create date object from local key components to avoid TZ shifts
+                    const [y, m, d] = dateKey.split('-').map(Number);
+                    const dateObj = new Date(y, m - 1, d, 12, 0, 0);
 
                     return (
                         <div key={dateKey} className="agenda-day">
@@ -104,30 +110,51 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                                         />
                                         <div className="item-content">
                                             {item.type === 'todo' ? (
-                                                <div className="todo-row">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={item.completed}
-                                                        onChange={(e) => onToggleTodo(item.id, e.target.checked)}
-                                                        className="todo-checkbox"
-                                                    />
-                                                    <span className={`todo-title ${item.completed ? 'completed' : ''}`}>
-                                                        {item.title}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => onDeleteTodo(item.id)}
-                                                        className="delete-todo-btn"
-                                                        aria-label="Delete todo"
-                                                    >
-                                                        &times;
-                                                    </button>
+                                                <div className="todo-row" title="Personal Todo">
+                                                    <div className="todo-left">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={item.completed}
+                                                            onChange={(e) => onToggleTodo(item.id, e.target.checked)}
+                                                            className="todo-checkbox"
+                                                        />
+                                                        <span
+                                                            className={`todo-title ${item.completed ? 'completed' : ''}`}
+                                                        >
+                                                            {item.title}
+                                                        </span>
+                                                    </div>
+                                                    <div className="todo-actions">
+                                                        <span className="todo-time">
+                                                            {item.date.toLocaleTimeString(undefined, {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true
+                                                            })}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => onDeleteTodo(item.id)}
+                                                            className="delete-todo-btn"
+                                                            aria-label="Delete todo"
+                                                        >
+                                                            &times;
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ) : (
-                                                <div className="assignment-row">
-                                                    <span className="assignment-icon" role="img" aria-label="assignment">📝</span>
-                                                    <span className="assignment-title">{item.title}</span>
-                                                    <span className="assignment-time">Due 11:59 PM</span>
-                                                </div>
+                                                <Link
+                                                    to={userRole === 'faculty'
+                                                        ? `/faculty/courses/${item.courseId}/assignments/${item.id}/grading`
+                                                        : `/student/courses/${item.courseId}/assignments/${item.id}`
+                                                    }
+                                                    className="assignment-link"
+                                                >
+                                                    <div className="assignment-row">
+                                                        <span className="assignment-icon" role="img" aria-label="assignment">📝</span>
+                                                        <span className="assignment-title">{item.title}</span>
+                                                        <span className="assignment-time">Due 11:59 PM</span>
+                                                    </div>
+                                                </Link>
                                             )}
                                             {item.courseId && (
                                                 <div

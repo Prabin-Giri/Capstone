@@ -44,10 +44,10 @@ router.post('/', async (req, res, next) => {
         const id = req.body.id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
 
         const db = getDb();
-        await db.execute('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, type]);
+        await db.execute('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type]);
 
-        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, type });
+        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type });
     } catch (err) {
         next(err);
     }
@@ -56,7 +56,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/assignments/:id - Update assignment
 router.put('/:id', async (req, res, next) => {
     try {
-        const { title, description, due_date, status, points, language, starter_code_path, type } = req.body;
+        const { title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type } = req.body;
         const id = req.params.id;
 
         const db = getDb();
@@ -65,11 +65,17 @@ router.put('/:id', async (req, res, next) => {
         const values = [];
         if (title !== undefined) { updates.push('title = ?'); values.push(title); }
         if (description !== undefined) { updates.push('description = ?'); values.push(description); }
-        if (due_date !== undefined) { updates.push('due_date = ?'); values.push(due_date); }
+        if (due_date !== undefined) {
+            updates.push('due_date = ?');
+            // Convert ISO 8601 to MySQL DATETIME format
+            const mysqlDueDate = new Date(due_date).toISOString().slice(0, 19).replace('T', ' ');
+            values.push(mysqlDueDate);
+        }
         if (status !== undefined) { updates.push('status = ?'); values.push(status); }
         if (points !== undefined) { updates.push('points = ?'); values.push(points); }
         if (language !== undefined) { updates.push('language = ?'); values.push(language); }
         if (starter_code_path !== undefined) { updates.push('starter_code_path = ?'); values.push(starter_code_path); }
+        if (test_case_file_path !== undefined) { updates.push('test_case_file_path = ?'); values.push(test_case_file_path); }
         if (type !== undefined) { updates.push('type = ?'); values.push(type); }
 
         if (updates.length === 0) {
@@ -345,75 +351,22 @@ router.post('/:id/autograde', async (req, res, next) => {
         });
         const latestSubmissions = Array.from(submissionMap.values());
 
-        // 4. Helper: Run Tests
-        const runTestsForSubmission = async (sub) => {
-            const filePath = path.join(__dirname, '../../uploads', sub.file_path);
-            if (!fs.existsSync(filePath)) return 0;
-
-            const code = fs.readFileSync(filePath, 'utf8');
-            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograder-batch-'));
-            const scriptName = assignment.language === 'python' ? 'main.py' : 'main.js';
-            const scriptPath = path.join(tmpDir, scriptName);
-
-            fs.writeFileSync(scriptPath, code);
-
-            let totalScore = 0;
-
-            for (const tc of testCases) {
-                await new Promise((resolve) => {
-                    let command = '';
-                    if (assignment.language === 'python') {
-                        command = `py "${scriptPath}"`;
-                    } else {
-                        command = `node "${scriptPath}"`;
-                    }
-
-                    const child = exec(command, { timeout: Number(timeout) }, (error, stdout, stderr) => {
-                        const output = stdout.trim();
-                        const expected = tc.expected_output.trim();
-                        if (output === expected) {
-                            totalScore += tc.points;
-                        }
-                        resolve();
-                    });
-
-                    if (tc.input) {
-                        child.stdin.write(tc.input);
-                        child.stdin.end();
-                    }
-                });
-            }
-
-            fs.rmSync(tmpDir, { recursive: true, force: true });
-            return totalScore;
-        };
+        const { gradeSubmission } = require('../grader/gradeSubmission');
 
         // 5. Process All
         let gradedCount = 0;
         let totalGrades = 0;
 
         for (const sub of latestSubmissions) {
-            let score = await runTestsForSubmission(sub);
+            try {
+                // This will run the grader (custom or default), update the DB, and return the result
+                const result = await gradeSubmission(sub.id);
 
-            const submittedAt = new Date(sub.submitted_at);
-            const dueDateTime = new Date(assignment.due_date);
-            dueDateTime.setHours(23, 59, 59, 999);
-
-            if (submittedAt > dueDateTime) {
-                if (latePenalty === 'zero') {
-                    score = 0;
-                } else if (latePenalty === 'daily_10') {
-                    const diffTime = Math.abs(submittedAt - dueDateTime);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    const penalty = score * (0.10 * diffDays);
-                    score = Math.max(0, score - penalty);
-                }
+                gradedCount++;
+                totalGrades += result.grade;
+            } catch (err) {
+                console.error(`Failed to grade submission ${sub.id}:`, err);
             }
-
-            await db.execute("UPDATE submissions SET grade = ?, status = 'graded' WHERE id = ?", [Math.round(score), sub.id]);
-
-            gradedCount++;
-            totalGrades += score;
         }
 
         res.json({

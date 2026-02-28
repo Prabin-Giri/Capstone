@@ -77,12 +77,14 @@ router.post('/todos', async (req, res) => {
 
     const id = `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    const mysqlDueDate = due_date ? new Date(due_date).toISOString().slice(0, 19).replace('T', ' ') : null;
+
     try {
         const db = getDb();
         await db.execute(`
             INSERT INTO todos (id, student_id, course_id, title, due_date, completed)
             VALUES (?, ?, ?, ?, ?, 0)
-        `, [id, student_id, course_id || null, title, due_date || null]);
+        `, [id, student_id, course_id || null, title, mysqlDueDate]);
 
         res.status(201).json({
             id,
@@ -110,7 +112,11 @@ router.put('/todos/:id', async (req, res) => {
         const values = [];
 
         if (title !== undefined) { updates.push('title = ?'); values.push(title); }
-        if (due_date !== undefined) { updates.push('due_date = ?'); values.push(due_date); }
+        if (due_date !== undefined) {
+            const mysqlDueDate = due_date ? new Date(due_date).toISOString().slice(0, 19).replace('T', ' ') : null;
+            updates.push('due_date = ?');
+            values.push(mysqlDueDate);
+        }
         if (completed !== undefined) { updates.push('completed = ?'); values.push(completed ? 1 : 0); }
         if (course_id !== undefined) { updates.push('course_id = ?'); values.push(course_id); }
 

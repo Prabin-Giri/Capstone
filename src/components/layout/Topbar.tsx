@@ -1,19 +1,23 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Menu } from 'lucide-react';
 import { getUser } from '../../lib/auth';
 import './Layout.css';
 
-const Topbar: React.FC = () => {
+interface TopbarProps {
+    onToggleSidebar: () => void;
+}
+
+const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
     const location = useLocation();
     const user = getUser();
 
     const getPageTitle = () => {
         const path = location.pathname;
-        if (path.includes('/calendar')) return 'Academic Calendar';
+        if (path.includes('/calendar')) return 'Calendar';
         if (path.includes('/faculty')) return 'Faculty Dashboard';
         if (path.includes('/student')) return 'Student Dashboard';
-        return 'AutoGrade Portal';
+        return 'AutoGrade';
     };
 
     const getInitials = () => {
@@ -27,12 +31,17 @@ const Topbar: React.FC = () => {
 
     return (
         <header className="topbar">
-            <div className="page-title">{getPageTitle()}</div>
+            <div className="topbar-left">
+                <button className="mobile-toggle" onClick={onToggleSidebar}>
+                    <Menu size={24} />
+                </button>
+                <div className="page-title">{getPageTitle()}</div>
+            </div>
 
             <div className="user-profile">
                 <div className="icon-group" style={{ display: 'flex', gap: '1rem', marginRight: '1rem', color: 'var(--text-secondary)' }}>
-                    <Search size={20} className="cursor-pointer hover:text-primary" />
-                    <Bell size={20} className="cursor-pointer hover:text-primary" />
+                    <Search size={20} className="cursor-pointer hover:text-primary hide-mobile" />
+                    <Bell size={20} className="cursor-pointer hover:text-primary hide-mobile" />
                 </div>
                 <div className="avatar-circle">
                     {getInitials()}

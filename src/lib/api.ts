@@ -18,6 +18,8 @@ export interface Course {
     term: string;
     instructor_id?: string;
     is_archived?: boolean;
+    student_count?: number;
+    active_assignment_count?: number;
     created_at?: string;
 }
 
@@ -92,6 +94,7 @@ export interface Assignment {
     points?: number;
     language?: string;
     starter_code_path?: string;
+    test_case_file_path?: string;
     type?: 'individual' | 'group';
     created_at?: string;
 }
@@ -115,6 +118,12 @@ export async function enrollStudent(courseId: string, studentId: string): Promis
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ studentId }),
+    });
+}
+
+export async function unenrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/courses/${courseId}/enroll/${studentId}`, {
+        method: 'DELETE',
     });
 }
 
@@ -519,5 +528,11 @@ export async function autoGradeAssignment(
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ latePenalty, timeout }),
+    });
+}
+
+export async function runAutograde(submissionId: number): Promise<Submission> {
+    return apiFetch<Submission>(`/grader/submissions/${submissionId}/run`, {
+        method: 'POST',
     });
 }

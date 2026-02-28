@@ -12,6 +12,7 @@ import {
     updateCourse,
     enrollStudent,
     enrollStudentsByCSV,
+    unenrollStudent,
     getEnrolledStudents,
     searchStudents,
     type User,
@@ -19,7 +20,8 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2 } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
 
 const FacultyCourseView: React.FC = () => {
@@ -34,6 +36,7 @@ const FacultyCourseView: React.FC = () => {
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
     const [archiveInput, setArchiveInput] = useState('');
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
+    const [studentToUnenroll, setStudentToUnenroll] = useState<User | null>(null);
     const [showEnrollModal, setShowEnrollModal] = useState(false);
     const [enrollTab, setEnrollTab] = useState<'manual' | 'csv'>('manual');
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -100,6 +103,20 @@ const FacultyCourseView: React.FC = () => {
             alert('Failed to delete assignment');
         }
     }
+
+    const handleUnenroll = async () => {
+        if (!courseId || !studentToUnenroll) return;
+        try {
+            await unenrollStudent(courseId, studentToUnenroll.id);
+            // Refresh students
+            const students = await getEnrolledStudents(courseId);
+            setEnrolledStudents(students);
+            setStudentToUnenroll(null);
+        } catch (err) {
+            console.error('Failed to unenroll student', err);
+            alert('Failed to unenroll student');
+        }
+    };
 
     const handleFileUpload = async (type: 'syllabus' | 'schedule', file: File) => {
         if (!courseId) return;
@@ -254,7 +271,7 @@ const FacultyCourseView: React.FC = () => {
                 <div className="header-title">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <h1>Faculty Command Center</h1>
-                        {course.is_archived && (
+                        {!!course.is_archived && (
                             <span className="tag-pill" style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--muted-color)', border: '1px solid rgba(255,255,255,0.2)' }}>
                                 ARCHIVED
                             </span>
@@ -263,81 +280,83 @@ const FacultyCourseView: React.FC = () => {
                     <p className="header-metadata">{course.name} • {course.id}</p>
                 </div>
 
-                <div className="dropdown-container" ref={dropdownRef}>
-                    <button
-                        onClick={() => setShowDropdown(!showDropdown)}
-                        className="create-btn"
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
-                    >
-                        <Plus size={20} />
-                        Manage Course
-                        <ChevronDown size={14} />
-                    </button>
+                <div className="header-actions">
+                    <div className="dropdown-container" ref={dropdownRef}>
+                        <button
+                            onClick={() => setShowDropdown(!showDropdown)}
+                            className="create-btn"
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+                        >
+                            <Plus size={20} />
+                            Manage Course
+                            <ChevronDown size={14} />
+                        </button>
 
-                    {showDropdown && (
-                        <div className="dropdown-menu">
-                            <button
-                                className="dropdown-item"
-                                onClick={() => navigate('assignments/new')}
-                            >
-                                <Plus size={16} />
-                                Manual Assignment
-                            </button>
-                            <div className="dropdown-divider"></div>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => syllabusInputRef.current?.click()}
-                            >
-                                <Upload size={16} />
-                                Upload Syllabus
-                            </button>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => scheduleInputRef.current?.click()}
-                            >
-                                <Upload size={16} />
-                                Upload Assignment Schedule
-                            </button>
-                            <div className="dropdown-divider"></div>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => {
-                                    setShowEnrollModal(true);
-                                    setShowDropdown(false);
-                                    handleSearchStudents('');
-                                }}
-                            >
-                                <UserPlus size={16} />
-                                Enroll Student
-                            </button>
-                            <div className="dropdown-divider"></div>
-                            <button
-                                className="dropdown-item"
-                                onClick={() => {
-                                    setShowArchiveModal(true);
-                                    setShowDropdown(false);
-                                    setArchiveInput('');
-                                    setActionError(null);
-                                }}
-                                style={{ color: course.is_archived ? 'var(--primary-color)' : '#ef4444' }}
-                            >
-                                <Archive size={16} />
-                                {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                <button
-                    onClick={() => navigate('gradebook')}
-                    className="create-btn"
-                    style={{ background: 'var(--primary-color)', color: 'white', marginLeft: '10px', border: 'none' }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={18} />
-                        View Gradebook
+                        {showDropdown && (
+                            <div className="dropdown-menu">
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => navigate('assignments/new')}
+                                >
+                                    <Plus size={16} />
+                                    Manual Assignment
+                                </button>
+                                <div className="dropdown-divider"></div>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => syllabusInputRef.current?.click()}
+                                >
+                                    <Upload size={16} />
+                                    Upload Syllabus
+                                </button>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => scheduleInputRef.current?.click()}
+                                >
+                                    <Upload size={16} />
+                                    Upload Assignment Schedule
+                                </button>
+                                <div className="dropdown-divider"></div>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => {
+                                        setShowEnrollModal(true);
+                                        setShowDropdown(false);
+                                        handleSearchStudents('');
+                                    }}
+                                >
+                                    <UserPlus size={16} />
+                                    Enroll Student
+                                </button>
+                                <div className="dropdown-divider"></div>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => {
+                                        setShowArchiveModal(true);
+                                        setShowDropdown(false);
+                                        setArchiveInput('');
+                                        setActionError(null);
+                                    }}
+                                    style={{ color: course.is_archived ? 'var(--primary-color)' : '#ef4444' }}
+                                >
+                                    <Archive size={16} />
+                                    {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
+                                </button>
+                            </div>
+                        )}
                     </div>
-                </button>
+
+                    <button
+                        onClick={() => navigate('gradebook')}
+                        className="create-btn"
+                        style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FileText size={18} />
+                            View Gradebook
+                        </div>
+                    </button>
+                </div>
             </div>
 
             {/* Faculty Analytics Bar */}
@@ -456,14 +475,13 @@ const FacultyCourseView: React.FC = () => {
                                                     >
                                                         Edit
                                                     </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClick(assignment.id)}
+                                                        className="delete-btn"
+                                                    >
+                                                        Delete
+                                                    </button>
                                                 </div>
-
-                                                <button
-                                                    onClick={() => handleDeleteClick(assignment.id)}
-                                                    className="delete-btn"
-                                                >
-                                                    Delete
-                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -492,11 +510,20 @@ const FacultyCourseView: React.FC = () => {
                                             {student.name.charAt(0)}
                                         </div>
                                         <div>
-                                            <p className="student-name">{student.name}</p>
+                                            <div className="student-name-row">
+                                                <p className="student-name">{student.name}</p>
+                                                <span className="student-id-tag">{student.id}</span>
+                                            </div>
                                             <p className="student-email">{student.email}</p>
                                         </div>
                                     </div>
-                                    <span className="student-id-tag">{student.id}</span>
+                                    <button
+                                        onClick={() => setStudentToUnenroll(student)}
+                                        className="trash-btn-red"
+                                        title="Unenroll Student"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             ))
                         )}
@@ -506,52 +533,59 @@ const FacultyCourseView: React.FC = () => {
 
             {/* Archive Confirmation Modal */}
             {showArchiveModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
-                                <AlertTriangle size={24} />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                <div className="archive-modal-overlay">
+                    <div className="archive-modal-card">
+                        <div className="archive-header">
+                            <h2 className="archive-title">
                                 {course.is_archived ? 'Unarchive Course?' : 'Archive Course?'}
-                            </h3>
-                            <p className="text-gray-500 mb-6 font-medium">
-                                To confirm, type <span className="font-mono bg-gray-100 px-1 rounded select-all">{course.name}</span> below.
+                            </h2>
+                            <button className="archive-close-btn" onClick={() => setShowArchiveModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="archive-body">
+                            <p className="archive-instruction">
+                                To confirm, type <span style={{ fontWeight: 800, color: 'var(--primary-color)' }}>{course.name}</span> below.
                             </p>
 
-                            <input
-                                type="text"
-                                value={archiveInput}
-                                onChange={(e) => {
-                                    setArchiveInput(e.target.value);
-                                    setActionError(null);
-                                }}
-                                placeholder="Type course name"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            />
+                            <div className="archive-input-container">
+                                <input
+                                    type="text"
+                                    value={archiveInput}
+                                    onChange={(e) => {
+                                        setArchiveInput(e.target.value);
+                                        setActionError(null);
+                                    }}
+                                    placeholder="Type course name"
+                                    autoFocus
+                                />
+                            </div>
 
                             {actionError && (
-                                <p className="text-red-600 text-sm mb-4">{actionError}</p>
+                                <p style={{ color: 'var(--danger-color)', fontSize: '0.85rem', marginBottom: '1rem' }}>{actionError}</p>
                             )}
 
                             {!course.is_archived && (
-                                <p className="text-xs text-gray-400 mb-6">
-                                    Archiving will make this course read-only for all students.
-                                </p>
+                                <div className="archive-warning">
+                                    <AlertTriangle size={16} />
+                                    <p className="archive-warning-text">
+                                        Archiving will hide this course from your active dashboard.
+                                    </p>
+                                </div>
                             )}
 
-                            <div className="flex gap-3 w-full">
+                            <div className="archive-footer">
                                 <button
                                     onClick={() => setShowArchiveModal(false)}
-                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                    className="archive-btn archive-btn-cancel"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleArchiveCourse}
                                     disabled={archiveInput !== course.name}
-                                    className={`flex-1 px-5 py-2.5 rounded-lg font-medium text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${course.is_archived ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
-                                        }`}
+                                    className={`archive-btn ${course.is_archived ? 'archive-btn-unarchive' : 'archive-btn-confirm'}`}
                                 >
                                     {course.is_archived ? 'Unarchive' : 'Archive'}
                                 </button>
@@ -563,31 +597,63 @@ const FacultyCourseView: React.FC = () => {
 
             {/* Delete Confirmation Modal */}
             {assignmentToDelete && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
-                                <AlertTriangle size={24} />
+                <div className="unenroll-overlay">
+                    <div className="unenroll-content">
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                            <div className="unenroll-icon-wrapper">
+                                <AlertTriangle size={32} />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            <h3 className="unenroll-title">
                                 Delete Assignment?
                             </h3>
-                            <p className="text-gray-500 mb-6">
+                            <p className="unenroll-text">
                                 Are you sure you want to delete this assignment? This action cannot be undone and will delete all student submissions.
                             </p>
 
-                            <div className="flex gap-3 w-full">
+                            <div className="unenroll-btn-group">
                                 <button
                                     onClick={() => setAssignmentToDelete(null)}
-                                    className="flex-1 px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                    className="unenroll-btn unenroll-btn-cancel"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={confirmDelete}
-                                    className="flex-1 px-5 py-2.5 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                                    className="unenroll-btn unenroll-btn-confirm"
                                 >
                                     Delete Assignment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Unenroll Confirmation Modal */}
+            {studentToUnenroll && (
+                <div className="unenroll-overlay">
+                    <div className="unenroll-content">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="unenroll-icon-wrapper">
+                                <AlertTriangle size={32} />
+                            </div>
+                            <h3 className="unenroll-title">Unenroll Student?</h3>
+                            <p className="unenroll-text">
+                                Are you sure you want to unenroll <strong>{studentToUnenroll.name}</strong> from this course?
+                            </p>
+
+                            <div className="unenroll-btn-group">
+                                <button
+                                    onClick={() => setStudentToUnenroll(null)}
+                                    className="unenroll-btn unenroll-btn-cancel"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUnenroll}
+                                    className="unenroll-btn unenroll-btn-confirm"
+                                >
+                                    Confirm Unenroll
                                 </button>
                             </div>
                         </div>
@@ -608,32 +674,24 @@ const FacultyCourseView: React.FC = () => {
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '480px', width: '100%' }}>
                         {/* Header */}
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-gray-900">Enroll Students</h3>
-                            <button onClick={resetEnrollModal} style={{ color: '#9ca3af' }}><X size={20} /></button>
+                        <div className="enroll-modal-header">
+                            <h3 className="enroll-modal-title">Enroll Students</h3>
+                            <button className="enroll-modal-close" onClick={resetEnrollModal}>
+                                <X size={20} />
+                            </button>
                         </div>
 
                         {/* Tabs */}
-                        <div style={{ display: 'flex', gap: '4px', background: '#f3f4f6', borderRadius: '8px', padding: '4px', marginBottom: '16px' }}>
+                        <div className="enroll-modal-tabs">
                             <button
                                 onClick={() => setEnrollTab('manual')}
-                                style={{
-                                    flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-                                    background: enrollTab === 'manual' ? 'white' : 'transparent',
-                                    color: enrollTab === 'manual' ? '#111827' : '#6b7280',
-                                    boxShadow: enrollTab === 'manual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                }}
+                                className={`enroll-modal-tab ${enrollTab === 'manual' ? 'active' : ''}`}
                             >
                                 Manual Search
                             </button>
                             <button
                                 onClick={() => setEnrollTab('csv')}
-                                style={{
-                                    flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-                                    background: enrollTab === 'csv' ? 'white' : 'transparent',
-                                    color: enrollTab === 'csv' ? '#111827' : '#6b7280',
-                                    boxShadow: enrollTab === 'csv' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                }}
+                                className={`enroll-modal-tab ${enrollTab === 'csv' ? 'active' : ''}`}
                             >
                                 Upload CSV
                             </button>
@@ -642,41 +700,45 @@ const FacultyCourseView: React.FC = () => {
                         {/* Manual Tab */}
                         {enrollTab === 'manual' && (
                             <>
-                                <div className="relative mb-4">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <div className="search-input-wrapper">
+                                    <Search className="search-icon-inside" size={18} />
                                     <input
                                         type="text"
                                         value={studentSearchQuery}
                                         onChange={(e) => handleSearchStudents(e.target.value)}
                                         placeholder="Search by name or email..."
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        className="student-search-input"
                                         autoFocus
                                     />
                                 </div>
-                                <div className="max-h-60 overflow-y-auto mb-4 custom-scrollbar">
+                                <div className="search-results-container custom-scrollbar">
                                     {isSearching ? (
-                                        <p className="text-center py-4 text-gray-500">Searching...</p>
+                                        <p className="text-center py-4 text-gray-400 font-medium">Searching database...</p>
                                     ) : searchResults.length > 0 ? (
                                         searchResults.map(student => (
-                                            <div key={student.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-100 last:border-0">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.875rem' }}>
+                                            <div key={student.id} className="search-result-item">
+                                                <div className="search-result-info">
+                                                    <div className="search-result-avatar">
                                                         {student.name.charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827', margin: 0 }}>{student.name}</p>
-                                                        <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>{student.email}</p>
+                                                        <p className="search-result-name">{student.name}</p>
+                                                        <p className="search-result-email">{student.email}</p>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => handleEnroll(student.id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Enroll Student">
+                                                <button
+                                                    onClick={() => handleEnroll(student.id)}
+                                                    className="btn-enroll-icon"
+                                                    title="Enroll Student"
+                                                >
                                                     <UserPlus size={18} />
                                                 </button>
                                             </div>
                                         ))
                                     ) : (
                                         studentSearchQuery.length > 0
-                                            ? <p className="text-center py-4 text-gray-500">No students found.</p>
-                                            : <p className="text-center py-4 text-xs text-gray-400">Type a name or email to search.</p>
+                                            ? <p className="text-center py-4 text-gray-500">No students found matching your search.</p>
+                                            : <p className="text-center py-4 text-xs text-gray-400 font-medium">Start typing to find students...</p>
                                     )}
                                 </div>
                             </>
@@ -688,24 +750,18 @@ const FacultyCourseView: React.FC = () => {
                                 {/* Drop zone */}
                                 <div
                                     onClick={() => csvInputRef.current?.click()}
-                                    style={{
-                                        border: '2px dashed #d1d5db', borderRadius: '10px', padding: '24px',
-                                        textAlign: 'center', cursor: 'pointer', marginBottom: '12px',
-                                        background: csvEmails.length > 0 ? '#f0fdf4' : '#f9fafb',
-                                        borderColor: csvEmails.length > 0 ? '#86efac' : '#d1d5db',
-                                        transition: 'all 0.2s',
-                                    }}
+                                    className={`csv-upload-box ${csvEmails.length > 0 ? 'has-file' : ''}`}
                                 >
-                                    <Upload size={28} style={{ margin: '0 auto 8px', color: csvEmails.length > 0 ? '#16a34a' : '#9ca3af' }} />
+                                    <Upload size={28} style={{ margin: '0 auto 12px', color: csvEmails.length > 0 ? 'var(--success-color)' : 'var(--text-tertiary)' }} />
                                     {csvFileName ? (
                                         <>
-                                            <p style={{ fontWeight: 600, color: '#111827', margin: '0 0 4px' }}>{csvFileName}</p>
-                                            <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: 0 }}>{csvEmails.length} email{csvEmails.length !== 1 ? 's' : ''} found — click to change</p>
+                                            <p style={{ fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>{csvFileName}</p>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>{csvEmails.length} email{csvEmails.length !== 1 ? 's' : ''} detected — click to change</p>
                                         </>
                                     ) : (
                                         <>
-                                            <p style={{ fontWeight: 600, color: '#374151', margin: '0 0 4px' }}>Click to upload CSV</p>
-                                            <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: 0 }}>One email per row. Header row optional.</p>
+                                            <p style={{ fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Click to upload CSV</p>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', margin: 0 }}>One email per row (Header row optional)</p>
                                         </>
                                     )}
                                 </div>
@@ -759,10 +815,10 @@ const FacultyCourseView: React.FC = () => {
                             </div>
                         )}
 
-                        <div className="flex justify-end" style={{ marginTop: '12px' }}>
-                            <button onClick={resetEnrollModal} className="px-4 py-2 rounded-lg border border-gray-300 font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        <div className="modal-footer">
+                            <Button variant="secondary" onClick={resetEnrollModal}>
                                 Close
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
