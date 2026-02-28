@@ -27,7 +27,6 @@ export const getRole = (): AuthRole | null => {
 export const getUser = (): UserSession | null => {
     return getSession();
 };
-
 export const login = (user: UserSession) => {
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
     window.location.href = user.role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';

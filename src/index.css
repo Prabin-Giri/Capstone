@@ -42,9 +42,15 @@
   --header-height: 72px;
 }
 
+html {
+  font-size: 14px;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   background-color: var(--bg-body);
   color: var(--text-primary);
@@ -64,4 +70,78 @@ button {
   border: none;
   background: none;
   font-family: inherit;
+}
+
+/* Branding */
+.brand-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+
+.brand-ig {
+  font-family: 'Pacifico', cursive;
+  font-size: 2rem;
+  color: var(--secondary-color);
+  background: var(--primary-color);
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  line-height: 1;
+  padding-bottom: 2px;
+  padding-left: 2px;
+}
+
+.brand-text-cursive {
+  font-family: 'Pacifico', cursive;
+  font-size: 1.5rem;
+  color: var(--primary-color);
+}
+
+.brand-text-modern {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 1.25rem;
+  color: white;
+  text-transform: uppercase;
+}
+
+/* Modal Utility Classes */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 480px;
+  padding: 1.5rem;
+  position: relative;
+  animation: modal-in 0.2s ease-out;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

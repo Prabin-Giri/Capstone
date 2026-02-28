@@ -1,11 +1,11 @@
 # Capstone – Automated Grading System
 
-Full-stack assignment submission and grading system with React frontend and Express/SQLite backend.
+Full-stack assignment submission and grading system with React frontend and Express/MySQL backend.
 
 ## Tech Stack
 - **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express
-- **Database:** SQLite (sql.js)
+- **Database:** MySQL (mysql2)
 
 ## Getting Started
 
@@ -57,7 +57,7 @@ s
 │   └── lib/api.ts          # API client
 ├── server/                 # Express backend
 │   ├── index.js            # Server entry
-│   ├── db.js               # SQLite database
+│   ├── db.js               # MySQL connection pool
 │   ├── routes/             # API routes
 │   └── uploads/            # Uploaded files (gitignored)
 └── package.json

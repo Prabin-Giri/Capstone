@@ -83,6 +83,13 @@
     gap: 2px;
 }
 
+.event-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    min-width: 0;
+}
+
 .event-pill {
     font-size: 0.7rem;
     padding: 2px 6px;
@@ -92,10 +99,54 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.1s;
+}
+
+.event-pill:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+
+.pill-icon {
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.pill-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .event-pill.todo {
     border: 1px solid rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+    /* Make todo unclickable */
+}
+
+.delete-pill-btn {
+    pointer-events: auto;
+    /* Re-enable for delete button */
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-pill-btn:hover {
+    opacity: 1;
 }
 
 .more-events {

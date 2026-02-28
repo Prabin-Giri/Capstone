@@ -18,7 +18,7 @@ const StudentDashboard: React.FC = () => {
         async function loadData() {
             try {
                 const [coursesData, assignmentsData] = await Promise.all([
-                    getCourses(),
+                    getCourses({ studentId: user?.id }),
                     getAssignments()
                 ]);
                 setCourses(coursesData);

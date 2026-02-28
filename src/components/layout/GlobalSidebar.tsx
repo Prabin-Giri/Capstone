@@ -1,23 +1,29 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle, User, LogOut, Database } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle, User, LogOut } from 'lucide-react';
 import { getRole, AUTH_ROLES, logout } from '../../lib/auth';
 import './Layout.css';
 
-const GlobalSidebar: React.FC = () => {
+interface GlobalSidebarProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose }) => {
     const role = getRole();
     const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
 
     return (
-        <aside className="global-sidebar">
-            <div className="global-sidebar-header">
-                <h1 className="brand-title">AutoGrade</h1>
+        <aside className={`global-sidebar ${isOpen ? 'mobile-open' : ''}`}>
+            <div className="global-sidebar-header" style={{ display: 'flex', justifyContent: 'center', padding: '1.5rem 0' }}>
+                <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
             </div>
 
             <nav className="global-nav">
                 <NavLink
                     to={dashboardPath}
                     end
+                    onClick={onClose}
                     className={({ isActive }) =>
                         `global-nav-link ${isActive ? 'active' : ''}`
                     }
@@ -28,6 +34,7 @@ const GlobalSidebar: React.FC = () => {
 
                 <NavLink
                     to="/calendar"
+                    onClick={onClose}
                     className={({ isActive }) =>
                         `global-nav-link ${isActive ? 'active' : ''}`
                     }
@@ -49,25 +56,16 @@ const GlobalSidebar: React.FC = () => {
 
                 <div style={{ flex: 1 }} />
 
-                {role === AUTH_ROLES.FACULTY && (
-                    <NavLink
-                        to="/db-explorer"
-                        className={({ isActive }) =>
-                            `global-nav-link ${isActive ? 'active' : ''}`
-                        }
-                    >
-                        <Database size={24} />
-                        <span className="global-nav-text">DB Explorer</span>
-                    </NavLink>
-                )}
-
                 <span className="global-nav-link disabled" title="Coming Soon">
                     <HelpCircle size={24} />
                     <span className="global-nav-text">Help</span>
                 </span>
 
                 <button
-                    onClick={logout}
+                    onClick={() => {
+                        onClose();
+                        logout();
+                    }}
                     className="global-nav-link"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%' }}
                 >

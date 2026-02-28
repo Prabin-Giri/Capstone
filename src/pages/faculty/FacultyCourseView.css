@@ -12,6 +12,30 @@
   align-items: flex-end;
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .header-actions .create-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0.6rem 0.5rem;
+    font-size: 0.85rem;
+    min-width: 0;
+  }
 }
 
 .header-title h1 {
@@ -55,17 +79,27 @@
 
 .dropdown-menu {
   position: absolute;
-  right: 0;
+  left: 0;
   top: 100%;
   margin-top: 12px;
   background-color: white;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 50;
+  z-index: 1000;
   min-width: 240px;
   overflow: hidden;
   padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .dropdown-menu {
+    left: 0;
+    right: auto;
+    min-width: 200px;
+    width: calc(100vw - 2rem);
+    max-width: 280px;
+  }
 }
 
 .dropdown-item {
@@ -133,11 +167,136 @@
   background-color: transparent;
 }
 
+/* Main Content Layout */
+.course-main-content {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .course-main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+}
+
 /* Assignments List */
 .assignments-list {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+}
+
+/* Students Section */
+.students-list {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.student-item:hover {
+  background: white;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.student-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.student-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.student-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.student-email {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.student-id-tag {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--light-grey);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+}
+
+.empty-text {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.enroll-btn-small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.enroll-btn-small:hover {
+  background: var(--primary-color);
+  color: white;
 }
 
 /* Assignment Card Premium */
@@ -243,4 +402,358 @@
 
 .delete-btn:hover {
   background-color: var(--danger-bg);
+}
+
+/* --- Additional Responsive Adjustments --- */
+@media (max-width: 1024px) {
+  .faculty-course-container {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .faculty-course-container {
+    padding: 1rem;
+  }
+
+  .faculty-course-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+  }
+
+  .header-title h1 {
+    font-size: 1.75rem;
+  }
+
+  .create-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .meta-group {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .card-details-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .action-group,
+  .button-group {
+    width: 100%;
+  }
+
+  .action-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .delete-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Enrollment Modal Styles */
+.enroll-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.enroll-modal-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.enroll-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.enroll-modal-close:hover {
+  background: var(--light-grey);
+  color: var(--primary-color);
+}
+
+.enroll-modal-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--light-grey);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.enroll-modal-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.enroll-modal-tab.active {
+  background: white;
+  color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-input-wrapper {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.search-icon-inside {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.student-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+
+.student-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+.search-results-container {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding-right: 4px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  margin-bottom: 8px;
+}
+
+.search-result-item:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+}
+
+.search-result-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-result-avatar {
+  width: 36px;
+  height: 36px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.search-result-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.search-result-email {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.btn-enroll-icon {
+  background: transparent;
+  border: none;
+  color: var(--primary-color);
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-enroll-icon:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* CSV Upload Styles */
+.csv-upload-box {
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-body);
+  transition: all 0.2s;
+  margin-bottom: 16px;
+}
+
+.csv-upload-box:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.csv-upload-box.has-file {
+  background: #f0fdf4;
+  border-color: var(--success-color);
+  border-style: solid;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* --- Unenroll Modal (Maroon Theme) --- */
+.unenroll-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 2000;
+}
+
+.unenroll-content {
+  background-color: white;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem;
+  position: relative;
+  animation: modal-in 0.2s ease-out;
+}
+
+.unenroll-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  background: #fff5f5;
+  color: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.unenroll-btn-group {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 2rem;
+}
+
+.unenroll-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+
+.unenroll-btn:active {
+  transform: scale(0.97);
+}
+
+.unenroll-btn-cancel {
+  background: white;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-secondary);
+}
+
+.unenroll-btn-cancel:hover {
+  background: var(--bg-body);
+}
+
+.unenroll-btn-confirm {
+  background: var(--primary-color) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(132, 0, 41, 0.2);
+}
+
+.unenroll-btn-confirm:hover {
+  background: var(--primary-hover) !important;
+  box-shadow: 0 6px 20px rgba(132, 0, 41, 0.3);
+}
+
+/* Red Trash Button in Sidebar */
+.trash-btn-red {
+  padding: 6px;
+  color: #ef4444;
+  background: transparent;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trash-btn-red:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.trash-btn-red:active {
+  transform: scale(0.9);
 }

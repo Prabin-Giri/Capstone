@@ -24,15 +24,18 @@
 
 .table-wrapper {
     background-color: white;
-    border: 1px solid #e5e7eb;
-    /* gray-200 */
+    border: 1px solid var(--border-color);
     border-radius: 0.5rem;
-    overflow: hidden;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    width: 100%;
 }
 
 .assignments-table {
     width: 100%;
+    min-width: 900px;
     border-collapse: collapse;
     text-align: left;
     table-layout: fixed;
@@ -40,56 +43,48 @@
 
 .assignments-table th {
     background-color: #f9fafb;
-    padding: 12px 24px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #6b7280;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 14px 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #4b5563;
+    border-bottom: 2px solid var(--border-color);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     text-align: left;
     white-space: nowrap;
 }
 
-/* Explicit Column Widths for both TH and TD */
-/* Explicit Column Widths and Overflow Handling for both TH and TD */
+/* Enforced column widths for fixed layout */
 .col-name {
-    width: 30%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: 300px;
 }
 
 .col-due-date {
-    width: 15%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: 140px;
 }
 
 .col-status {
-    width: 10%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: 120px;
 }
 
 .col-submitted {
-    width: 25%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: 200px;
 }
 
 .col-grade {
-    width: 10%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: 100px;
 }
 
 .col-action {
-    width: 10%;
+    width: 90px;
+}
+
+.col-name,
+.col-due-date,
+.col-status,
+.col-submitted,
+.col-grade,
+.col-action {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

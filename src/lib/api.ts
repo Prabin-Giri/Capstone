@@ -16,12 +16,23 @@ export interface Course {
     id: string;
     name: string;
     term: string;
+    instructor_id?: string;
     is_archived?: boolean;
+    student_count?: number;
+    active_assignment_count?: number;
     created_at?: string;
 }
 
-export async function getCourses(): Promise<Course[]> {
-    return apiFetch<Course[]>('/courses');
+export async function getCourses(filters?: { instructorId?: string; studentId?: string }): Promise<Course[]> {
+    let url = '/courses';
+    if (filters) {
+        const params = new URLSearchParams();
+        if (filters.instructorId) params.append('instructorId', filters.instructorId);
+        if (filters.studentId) params.append('studentId', filters.studentId);
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+    }
+    return apiFetch<Course[]>(url);
 }
 
 export async function getCourse(id: string): Promise<Course> {
@@ -83,6 +94,7 @@ export interface Assignment {
     points?: number;
     language?: string;
     starter_code_path?: string;
+    test_case_file_path?: string;
     type?: 'individual' | 'group';
     created_at?: string;
 }
@@ -97,6 +109,44 @@ export async function getAssignment(id: string): Promise<Assignment> {
 
 export async function getCourseAssignments(courseId: string): Promise<Assignment[]> {
     return apiFetch<Assignment[]>(`/courses/${courseId}/assignments`);
+}
+
+export async function enrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/courses/${courseId}/enroll`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ studentId }),
+    });
+}
+
+export async function unenrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/courses/${courseId}/enroll/${studentId}`, {
+        method: 'DELETE',
+    });
+}
+
+export interface CsvEnrollResult {
+    enrolled: { email: string; name: string }[];
+    notFound: string[];
+    alreadyEnrolled: { email: string; name: string }[];
+}
+
+export async function enrollStudentsByCSV(courseId: string, emails: string[]): Promise<CsvEnrollResult> {
+    return apiFetch<CsvEnrollResult>(`/courses/${courseId}/enroll-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+    });
+}
+
+export async function getEnrolledStudents(courseId: string): Promise<User[]> {
+    return apiFetch<User[]>(`/courses/${courseId}/students`);
+}
+
+export async function searchStudents(query: string): Promise<User[]> {
+    return apiFetch<User[]>(`/users/students?q=${encodeURIComponent(query)}`);
 }
 
 export async function createAssignment(assignment: Omit<Assignment, 'id' | 'created_at'> & { id?: string }): Promise<Assignment> {
@@ -372,6 +422,7 @@ export async function getTestCases(assignmentId: string): Promise<TestCase[]> {
 export async function createTestCase(testCase: Partial<TestCase>): Promise<{ message: string }> {
     return apiFetch<{ message: string }>('/test-cases', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testCase),
     });
 }
@@ -379,6 +430,7 @@ export async function createTestCase(testCase: Partial<TestCase>): Promise<{ mes
 export async function updateTestCase(id: number, testCase: Partial<TestCase>): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/test-cases/${id}`, {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testCase),
     });
 }
@@ -409,46 +461,32 @@ export async function runTests(assignmentId: string, code: string, language: str
     });
 }
 
-// ============ Admin / Database Explorer ============
-
-export interface DbColumn {
-    cid: number;
-    name: string;
-    type: string;
-    notnull: number;
-    dflt_value: any;
-    pk: number;
-}
-
-export interface TableData {
-    tableName: string;
-    columns: DbColumn[];
-    rows: any[];
-}
-
-export async function getDbTables(): Promise<string[]> {
-    return apiFetch<string[]>('/admin/tables');
-}
-
-export async function getTableData(tableName: string): Promise<TableData> {
-    return apiFetch<TableData>(`/admin/tables/${tableName}`);
-}
 // ============ Users ============
 
 export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'student' | 'faculty' | 'admin';
+    role: 'student' | 'faculty';
 }
 
-export async function loginRequest(email: string, role: string): Promise<User> {
+export async function loginRequest(email: string, password: string): Promise<User> {
     return apiFetch<User>('/users/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email, password }),
+    });
+}
+
+export async function signupRequest(data: { name: string; email: string; password: string; role: string }): Promise<User> {
+    return apiFetch<User>('/users/signup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
     });
 }
 
@@ -490,5 +528,11 @@ export async function autoGradeAssignment(
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ latePenalty, timeout }),
+    });
+}
+
+export async function runAutograde(submissionId: number): Promise<Submission> {
+    return apiFetch<Submission>(`/grader/submissions/${submissionId}/run`, {
+        method: 'POST',
     });
 }

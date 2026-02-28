@@ -1,41 +1,70 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryOne } = require('../db');
+const { getDb, queryToObjects, queryOne } = require('../db');
 
-// POST /api/users/login - Simple login check (Auto-create for students)
-router.post('/login', (req, res, next) => {
+// POST /api/users/signup - Register new user
+router.post('/signup', async (req, res, next) => {
     try {
-        const { email, role } = req.body;
-        if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
+        const { name, email, password, role } = req.body;
+        if (!name || !email || !password || !role) {
+            return res.status(400).json({ error: 'All fields are required' });
         }
 
         const db = getDb();
-        let result = db.exec('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
-        let user = queryOne(result);
-
-        if (!user) {
-            // Auto-create strictly for students
-            if (role === 'student') {
-                const name = email.split('@')[0]; // Simple name derivation
-                // Use email as ID for simplicity and stability, or generate one
-                const id = email;
-
-                db.run("INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, 'student')", [id, name, email]);
-
-                // Save DB
-                const { saveDb } = require('../db');
-                saveDb();
-
-                // Fetch new user
-                result = db.exec('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
-                user = queryOne(result);
-            } else {
-                return res.status(404).json({ error: 'Faculty account not found. Please contact administrator.' });
-            }
+        // Check if user exists
+        const [existing] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+        if (existing.length > 0) {
+            return res.status(400).json({ error: 'User with this email already exists' });
         }
 
+        // Create user
+        const id = email; // Using email as ID for consistency with existing code
+        await db.execute("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)", [id, name, email, password, role]);
+
+        res.status(201).json({ id, name, email, role });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/users/login - Simple login check
+router.post('/login', async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        const db = getDb();
+        const [rows] = await db.execute('SELECT id, name, email, role, password FROM users WHERE email = ?', [email]);
+        const user = rows[0];
+
+        if (!user || user.password !== password) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Remove password from response
+        delete user.password;
         res.json(user);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/users/students - Get all students (for enrollment)
+router.get('/students', async (req, res, next) => {
+    const { q } = req.query;
+    try {
+        const db = getDb();
+        let query = "SELECT id, name, email FROM users WHERE role = 'student'";
+        const params = [];
+        if (q) {
+            query += " AND (name LIKE ? OR email LIKE ? OR id LIKE ?)";
+            const search = `%${q}%`;
+            params.push(search, search, search);
+        }
+        const result = await db.execute(query, params);
+        res.json(queryToObjects(result));
     } catch (err) {
         next(err);
     }

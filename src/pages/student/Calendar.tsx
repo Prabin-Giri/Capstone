@@ -19,15 +19,29 @@ const Calendar: React.FC = () => {
     const [todos, setTodos] = useState<Todo[]>([]);
     const [courseColors, setCourseColors] = useState<Record<string, string>>({});
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
     // Modal state
     const [isTodoModalOpen, setIsTodoModalOpen] = useState(false);
+    const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
     const [newTodoTitle, setNewTodoTitle] = useState('');
     const [newTodoDate, setNewTodoDate] = useState('');
+    const [newTodoTime, setNewTodoTime] = useState('');
     const [newTodoCourse, setNewTodoCourse] = useState('');
 
     useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth < 1024;
+            setIsMobile(mobile);
+            if (mobile) {
+                setView('agenda');
+            }
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
         loadData();
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     const loadData = async () => {
@@ -82,23 +96,60 @@ const Calendar: React.FC = () => {
         setSelectedDate(newDate);
     };
 
-    const handleAddTodo = async (e: React.FormEvent) => {
+    const handleSaveTodo = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const newTodo = await createTodo({
+            const combinedDateTime = newTodoDate && newTodoTime
+                ? new Date(`${newTodoDate}T${newTodoTime}:00`).toISOString()
+                : (newTodoDate ? new Date(newTodoDate + 'T12:00:00').toISOString() : undefined);
+
+            const todoData = {
                 student_id: studentId,
                 title: newTodoTitle,
-                due_date: newTodoDate ? new Date(newTodoDate).toISOString() : undefined,
+                due_date: combinedDateTime,
                 course_id: newTodoCourse || undefined
-            });
-            setTodos(prev => [...prev, newTodo]);
-            setIsTodoModalOpen(false);
-            setNewTodoTitle('');
-            setNewTodoDate('');
-            setNewTodoCourse('');
-        } catch (err) {
-            console.error('Failed to create todo', err);
+            };
+
+            if (editingTodo) {
+                const updatedTodo = await updateTodo(editingTodo.id, todoData);
+                setTodos(prev => prev.map(t => t.id === editingTodo.id ? updatedTodo : t));
+            } else {
+                const newTodo = await createTodo(todoData);
+                setTodos(prev => [...prev, newTodo]);
+            }
+
+            closeTodoModal();
+        } catch (err: any) {
+            console.error('Failed to save todo', err);
+            alert('Failed to save todo: ' + (err.message || 'Unknown error'));
         }
+    };
+
+    const openTodoModal = (todo?: Todo) => {
+        if (todo) {
+            setEditingTodo(todo);
+            setNewTodoTitle(todo.title);
+            setNewTodoDate(todo.due_date ? todo.due_date.split('T')[0] : '');
+            setNewTodoTime(todo.due_date ? todo.due_date.split('T')[1].substring(0, 5) : '');
+            setNewTodoCourse(todo.course_id || '');
+        } else {
+            const now = new Date();
+            setEditingTodo(null);
+            setNewTodoTitle('');
+            setNewTodoDate(now.toISOString().split('T')[0]);
+            setNewTodoTime(now.toTimeString().substring(0, 5));
+            setNewTodoCourse('');
+        }
+        setIsTodoModalOpen(true);
+    };
+
+    const closeTodoModal = () => {
+        setIsTodoModalOpen(false);
+        setEditingTodo(null);
+        setNewTodoTitle('');
+        setNewTodoDate('');
+        setNewTodoTime('');
+        setNewTodoCourse('');
     };
 
     const handleToggleTodo = async (id: string, completed: boolean) => {
@@ -146,23 +197,25 @@ const Calendar: React.FC = () => {
                     </div>
 
                     <div className="header-right">
-                        <div className="view-switcher">
-                            <button
-                                className={`view-btn ${view === 'month' ? 'active' : ''}`}
-                                onClick={() => setView('month')}
-                            >
-                                Month
-                            </button>
-                            <button
-                                className={`view-btn ${view === 'agenda' ? 'active' : ''}`}
-                                onClick={() => setView('agenda')}
-                            >
-                                Agenda
-                            </button>
-                        </div>
+                        {!isMobile && (
+                            <div className="view-switcher">
+                                <button
+                                    className={`view-btn ${view === 'month' ? 'active' : ''}`}
+                                    onClick={() => setView('month')}
+                                >
+                                    Month
+                                </button>
+                                <button
+                                    className={`view-btn ${view === 'agenda' ? 'active' : ''}`}
+                                    onClick={() => setView('agenda')}
+                                >
+                                    Agenda
+                                </button>
+                            </div>
+                        )}
                         <button
                             className="create-btn"
-                            onClick={() => setIsTodoModalOpen(true)}
+                            onClick={() => openTodoModal()}
                         >
                             <Plus size={20} />
                             Create
@@ -179,15 +232,18 @@ const Calendar: React.FC = () => {
                             onToggleTodo={handleToggleTodo}
                             onDeleteTodo={handleDeleteTodo}
                             selectedDate={selectedDate}
+                            userRole={user?.role}
                         />
                     )}
-                    {view === 'month' && (
+                    {view === 'month' && !isMobile && (
                         <MonthView
                             assignments={assignments}
                             todos={todos}
                             courseColors={courseColors}
                             selectedDate={selectedDate}
                             onDateChange={setSelectedDate}
+                            onDeleteTodo={handleDeleteTodo}
+                            userRole={user?.role}
                         />
                     )}
                 </div>
@@ -197,8 +253,8 @@ const Calendar: React.FC = () => {
             {isTodoModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content glass-card">
-                        <h3>Add New Event</h3>
-                        <form onSubmit={handleAddTodo}>
+                        <h3>{editingTodo ? 'Edit Event' : 'Add New Event'}</h3>
+                        <form onSubmit={handleSaveTodo}>
                             <div className="form-group">
                                 <label>Title</label>
                                 <input
@@ -210,14 +266,25 @@ const Calendar: React.FC = () => {
                                     placeholder="Event title..."
                                 />
                             </div>
-                            <div className="form-group">
-                                <label>Date</label>
-                                <input
-                                    type="date"
-                                    value={newTodoDate}
-                                    onChange={e => setNewTodoDate(e.target.value)}
-                                    required
-                                />
+                            <div className="form-row">
+                                <div className="form-group flex-1">
+                                    <label>Date</label>
+                                    <input
+                                        type="date"
+                                        value={newTodoDate}
+                                        onChange={e => setNewTodoDate(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group flex-1">
+                                    <label>Time</label>
+                                    <input
+                                        type="time"
+                                        value={newTodoTime}
+                                        onChange={e => setNewTodoTime(e.target.value)}
+                                        required
+                                    />
+                                </div>
                             </div>
                             <div className="form-group">
                                 <label>Course (Optional)</label>
@@ -232,8 +299,10 @@ const Calendar: React.FC = () => {
                                 </select>
                             </div>
                             <div className="modal-actions">
-                                <button type="button" className="ghost-btn" onClick={() => setIsTodoModalOpen(false)}>Cancel</button>
-                                <button type="submit" className="primary-btn">Save Event</button>
+                                <button type="button" className="ghost-btn" onClick={closeTodoModal}>Cancel</button>
+                                <button type="submit" className="primary-btn">
+                                    {editingTodo ? 'Save Changes' : 'Save Event'}
+                                </button>
                             </div>
                         </form>
                     </div>

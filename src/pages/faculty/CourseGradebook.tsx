@@ -167,10 +167,12 @@ const CourseGradebook: React.FC = () => {
                             {assignments.map(a => (
                                 <th key={a.id}>
                                     <div className="flex flex-col">
-                                        <span>{a.title}</span>
-                                        <span style={{ fontSize: '0.7em', fontWeight: 'normal', color: '#9ca3af' }}>
-                                            {a.points || 100} pts
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                            <span>{a.title}</span>
+                                            <span style={{ fontSize: '0.75em', fontWeight: 'normal', color: '#9ca3af' }}>
+                                                ({a.points || 100} pts)
+                                            </span>
+                                        </div>
                                     </div>
                                 </th>
                             ))}

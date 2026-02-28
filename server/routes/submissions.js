@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { getDb, saveDb } = require('../db');
+const { getDb, queryToObjects, queryOne } = require('../db');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -24,20 +24,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Helper to get rows from prepared statement
-function getRows(db, sql, params = []) {
-    const stmt = db.prepare(sql);
-    if (params.length) stmt.bind(params);
-    const rows = [];
-    while (stmt.step()) {
-        rows.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return rows;
-}
-
 // GET /api/submissions - Get all submissions (optionally filter)
-router.get('/', (req, res, next) => {
+router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.query;
@@ -54,28 +42,30 @@ router.get('/', (req, res, next) => {
         }
         sql += ' ORDER BY submitted_at DESC';
 
-        res.json(getRows(db, sql, params));
+        const result = await db.execute(sql, params);
+        res.json(queryToObjects(result));
     } catch (err) {
         next(err);
     }
 });
 
 // GET /api/submissions/:id - Get single submission
-router.get('/:id', (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
-        if (rows.length === 0) {
+        const result = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
+        const row = queryOne(result);
+        if (!row) {
             return res.status(404).json({ error: 'Submission not found' });
         }
-        res.json(rows[0]);
+        res.json(row);
     } catch (err) {
         next(err);
     }
 });
 
 // POST /api/submissions - Create new submission (with file array)
-router.post('/', upload.array('files'), (req, res, next) => {
+router.post('/', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.body;
@@ -96,13 +86,11 @@ router.post('/', upload.array('files'), (req, res, next) => {
         const file_path = JSON.stringify(filesData);
 
         // Always insert new submission to track multiple attempts
-        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, submitted_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
+        await db.execute("INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
             [assignment_id, student_id, file_name, file_path]);
 
-        saveDb();
-
-        // Return the *newly inserted* submission (order by submitted_at DESC, limit 1)
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
+        // Return the *newly inserted* submission
+        const [rows] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
             [assignment_id, student_id]);
         res.status(201).json(rows[0]);
     } catch (err) {
@@ -111,7 +99,7 @@ router.post('/', upload.array('files'), (req, res, next) => {
 });
 
 // PUT /api/submissions/:id - Update submission
-router.put('/:id', upload.array('files'), (req, res, next) => {
+router.put('/:id', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
         const { status, grade, feedback } = req.body;
@@ -143,13 +131,11 @@ router.put('/:id', upload.array('files'), (req, res, next) => {
             return res.status(400).json({ error: 'No updates provided' });
         }
 
-        updates.push("updated_at = datetime('now')");
-        params.push(parseInt(req.params.id));
+        params.push(req.params.id);
 
-        db.run(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
-        saveDb();
+        await db.execute(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
 
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
+        const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Submission not found' });
         }
@@ -160,10 +146,10 @@ router.put('/:id', upload.array('files'), (req, res, next) => {
 });
 
 // DELETE /api/submissions/:id - Delete submission
-router.delete('/:id', (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const rows = getRows(db, 'SELECT * FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
+        const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Submission not found' });
         }
@@ -187,8 +173,7 @@ router.delete('/:id', (req, res, next) => {
             }
         }
 
-        db.run('DELETE FROM submissions WHERE id = ?', [parseInt(req.params.id)]);
-        saveDb();
+        await db.execute('DELETE FROM submissions WHERE id = ?', [req.params.id]);
         res.json({ message: 'Submission deleted successfully' });
     } catch (err) {
         next(err);

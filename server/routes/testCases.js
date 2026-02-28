@@ -1,26 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryToObjects, saveDb } = require('../db');
+const { getDb, queryToObjects, queryOne } = require('../db');
 
 // GET /api/test-cases/:assignmentId - Get all test cases for an assignment
-router.get('/:assignmentId', (req, res, next) => {
+router.get('/:assignmentId', async (req, res, next) => {
     try {
         const db = getDb();
-        const stmt = db.prepare('SELECT * FROM test_cases WHERE assignment_id = ? ORDER BY id');
-        stmt.bind([req.params.assignmentId]);
-        const rows = [];
-        while (stmt.step()) {
-            rows.push(stmt.getAsObject());
-        }
-        stmt.free();
-        res.json(rows);
+        const result = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ? ORDER BY id', [req.params.assignmentId]);
+        res.json(queryToObjects(result));
     } catch (err) {
         next(err);
     }
 });
 
 // POST /api/test-cases - Create new test case
-router.post('/', (req, res, next) => {
+router.post('/', async (req, res, next) => {
     try {
         const { assignment_id, input, expected_output, points = 0, is_public = 1 } = req.body;
 
@@ -29,11 +23,9 @@ router.post('/', (req, res, next) => {
         }
 
         const db = getDb();
-        const stmt = db.prepare('INSERT INTO test_cases (assignment_id, input, expected_output, points, is_public) VALUES (?, ?, ?, ?, ?)');
-        stmt.run([assignment_id, input, expected_output, points, is_public]);
-        stmt.free();
+        await db.execute('INSERT INTO test_cases (assignment_id, input, expected_output, points, is_public) VALUES (?, ?, ?, ?, ?)',
+            [assignment_id, input, expected_output, points, is_public]);
 
-        saveDb();
         res.status(201).json({ message: 'Test case created successfully' });
     } catch (err) {
         next(err);
@@ -41,7 +33,7 @@ router.post('/', (req, res, next) => {
 });
 
 // PUT /api/test-cases/:id - Update test case
-router.put('/:id', (req, res, next) => {
+router.put('/:id', async (req, res, next) => {
     try {
         const { input, expected_output, points, is_public } = req.body;
         const id = req.params.id;
@@ -60,11 +52,9 @@ router.put('/:id', (req, res, next) => {
         }
 
         values.push(id);
-        const stmt = db.prepare(`UPDATE test_cases SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
-        stmt.run(values);
-        stmt.free();
+        const sql = `UPDATE test_cases SET ${updates.join(', ')} WHERE id = ?`;
+        await db.execute(sql, values);
 
-        saveDb();
         res.json({ message: 'Test case updated successfully' });
     } catch (err) {
         next(err);
@@ -72,14 +62,10 @@ router.put('/:id', (req, res, next) => {
 });
 
 // DELETE /api/test-cases/:id - Delete test case
-router.delete('/:id', (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const stmt = db.prepare('DELETE FROM test_cases WHERE id = ?');
-        stmt.run([req.params.id]);
-        stmt.free();
-
-        saveDb();
+        await db.execute('DELETE FROM test_cases WHERE id = ?', [req.params.id]);
         res.json({ message: 'Test case deleted successfully' });
     } catch (err) {
         next(err);
