@@ -5,23 +5,23 @@
 }
 
 .new-course-card {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: white;
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 32px;
+    box-shadow: var(--shadow-md);
 }
 
 .new-course-title {
     font-size: 24px;
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 8px;
-    color: var(--foreground-color);
+    color: var(--primary-color);
 }
 
 .new-course-subtitle {
-    font-size: 14px;
-    color: var(--muted-color);
+    font-size: 0.95rem;
+    color: var(--text-secondary);
     margin-bottom: 32px;
 }
 
@@ -31,27 +31,29 @@
 
 .form-label {
     display: block;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 8px;
-    color: var(--foreground-color);
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .form-input {
     width: 100%;
     padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: white;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    color: var(--foreground-color);
-    font-size: 16px;
+    color: var(--text-primary);
+    font-size: 1rem;
     transition: all 0.2s ease;
 }
 
 .form-input:focus {
     outline: none;
     border-color: var(--primary-color);
-    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 4px var(--primary-light);
 }
 
 .form-actions {

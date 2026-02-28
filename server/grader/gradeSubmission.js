@@ -48,6 +48,24 @@ async function gradeSubmission(submissionId, opts = {}) {
     if (assignments.length === 0) throw new Error('Assignment not found');
     const assignment = assignments[0];
 
+    const uploadsDir = path.join(__dirname, '../uploads');
+
+    // --- Custom Grader File Logic ---
+    if (assignment.test_case_file_path) {
+        const graderPath = path.join(uploadsDir, assignment.test_case_file_path);
+        if (fs.existsSync(graderPath)) {
+            const result = await gradeWithCustomFile(submission, assignment, graderPath, opts);
+            await updateSubmissionGrade(submissionId, {
+                correctness_score: result.earned_points,
+                grade: result.grade,
+                feedback: result.feedback,
+                status: 'graded'
+            });
+            await saveDb();
+            return result;
+        }
+    }
+
     let testCases = await query('SELECT * FROM test_cases WHERE assignment_id = ? ORDER BY id', [assignment.id]);
     if (opts.publicOnly) testCases = testCases.filter(tc => tc.is_public === 1 || tc.is_public === true);
 
@@ -57,8 +75,15 @@ async function gradeSubmission(submissionId, opts = {}) {
         return { grade: null, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
     }
 
-    const uploadsDir = path.join(__dirname, '../uploads');
-    const sourcePath = path.join(uploadsDir, submission.file_path);
+    // Resolve source path (handle JSON array)
+    let sourcePath = path.join(uploadsDir, submission.file_path);
+    try {
+        const filesData = JSON.parse(submission.file_path);
+        if (Array.isArray(filesData) && filesData.length > 0) {
+            sourcePath = path.join(uploadsDir, filesData[0].path);
+        }
+    } catch (e) { }
+
     if (!fs.existsSync(sourcePath)) {
         const feedback = `Submission file not found: ${submission.file_path}`;
         await updateSubmissionGrade(submissionId, { correctness_score: 0, grade: 0, feedback, status: 'graded' });
@@ -231,6 +256,159 @@ async function updateSubmissionGrade(submissionId, opts) {
     }
     params.push(submissionId);
     await run(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
+}
+
+/**
+ * Run a custom grader script against a student submission.
+ * Expects the script to output JSON to stdout.
+ */
+async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}) {
+    const uploadsDir = path.join(__dirname, '../uploads');
+
+    // Resolve student path (handle JSON array)
+    let studentPath = path.join(uploadsDir, submission.file_path);
+    try {
+        const filesData = JSON.parse(submission.file_path);
+        if (Array.isArray(filesData) && filesData.length > 0) {
+            // For custom graders, they might want all files.
+            // If it's a single file, just use its path.
+            if (filesData.length === 1) {
+                studentPath = path.join(uploadsDir, filesData[0].path);
+            } else {
+                // If multiple files, we'll need a way for the grader to find them.
+                // For now, let's pass the first file's path? 
+                // Or better: let's create a temp dir and copy all (this is handled below if it's a directory).
+                // But studentPath needs to be a valid path for fs.statSync.
+                // Since our system usually stores multiple files in a JSON array but NOT a shared directory,
+                // we'll have to create a temporary directory and copy them all there FIRST.
+                const os = require('os');
+                const workDirForFiles = fs.mkdtempSync(path.join(os.tmpdir(), 'student-files-'));
+                filesData.forEach(f => {
+                    fs.copyFileSync(path.join(uploadsDir, f.path), path.join(workDirForFiles, f.name));
+                });
+                studentPath = workDirForFiles;
+            }
+        }
+    } catch (e) {
+        // Not JSON, use as is
+    }
+
+    const language = assignment.language || 'python';
+
+    // We reuse runCode but with a twist: 
+    // We'll run the grader script, and we need to "mount" the student submission.
+    // However, runCode is designed to run the student code.
+    // For simplicity, we'll run the grader script and pass the student code path *inside* the container if possible.
+    // Actually, runCode copies the file to a temp dir.
+
+    // Better: Run the grader script as the "main" program, and provide the student code 
+    // as something it can find. 
+
+    // Let's use runCode with the grader script as source, and "mount" student code as an input file?
+    // No, student code might be a directory or multiple files.
+
+    // Simplest Capstone-appropriate way with existing runCode:
+    // 1. If studentPath is a file, we can pass its content? No.
+    // 2. We modify runCode or use runInDocker directly.
+
+    // Let's use runCode to run the GRADER script, and we'll "bundle" the student code into it.
+    // We'll rename the grader to 'grader.py' (or active extension) and the student code to 'submission.py'
+
+    const graderExt = path.extname(graderPath);
+    const graderBase = 'grader' + graderExt;
+    const studentExt = path.extname(studentPath);
+    const studentBase = 'student_submission' + studentExt;
+
+    // We'll create a temp dir, copy both, then run grader.
+    const os = require('os');
+    const crypto = require('crypto');
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograde-custom-'));
+
+    try {
+        fs.copyFileSync(graderPath, path.join(workDir, graderBase));
+
+        // Handle student submission (could be file or dir)
+        const stat = fs.statSync(studentPath);
+        if (stat.isDirectory()) {
+            const entries = fs.readdirSync(studentPath, { withFileTypes: true });
+            const studentSubDir = path.join(workDir, 'submission');
+            fs.mkdirSync(studentSubDir);
+            for (const e of entries) {
+                if (e.isFile()) fs.copyFileSync(path.join(studentPath, e.name), path.join(studentSubDir, e.name));
+            }
+        } else {
+            fs.copyFileSync(studentPath, path.join(workDir, studentBase));
+        }
+
+        const { runInDocker } = require('./dockerRunner');
+        const config = require('./config');
+        const lang = language.toLowerCase();
+        const image = config.images[lang] || config.images.python;
+
+        // Command to run the grader. Pass the student path (internal to container) as arg.
+        const studentArg = stat.isDirectory() ? 'submission' : studentBase;
+        const cmd = lang === 'java'
+            ? ['sh', '-c', `javac *.java && java ${graderBase.replace('.java', '')} ${studentArg}`]
+            : [lang === 'python' ? 'python3' : 'node', graderBase, studentArg];
+
+        const runResult = await runInDocker({
+            image,
+            cmd,
+            workDir,
+            timeoutMs: config.runTimeoutMs * 2, // Custom graders might need more time
+        });
+
+        if (runResult.timedOut) throw new Error('Custom grader timed out');
+
+        let output = runResult.stdout.trim();
+        // Find the JSON block in stdout (in case there's extra logging)
+        const jsonMatch = output.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Custom grader did not output valid JSON. Output: ' + (output || runResult.stderr));
+        }
+
+        const data = JSON.parse(jsonMatch[0]);
+        const earned = Number(data.earned_points) || 0;
+        const total = Number(data.total_points) || 100;
+        const results = Array.isArray(data.results) ? data.results.map((r, idx) => ({
+            testId: 'custom-' + idx,
+            name: r.name || `Task ${idx + 1}`,
+            passed: !!r.passed,
+            points: Number(r.points) || 0,
+            maxPoints: Number(r.points) || 0,
+            is_public: r.visibility !== 'private',
+            actual: r.passed ? 'Passed' : 'Failed',
+            expected: 'Passed'
+        })) : [];
+
+        const rawScore = total > 0 ? (earned / total) * 100 : 0;
+        const latePenaltyPercent = computeLatePenaltyPercent(assignment, submission.submitted_at);
+        const finalGrade = latePenaltyPercent > 0
+            ? Math.max(0, rawScore * (1 - latePenaltyPercent / 100))
+            : rawScore;
+
+        const feedback = [
+            `Custom Grader Results: ${earned}/${total}.`,
+            ...(latePenaltyPercent > 0 ? [`Late penalty: ${latePenaltyPercent.toFixed(1)}%. Final: ${finalGrade.toFixed(1)}%.`] : []),
+            '---',
+            JSON.stringify(results)
+        ].join('\n');
+
+        return {
+            grade: Math.round(finalGrade * 100) / 100,
+            feedback,
+            results,
+            rawScore,
+            maxPossible: total,
+            earned_points: earned,
+            latePenaltyPercent
+        };
+
+    } finally {
+        try {
+            fs.rmSync(workDir, { recursive: true, force: true });
+        } catch (_) { }
+    }
 }
 
 module.exports = { gradeSubmission, computeLatePenaltyPercent };

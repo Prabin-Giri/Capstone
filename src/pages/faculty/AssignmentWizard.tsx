@@ -21,9 +21,11 @@ const AssignmentWizard: React.FC = () => {
         points: 100,
         language: '',
         starter_code_path: '',
+        test_case_file_path: '',
         type: 'individual' as 'individual' | 'group'
     });
     const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
+    const [testCaseFile, setTestCaseFile] = useState<File | null>(null);
     const [testCases, setTestCases] = useState<Partial<TestCase>[]>([]);
     const [loading, setLoading] = useState(isEditing);
     const [saving, setSaving] = useState(false);
@@ -44,6 +46,7 @@ const AssignmentWizard: React.FC = () => {
                     points: data.points || 100,
                     language: data.language || '',
                     starter_code_path: data.starter_code_path || '',
+                    test_case_file_path: data.test_case_file_path || '',
                     type: data.type || 'individual'
                 });
                 setTestCases(cases);
@@ -89,10 +92,16 @@ const AssignmentWizard: React.FC = () => {
         setSaving(true);
         try {
             let starterCodePath = formData.starter_code_path;
+            let testCaseFilePath = formData.test_case_file_path;
 
             if (starterCodeFile) {
                 const uploadResult = await uploadStarterCode(starterCodeFile);
                 starterCodePath = uploadResult.filePath;
+            }
+
+            if (testCaseFile) {
+                const uploadResult = await uploadStarterCode(testCaseFile); // Reusing uploadStarterCode for general uploads
+                testCaseFilePath = uploadResult.filePath;
             }
 
             const combinedDateTime = new Date(`${formData.due_date}T${formData.due_time}:00`).toISOString();
@@ -100,7 +109,8 @@ const AssignmentWizard: React.FC = () => {
             const payload = {
                 ...formData,
                 due_date: combinedDateTime,
-                starter_code_path: starterCodePath
+                starter_code_path: starterCodePath,
+                test_case_file_path: testCaseFilePath
             };
             const { due_time, ...finalPayload } = payload;
 
@@ -128,9 +138,10 @@ const AssignmentWizard: React.FC = () => {
             }
 
             navigate(`/faculty/courses/${courseId}`);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to save', err);
-            alert('Failed to save assignment and test cases');
+            const message = err.message || 'Unknown error';
+            alert(`Failed to save assignment and test cases: ${message}`);
         } finally {
             setSaving(false);
         }
@@ -326,6 +337,77 @@ const AssignmentWizard: React.FC = () => {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+
+                <div className="section-header-wizard" style={{ borderTop: '1px solid var(--border-color)', marginTop: '2rem', paddingTop: '2rem' }}>
+                    <h2 className="section-title-wizard">Test Case File (Optional)</h2>
+                </div>
+
+                <div className="test-case-file-container glass-card" style={{ marginBottom: '2rem' }}>
+                    <p className="tc-description-wizard">
+                        Upload a Python grader file (or zip) used for autograding submissions. This will override the manual test cases above.
+                    </p>
+
+                    <div className="upload-box-wizard">
+                        <input
+                            type="file"
+                            id="test-case-file-input"
+                            onChange={e => e.target.files?.[0] && setTestCaseFile(e.target.files[0])}
+                            className="form-input-file"
+                            style={{ display: 'none' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className="file-display">
+                                {(testCaseFile || formData.test_case_file_path) ? (
+                                    <div className="file-info-active">
+                                        <span className="active-filename">
+                                            {testCaseFile ? testCaseFile.name : formData.test_case_file_path?.split('/').pop()}
+                                        </span>
+                                        {testCaseFile && <span className="active-filesize">({(testCaseFile.size / 1024).toFixed(1)} KB)</span>}
+                                    </div>
+                                ) : (
+                                    <span className="empty-state-text-small">No test case file uploaded.</span>
+                                )}
+                            </div>
+                            <div className="file-actions-wizard">
+                                {(testCaseFile || formData.test_case_file_path) ? (
+                                    <>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => document.getElementById('test-case-file-input')?.click()}
+                                        >
+                                            Replace
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="tc-remove-btn"
+                                            style={{ color: '#ef4444' }}
+                                            onClick={() => {
+                                                setTestCaseFile(null);
+                                                setFormData({ ...formData, test_case_file_path: '' });
+                                            }}
+                                        >
+                                            <Trash2 size={14} /> Remove
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)' }}
+                                        onClick={() => document.getElementById('test-case-file-input')?.click()}
+                                    >
+                                        <Plus size={16} /> Upload Grader
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 let pool = null;
 
@@ -148,6 +148,7 @@ async function initializeSchema() {
             points INTEGER DEFAULT 100,
             language VARCHAR(50),
             starter_code_path VARCHAR(255),
+            test_case_file_path VARCHAR(255),
             type ENUM('individual', 'group') DEFAULT 'individual',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -246,9 +247,27 @@ function getDb() {
     return pool;
 }
 
+async function query(sql, params) {
+    const db = getDb();
+    const [results] = await db.execute(sql, params);
+    return results;
+}
+
+async function run(sql, params) {
+    const db = getDb();
+    await db.execute(sql, params);
+}
+
+async function saveDb() {
+    // MySQL is persistent; no-op for compatibility
+}
+
 module.exports = {
     initDb,
     getDb,
+    query,
+    run,
+    saveDb,
     queryToObjects,
     queryOne
 };

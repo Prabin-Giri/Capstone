@@ -80,9 +80,39 @@
 .todo-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.75rem;
-    flex: 1;
+    padding: 0.25rem 0;
+    pointer-events: none;
+    /* Make row unclickable */
+    width: 100%;
+}
+
+.todo-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     min-width: 0;
+}
+
+.todo-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.todo-time {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.todo-checkbox,
+.delete-todo-btn {
+    pointer-events: auto;
+    /* Re-enable for interactives */
 }
 
 .todo-checkbox {
@@ -127,6 +157,14 @@
 }
 
 /* Assignment Styles */
+.assignment-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+}
+
 .assignment-row {
     display: flex;
     align-items: center;

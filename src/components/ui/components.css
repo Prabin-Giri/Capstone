@@ -321,3 +321,94 @@
     font-weight: 700;
     color: var(--text-primary);
 }
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1024px) {
+    .dashboard-container {
+        padding: 2rem 1.5rem;
+    }
+
+    .dashboard-title {
+        font-size: 2rem;
+    }
+
+    .analytics-bar {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 1.5rem 1rem;
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-title {
+        font-size: 1.75rem;
+    }
+
+    .dashboard-actions {
+        width: 100%;
+    }
+
+    .dashboard-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .analytics-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .analytics-card:last-child {
+        grid-column: span 2;
+        text-align: center;
+        align-items: center;
+    }
+
+    .analytics-card {
+        padding: 0.75rem;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .analytics-label {
+        font-size: 0.6rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .analytics-value {
+        font-size: 1.25rem;
+    }
+
+    .analytics-desc {
+        font-size: 0.7rem;
+        line-height: 1.2;
+        margin-top: 0.15rem;
+        /* Truncate long descriptions on mobile to keep cards compact */
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        line-clamp: 1;
+        overflow: hidden;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .course-card-premium {
+        padding-bottom: 1rem;
+    }
+}

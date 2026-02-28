@@ -5,6 +5,18 @@
     background-color: var(--bg-body);
 }
 
+@media (max-width: 1024px) {
+    .calendar-page {
+        display: block;
+        height: auto;
+        overflow: visible;
+    }
+
+    .calendar-sidebar {
+        display: none;
+    }
+}
+
 .calendar-main {
     flex: 1;
     display: flex;
@@ -20,6 +32,16 @@
     justify-content: space-between;
     border-bottom: 1px solid var(--border-color);
     background-color: var(--bg-surface);
+}
+
+@media (max-width: 768px) {
+    .calendar-header {
+        flex-direction: column;
+        height: auto;
+        padding: 1rem;
+        gap: 1rem;
+        align-items: flex-start;
+    }
 }
 
 .header-left {
@@ -124,7 +146,7 @@
 }
 
 .create-btn:hover {
-    background-color: var(--primary-dark);
+    background-color: var(--primary-hover);
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
 }
@@ -133,6 +155,32 @@
     flex: 1;
     overflow-y: auto;
     padding: 1rem 2rem 2rem;
+}
+
+@media (max-width: 768px) {
+    .calendar-header {
+        flex-direction: column;
+        height: auto;
+        padding: 1rem;
+        gap: 1.5rem;
+        align-items: stretch;
+    }
+
+    .header-left,
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .view-switcher {
+        flex: 1;
+    }
+
+    .view-btn {
+        flex: 1;
+        text-align: center;
+    }
 }
 
 .placeholder-view {
@@ -182,6 +230,16 @@
     margin-bottom: 1rem;
 }
 
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
 .form-group label {
     display: block;
     font-size: 0.85rem;
@@ -221,14 +279,22 @@
     font-size: 0.9rem;
 }
 
-.modal-actions button[type="button"] {
+.modal-actions button.ghost-btn {
     background-color: white;
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
 }
 
-.modal-actions button[type="submit"] {
+.modal-actions button.ghost-btn:hover {
+    background-color: var(--bg-body);
+}
+
+.modal-actions button.primary-btn {
     background-color: var(--primary-color);
     border: none;
     color: white;
+}
+
+.modal-actions button.primary-btn:hover {
+    background-color: var(--primary-hover);
 }

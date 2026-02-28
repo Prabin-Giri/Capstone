@@ -67,6 +67,7 @@ const CREATE_TABLES = [
         efficiency_points_possible DOUBLE DEFAULT 0,
         java_main_class VARCHAR(255),
         run_mode VARCHAR(50) DEFAULT 'program',
+        type VARCHAR(50) DEFAULT 'individual',
         FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS submissions (
