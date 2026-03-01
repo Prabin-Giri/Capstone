@@ -41,6 +41,11 @@ class TokenizedSubmission:
     submission_id: str
     tokens: List[str]                        # normalized token stream
     token_locations: List[TokenLocation]     # parallel list: where each token came from
+    ast_metrics: Optional[Dict[str, int]] = None
+    func_name: Optional[str] = None
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
+    file_path: Optional[str] = None
 
 
 # ── Step 3: Fingerprint output ─────────────────────────────────────

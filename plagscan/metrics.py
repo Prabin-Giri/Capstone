@@ -228,16 +228,31 @@ def extract_metrics(submission: Submission) -> SubmissionMetrics:
         func_blocks = _split_text_into_functions(cleaned, lang)
 
         for idx, (func_text, start_line, end_line) in enumerate(func_blocks):
-            # Try to extract function name
+            # Extract name using a simple regex since normalizer already grouped the blocks
+            # For simplicity, if we fail to find a func name, we just label it anonymous.
             func_name = f"func_{idx}"
             if lang == 'python':
-                m = _PYTHON_FUNC.match(func_text.lstrip())
-                if m:
-                    func_name = m.group(2)
+                name_match = re.search(r'def\s+([a-zA-Z_]\w*)', func_text)
+                if name_match:
+                    func_name = name_match.group(1)
+            # Add regex capture for Java methods just for labeling purposes
+            elif lang == 'java':
+                jname_match = re.search(r'(?:public|private|protected|static|\s)*[\w\<\>\[\]]+\s+([a-zA-Z_$][a-zA-Z\d_$]*)\s*\(', func_text)
+                if jname_match:
+                    func_name = jname_match.group(1)
+                else:
+                    func_name = f"func_{idx}"
             elif lang == 'javascript':
                 m = _JS_FUNC.search(func_text)
                 if m:
                     func_name = m.group(1) or m.group(2) or func_name
+            else:
+                func_name = f"func_{idx}"
+
+            # If the submission already has ast_metrics (attached during normalization), use them
+            # We search the submission's already Tokenized data to find it
+            # To do this cleanly, we actually should not re-split the submission here.
+            # We should just use _extract_function_metrics as a fallback
 
             fm = _extract_function_metrics(
                 func_text, func_name,

@@ -13,6 +13,8 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from .models import SourceFile, Submission, TokenLocation, TokenizedSubmission
+from .ast_parser import ast_parse_function
+from .java_ast_parser import java_ast_parse_function
 
 # ── Language-specific keyword sets ──────────────────────────────────
 
@@ -254,6 +256,9 @@ def normalize_submission(submission: Submission) -> TokenizedSubmission:
 
 # ── Function-level splitting ────────────────────────────────────────
 
+# Patterns for function definitions (copied from metrics.py to be available here)
+_PYTHON_FUNC = re.compile(r'^(\s*)def\s+(\w+)\s*\(([^)]*)\)')
+
 # Patterns that indicate the start of a function/method definition
 _FUNC_PATTERNS = {
     'python': re.compile(
@@ -427,32 +432,58 @@ def split_submission_into_functions(
         func_blocks = _split_text_into_functions(cleaned, lang)
 
         for idx, (func_text, start_line, end_line) in enumerate(func_blocks):
-            raw_tokens, locations = _tokenize_and_locate(
-                func_text, source_file.relative_path
-            )
+            raw_tokens, locations = [], []
+            metrics = None
+            if lang in ('python', 'java'):
+                if lang == 'python':
+                    raw_tokens, locations, metrics = ast_parse_function(
+                        func_text, source_file.relative_path, start_line
+                    )
+                else:
+                    raw_tokens, locations, metrics = java_ast_parse_function(
+                        func_text, source_file.relative_path, start_line
+                    )
+                normalized = raw_tokens # AST parser already returns normalized structural tokens
+            else:
+                raw_tokens, locations = _tokenize_and_locate(
+                    func_text, source_file.relative_path
+                )
+                
+                # Adjust line numbers to be relative to the original file
+                adjusted_locations = []
+                for loc in locations:
+                    adjusted_locations.append(TokenLocation(
+                        file_path=loc.file_path,
+                        start_line=loc.start_line + start_line - 1,
+                        end_line=loc.end_line + start_line - 1,
+                    ))
+                locations = adjusted_locations
 
-            # Adjust line numbers to be relative to the original file
-            adjusted_locations = []
-            for loc in locations:
-                adjusted_locations.append(TokenLocation(
-                    file_path=loc.file_path,
-                    start_line=loc.start_line + start_line - 1,
-                    end_line=loc.end_line + start_line - 1,
-                ))
-
-            # Normalize tokens
-            normalized = [
-                _normalize_token(tok, ALL_KEYWORDS)
-                for tok in raw_tokens
-            ]
+                # Normalize tokens
+                normalized = [
+                    _normalize_token(tok, ALL_KEYWORDS)
+                    for tok in raw_tokens
+                ]
 
             if normalized:  # Only add non-empty functions
                 func_id = f"{submission.id}::{source_file.relative_path}::func_{idx}"
-                function_submissions.append(TokenizedSubmission(
+                sub = TokenizedSubmission(
                     submission_id=func_id,
                     tokens=normalized,
-                    token_locations=adjusted_locations,
-                ))
+                    token_locations=locations,
+                )
+                if metrics:
+                    # Attach metrics for AST parsed python files directly to the submission object dynamically
+                    sub.ast_metrics = metrics
+                    sub.func_name = f"func_{idx}"
+                    # Try to parse func_name from Python text for metrics routing
+                    m = _PYTHON_FUNC.match(func_text.lstrip())
+                    if m:
+                        sub.func_name = m.group(2)
+                    sub.start_line = start_line
+                    sub.end_line = end_line
+                    sub.file_path = source_file.relative_path
+                function_submissions.append(sub)
 
     return function_submissions
 

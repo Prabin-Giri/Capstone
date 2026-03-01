@@ -108,6 +108,14 @@ def fingerprint_submission(
         FingerprintResult with the set of fingerprint hashes
         and their positions in the token stream.
     """
+    # Dynamically adjust k for AST-parsed files, since they produce far fewer, denser tokens
+    # e.g a heavily nested function in python might only have 20 AST tokens total, meaning k=25 matches nothing
+    # We detect AST parsed files by looking at the first token formatting
+    is_ast = len(tokenized.tokens) > 0 and tokenized.tokens[0].startswith("AST_")
+    if is_ast:
+        k = min(4, k) # AST tokens are very structural, a run of 4 is highly suspicious
+        w = max(1, w - 2)
+
     # Build all k-gram hashes
     kgram_hashes = _build_kgram_hashes(tokenized.tokens, k)
 

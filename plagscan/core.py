@@ -211,7 +211,7 @@ def run_detector(
             ms = compute_metric_similarity(
                 metrics_map[sub_a.id], metrics_map[sub_b.id]
             )
-            if ms >= 0.95:  # Near-identical structure
+            if ms >= 0.85:  # High structural similarity bypass threshold
                 # Also verify there's some fingerprint overlap
                 fp_a_set = fp_map.get(sub_a.id)
                 fp_b_set = fp_map.get(sub_b.id)

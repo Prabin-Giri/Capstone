@@ -1,0 +1,32 @@
+{
+  "assignment": "bypass_demo",
+  "summary": {
+    "total_submissions": 2,
+    "total_pairs_checked": 1,
+    "suspicious_pairs": 1,
+    "threshold_jaccard": 0.15,
+    "threshold_containment": 0.3
+  },
+  "pairs": [
+    {
+      "sub_a": "student_bypassed",
+      "sub_b": "student_original",
+      "jaccard": 0.1071,
+      "containment": 0.3158,
+      "metric_similarity": 0.6822,
+      "shared_fingerprints": 6,
+      "total_fingerprints_a": 80,
+      "total_fingerprints_b": 23,
+      "matched_regions_count": 0,
+      "matched_regions": []
+    }
+  ],
+  "per_submission": {
+    "student_bypassed": [
+      "student_original"
+    ],
+    "student_original": [
+      "student_bypassed"
+    ]
+  }
+}
