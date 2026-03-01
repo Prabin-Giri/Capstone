@@ -1,0 +1,47 @@
+{
+  "assignment": "plag_test_demo",
+  "summary": {
+    "total_submissions": 4,
+    "total_pairs_checked": 6,
+    "suspicious_pairs": 1,
+    "threshold_jaccard": 0.15,
+    "threshold_containment": 0.3
+  },
+  "pairs": [
+    {
+      "sub_a": "student_a",
+      "sub_b": "student_d",
+      "jaccard": 0.3088,
+      "containment": 0.4757,
+      "metric_similarity": 0.996,
+      "shared_fingerprints": 61,
+      "total_fingerprints_a": 96,
+      "total_fingerprints_b": 94,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "bubble_github.py",
+          "lines_a": [
+            1,
+            18
+          ],
+          "snippet_a": ">    1 | from typing import Any\n>    2 | \n>    3 | def bubble_sort_iterative(collection: list[Any]) -> list[Any]:\n>    4 |     length = len(collection)\n>    5 |     for i in range(length - 1):\n>    6 |         swapped = False\n>    7 |         for j in range(length - 1 - i):\n>    8 |             if collection[j] > collection[j + 1]:\n>    9 |                 swapped = True\n>   10 |                 collection[j], collection[j + 1] = collection[j + 1], collection[j]\n>   11 |         if not swapped:\n>   12 |             break  # Stop iteration if the collection is sorted.\n>   13 |     return collection\n>   14 | \n>   15 | if __name__ == \"__main__\":\n>   16 |     user_input = input(\"Enter numbers separated by a comma:\\n\").strip()\n>   17 |     unsorted = [int(item) for item in user_input.split(\",\")]\n>   18 |     print(bubble_sort_iterative(unsorted))",
+          "file_b": "bubble_cheated.py",
+          "lines_b": [
+            2,
+            26
+          ],
+          "snippet_b": "     1 | # A sorted function that sorts an array using bubble sort method\n>    2 | from typing import Any\n>    3 | \n>    4 | def sort_my_list_now(my_list: list[Any]) -> list[Any]:\n>    5 |     num_items = len(my_list)\n>    6 |     for x in range(num_items - 1):\n>    7 |         did_swap = False\n>    8 |         for y in range(num_items - 1 - x):\n>    9 |             if my_list[y] > my_list[y + 1]:\n>   10 |                 did_swap = True\n>   11 |                 \n>   12 |                 # do the swap here\n>   13 |                 temp = my_list[y]\n>   14 |                 my_list[y] = my_list[y + 1]\n>   15 |                 my_list[y + 1] = temp\n>   16 |                 \n>   17 |         if not did_swap:\n>   18 |             break  # Quit iteration when done.\n>   19 |     return my_list\n>   20 | \n>   21 | if __name__ == \"__main__\":\n>   22 |     nums_str = input(\"Please enter some numbers with commas:\\n\").strip()\n>   23 |     unsorted_list = [int(v) for v in nums_str.split(\",\")]\n>   24 |     \n>   25 |     # print the output\n>   26 |     print(sort_my_list_now(unsorted_list))"
+        }
+      ]
+    }
+  ],
+  "per_submission": {
+    "student_a": [
+      "student_d"
+    ],
+    "student_d": [
+      "student_a"
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "assignment": "plag_test_real_python",
+  "summary": {
+    "total_submissions": 3,
+    "total_pairs_checked": 3,
+    "suspicious_pairs": 1,
+    "threshold_jaccard": 0.15,
+    "threshold_containment": 0.3
+  },
+  "pairs": [
+    {
+      "sub_a": "student_a",
+      "sub_b": "student_b",
+      "jaccard": 0.2394,
+      "containment": 0.4722,
+      "metric_similarity": 0.9111,
+      "shared_fingerprints": 17,
+      "total_fingerprints_a": 106,
+      "total_fingerprints_b": 128,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "knapsack.py",
+          "lines_a": [
+            1,
+            13
+          ],
+          "snippet_a": ">    1 | def knapSack(W, wt, val, n):\n>    2 |     K = [[0 for x in range(W + 1)] for x in range(n + 1)]\n>    3 | \n>    4 |     for i in range(n + 1):\n>    5 |         for w in range(W + 1):\n>    6 |             if i == 0 or w == 0:\n>    7 |                 K[i][w] = 0\n>    8 |             elif wt[i - 1] <= w:\n>    9 |                 K[i][w] = max(val[i-1] + K[i-1][w-wt[i-1]],  K[i-1][w])\n>   10 |             else:\n>   11 |                 K[i][w] = K[i-1][w]\n>   12 | \n>   13 |     return K[n][W]",
+          "file_b": "knapsack_cheated.py",
+          "lines_b": [
+            1,
+            6
+          ],
+          "snippet_b": ">    1 | def solve_knapsack(capacity, weights_list, values_list, num_items):\n>    2 |     dp_table = []\n>    3 |     # Build 2D DP array\n>    4 |     for _ in range(num_items + 1):\n>    5 |         row = [0] * (capacity + 1)\n>    6 |         dp_table.append(row)\n     7 | \n     8 |     item_idx = 0"
+        }
+      ]
+    }
+  ],
+  "per_submission": {
+    "student_a": [
+      "student_b"
+    ],
+    "student_b": [
+      "student_a"
+    ]
+  }
+}

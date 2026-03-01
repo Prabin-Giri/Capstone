@@ -1,0 +1,2 @@
+Submission A,Submission B,Jaccard,Containment,Metric Similarity,Shared Fingerprints,Fingerprints A,Fingerprints B,Matched Regions
+student_a,student_d,0.3088,0.4757,0.9960,61,96,94,1

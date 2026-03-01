@@ -1,0 +1,1403 @@
+{
+  "assignment": "submissions",
+  "summary": {
+    "total_submissions": 12,
+    "total_pairs_checked": 66,
+    "suspicious_pairs": 32,
+    "threshold_jaccard": 0.15,
+    "threshold_containment": 0.3
+  },
+  "pairs": [
+    {
+      "sub_a": "s001",
+      "sub_b": "s002",
+      "jaccard": 1.0,
+      "containment": 1.0,
+      "metric_similarity": 1.0,
+      "shared_fingerprints": 120,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 120,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            37
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n>   17 |     for item in arr:\n>   18 |         print(item, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n>   28 |     print_array(sorted_data)\n>   29 |     \n>   30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n>   35 | \n>   36 | if __name__ == \"__main__\":\n>   37 |     main()",
+          "file_b": "sort.py",
+          "lines_b": [
+            4,
+            37
+          ],
+          "snippet_b": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n>   17 |     for element in lst:\n>   18 |         print(element, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n>   28 |     print_array(sorted_data)\n>   29 |     \n>   30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n>   35 | \n>   36 | if __name__ == \"__main__\":\n>   37 |     main()"
+        }
+      ]
+    },
+    {
+      "sub_a": "s007",
+      "sub_b": "s010",
+      "jaccard": 0.8372,
+      "containment": 1.0,
+      "metric_similarity": 0.9627,
+      "shared_fingerprints": 67,
+      "total_fingerprints_a": 105,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            8,
+            31
+          ],
+          "snippet_a": "     6 | def main():\n     7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n>   12 | \n>   13 | \n>   14 | def display_array(arr):\n>   15 |     \"\"\"Display function — moved to middle.\"\"\"\n>   16 |     for i in range(len(arr)):\n>   17 |         print(arr[i], end=\" \")\n>   18 |     print()\n>   19 | \n>   20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   28 | \n>   29 | \n>   30 | if __name__ == \"__main__\":\n>   31 |     main()",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s004",
+      "jaccard": 0.5316,
+      "containment": 0.8473,
+      "metric_similarity": 0.9683,
+      "shared_fingerprints": 61,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 139,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            24
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n>   17 |     for item in arr:\n>   18 |         print(item, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n    25 |     \n    26 |     sorted_data = bubble_sort(test_data)",
+          "file_b": "sort.py",
+          "lines_b": [
+            4,
+            19
+          ],
+          "snippet_b": "     2 | # Used bubble sort (partially copied from Alice's s001, but added insertion sort too)\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | # Diana added her own insertion sort\n>   17 | def insertion_sort(arr):\n>   18 |     for i in range(1, len(arr)):\n>   19 |         key = arr[i]\n    20 |         j = i - 1\n    21 |         while j >= 0 and arr[j] > key:"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            36
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n>   35 | \n>   36 | if __name__ == \"__main__\":\n    37 |     main()",
+          "file_b": "sort.py",
+          "lines_b": [
+            27,
+            31
+          ],
+          "snippet_b": "    25 |     return arr\n    26 | \n>   27 | def compare_sorts():\n>   28 |     data1 = [5, 3, 8, 6, 2]\n>   29 |     data2 = data1.copy()\n>   30 |     \n>   31 |     print(\"Bubble sort:\", bubble_sort(data1))\n    32 |     print(\"Insertion sort:\", insertion_sort(data2))\n    33 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s004",
+      "jaccard": 0.5316,
+      "containment": 0.8473,
+      "metric_similarity": 0.9683,
+      "shared_fingerprints": 61,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 139,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            24
+          ],
+          "snippet_a": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n>   17 |     for element in lst:\n>   18 |         print(element, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n    25 |     \n    26 |     sorted_data = bubble_sort(test_data)",
+          "file_b": "sort.py",
+          "lines_b": [
+            4,
+            19
+          ],
+          "snippet_b": "     2 | # Used bubble sort (partially copied from Alice's s001, but added insertion sort too)\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | # Diana added her own insertion sort\n>   17 | def insertion_sort(arr):\n>   18 |     for i in range(1, len(arr)):\n>   19 |         key = arr[i]\n    20 |         j = i - 1\n    21 |         while j >= 0 and arr[j] > key:"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            36
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n>   35 | \n>   36 | if __name__ == \"__main__\":\n    37 |     main()",
+          "file_b": "sort.py",
+          "lines_b": [
+            27,
+            31
+          ],
+          "snippet_b": "    25 |     return arr\n    26 | \n>   27 | def compare_sorts():\n>   28 |     data1 = [5, 3, 8, 6, 2]\n>   29 |     data2 = data1.copy()\n>   30 |     \n>   31 |     print(\"Bubble sort:\", bubble_sort(data1))\n    32 |     print(\"Insertion sort:\", insertion_sort(data2))\n    33 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "s007",
+      "sub_b": "s008",
+      "jaccard": 0.3299,
+      "containment": 0.7692,
+      "metric_similarity": 0.922,
+      "shared_fingerprints": 47,
+      "total_fingerprints_a": 105,
+      "total_fingerprints_b": 221,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            8,
+            17
+          ],
+          "snippet_a": "     6 | def main():\n     7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n>   12 | \n>   13 | \n>   14 | def display_array(arr):\n>   15 |     \"\"\"Display function — moved to middle.\"\"\"\n>   16 |     for i in range(len(arr)):\n>   17 |         print(arr[i], end=\" \")\n    18 |     print()\n    19 | ",
+          "file_b": "utils.py",
+          "lines_b": [
+            19,
+            32
+          ],
+          "snippet_b": "    17 | def hybrid_sort(arr):\n    18 |     \"\"\"Hybrid sort: uses quicksort for large arrays, bubble for small.\n>   19 |     The bubble sort portion is copied from s001.\"\"\"\n>   20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\""
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            21,
+            31
+          ],
+          "snippet_a": "    19 | \n    20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   28 | \n>   29 | \n>   30 | if __name__ == \"__main__\":\n>   31 |     main()",
+          "file_b": "utils.py",
+          "lines_b": [
+            46,
+            50
+          ],
+          "snippet_b": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n>   50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))"
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s007",
+      "jaccard": 0.4444,
+      "containment": 0.6985,
+      "metric_similarity": 0.949,
+      "shared_fingerprints": 36,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 105,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            16
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n    17 |     for item in arr:\n    18 |         print(item, end=\" \")",
+          "file_b": "sort.py",
+          "lines_b": [
+            6,
+            11
+          ],
+          "snippet_b": "     4 | # even if whole-file fingerprints are slightly different due to reordering.\n     5 | \n>    6 | def main():\n>    7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n    12 | \n    13 | "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            21,
+            27
+          ],
+          "snippet_a": "    19 |     print()\n    20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "sort.py",
+          "lines_b": [
+            21,
+            31
+          ],
+          "snippet_b": "    19 | \n    20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   28 | \n>   29 | \n>   30 | if __name__ == \"__main__\":\n>   31 |     main()"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "sort.py",
+          "lines_b": [
+            21,
+            31
+          ],
+          "snippet_b": "    19 | \n    20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   28 | \n>   29 | \n>   30 | if __name__ == \"__main__\":\n>   31 |     main()"
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s007",
+      "jaccard": 0.4444,
+      "containment": 0.6985,
+      "metric_similarity": 0.949,
+      "shared_fingerprints": 36,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 105,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            16
+          ],
+          "snippet_a": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n    17 |     for element in lst:\n    18 |         print(element, end=\" \")",
+          "file_b": "sort.py",
+          "lines_b": [
+            6,
+            11
+          ],
+          "snippet_b": "     4 | # even if whole-file fingerprints are slightly different due to reordering.\n     5 | \n>    6 | def main():\n>    7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n    12 | \n    13 | "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            21,
+            27
+          ],
+          "snippet_a": "    19 |     print()\n    20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "sort.py",
+          "lines_b": [
+            21,
+            31
+          ],
+          "snippet_b": "    19 | \n    20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   28 | \n>   29 | \n>   30 | if __name__ == \"__main__\":\n>   31 |     main()"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "sort.py",
+          "lines_b": [
+            21,
+            31
+          ],
+          "snippet_b": "    19 | \n    20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   28 | \n>   29 | \n>   30 | if __name__ == \"__main__\":\n>   31 |     main()"
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s010",
+      "jaccard": 0.403,
+      "containment": 0.6606,
+      "metric_similarity": 0.9233,
+      "shared_fingerprints": 35,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            16
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n    17 |     for item in arr:\n    18 |         print(item, end=\" \")",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            22,
+            27
+          ],
+          "snippet_a": "    20 | \n    21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "sort.py",
+          "lines_b": [
+            27,
+            30
+          ],
+          "snippet_b": "    25 |         \n    26 |     Returns:\n>   27 |         None (sorts in place)\n>   28 |     \"\"\"\n>   29 |     # Get the length of the array\n>   30 |     n = len(arr)\n    31 |     \n    32 |     # Outer loop - iterate through all elements"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "sort.py",
+          "lines_b": [
+            38,
+            47
+          ],
+          "snippet_b": "    36 |         for j in range(0, n - i - 1):\n    37 |             # Compare adjacent elements\n>   38 |             # If left element is greater than right, swap them\n>   39 |             if arr[j] > arr[j + 1]:\n>   40 |                 # Perform the swap using Python's tuple unpacking\n>   41 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   42 |                 # After this swap, arr[j+1] is in its correct position\n>   43 | \n>   44 | \n>   45 | def print_array(arr):\n>   46 |     \"\"\"\n>   47 |     Helper function to print array elements.\n    48 |     Prints each element separated by a space.\n    49 |     \"\"\""
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s010",
+      "jaccard": 0.403,
+      "containment": 0.6606,
+      "metric_similarity": 0.9233,
+      "shared_fingerprints": 35,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            16
+          ],
+          "snippet_a": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n    17 |     for element in lst:\n    18 |         print(element, end=\" \")",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            22,
+            27
+          ],
+          "snippet_a": "    20 | \n    21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "sort.py",
+          "lines_b": [
+            27,
+            30
+          ],
+          "snippet_b": "    25 |         \n    26 |     Returns:\n>   27 |         None (sorts in place)\n>   28 |     \"\"\"\n>   29 |     # Get the length of the array\n>   30 |     n = len(arr)\n    31 |     \n    32 |     # Outer loop - iterate through all elements"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "sort.py",
+          "lines_b": [
+            38,
+            47
+          ],
+          "snippet_b": "    36 |         for j in range(0, n - i - 1):\n    37 |             # Compare adjacent elements\n>   38 |             # If left element is greater than right, swap them\n>   39 |             if arr[j] > arr[j + 1]:\n>   40 |                 # Perform the swap using Python's tuple unpacking\n>   41 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   42 |                 # After this swap, arr[j+1] is in its correct position\n>   43 | \n>   44 | \n>   45 | def print_array(arr):\n>   46 |     \"\"\"\n>   47 |     Helper function to print array elements.\n    48 |     Prints each element separated by a space.\n    49 |     \"\"\""
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s005",
+      "jaccard": 0.3977,
+      "containment": 0.6545,
+      "metric_similarity": 0.9654,
+      "shared_fingerprints": 57,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 194,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            26
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n>   17 |     for item in arr:\n>   18 |         print(item, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n    27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)",
+          "file_b": "sorting_utils.py",
+          "lines_b": [
+            4,
+            21
+          ],
+          "snippet_b": "     2 | # Multi-file submission: sorting utilities + main\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n>   21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j\n    23 |         arr[i], arr[min_idx] = arr[min_idx], arr[i]"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            26
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n>   17 |     for item in arr:\n>   18 |         print(item, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n    27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)",
+          "file_b": "main.py",
+          "lines_b": [
+            6,
+            8
+          ],
+          "snippet_b": "     4 | def run_tests():\n     5 |     test_cases = [\n>    6 |         [64, 34, 25, 12, 22, 11, 90],\n>    7 |         [5, 1, 4, 2, 8],\n>    8 |         [1],\n     9 |         [],\n    10 |         [3, 3, 3],"
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s005",
+      "jaccard": 0.3977,
+      "containment": 0.6545,
+      "metric_similarity": 0.9654,
+      "shared_fingerprints": 57,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 194,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            26
+          ],
+          "snippet_a": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n>   17 |     for element in lst:\n>   18 |         print(element, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n    27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)",
+          "file_b": "sorting_utils.py",
+          "lines_b": [
+            4,
+            21
+          ],
+          "snippet_b": "     2 | # Multi-file submission: sorting utilities + main\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n>   21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j\n    23 |         arr[i], arr[min_idx] = arr[min_idx], arr[i]"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            26
+          ],
+          "snippet_a": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n>   17 |     for element in lst:\n>   18 |         print(element, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n    27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)",
+          "file_b": "main.py",
+          "lines_b": [
+            6,
+            8
+          ],
+          "snippet_b": "     4 | def run_tests():\n     5 |     test_cases = [\n>    6 |         [64, 34, 25, 12, 22, 11, 90],\n>    7 |         [5, 1, 4, 2, 8],\n>    8 |         [1],\n     9 |         [],\n    10 |         [3, 3, 3],"
+        }
+      ]
+    },
+    {
+      "sub_a": "s008",
+      "sub_b": "s010",
+      "jaccard": 0.3608,
+      "containment": 0.6126,
+      "metric_similarity": 0.9335,
+      "shared_fingerprints": 48,
+      "total_fingerprints_a": 221,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "utils.py",
+          "lines_a": [
+            19,
+            32
+          ],
+          "snippet_a": "    17 | def hybrid_sort(arr):\n    18 |     \"\"\"Hybrid sort: uses quicksort for large arrays, bubble for small.\n>   19 |     The bubble sort portion is copied from s001.\"\"\"\n>   20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\"",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        },
+        {
+          "file_a": "utils.py",
+          "lines_a": [
+            45,
+            50
+          ],
+          "snippet_a": "    43 |     return results\n    44 | \n>   45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n>   50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))",
+          "file_b": "sort.py",
+          "lines_b": [
+            27,
+            30
+          ],
+          "snippet_b": "    25 |         \n    26 |     Returns:\n>   27 |         None (sorts in place)\n>   28 |     \"\"\"\n>   29 |     # Get the length of the array\n>   30 |     n = len(arr)\n    31 |     \n    32 |     # Outer loop - iterate through all elements"
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s008",
+      "jaccard": 0.2857,
+      "containment": 0.6,
+      "metric_similarity": 0.9477,
+      "shared_fingerprints": 34,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 221,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            5,
+            16
+          ],
+          "snippet_a": "     3 | \n     4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def print_array(arr):\n    17 |     for item in arr:\n    18 |         print(item, end=\" \")",
+          "file_b": "utils.py",
+          "lines_b": [
+            21,
+            32
+          ],
+          "snippet_b": "    19 |     The bubble sort portion is copied from s001.\"\"\"\n    20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\""
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            22,
+            27
+          ],
+          "snippet_a": "    20 | \n    21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "utils.py",
+          "lines_b": [
+            46,
+            49
+          ],
+          "snippet_b": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n    50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "utils.py",
+          "lines_b": [
+            46,
+            49
+          ],
+          "snippet_b": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n    50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))"
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s008",
+      "jaccard": 0.2857,
+      "containment": 0.6,
+      "metric_similarity": 0.9477,
+      "shared_fingerprints": 34,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 221,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            5,
+            16
+          ],
+          "snippet_a": "     3 | \n     4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n>   11 |                 did_swap = True\n>   12 |         if not did_swap:\n>   13 |             break\n>   14 |     return lst\n>   15 | \n>   16 | def print_array(lst):\n    17 |     for element in lst:\n    18 |         print(element, end=\" \")",
+          "file_b": "utils.py",
+          "lines_b": [
+            21,
+            32
+          ],
+          "snippet_b": "    19 |     The bubble sort portion is copied from s001.\"\"\"\n    20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\""
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            22,
+            27
+          ],
+          "snippet_a": "    20 | \n    21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "utils.py",
+          "lines_b": [
+            46,
+            49
+          ],
+          "snippet_b": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n    50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "utils.py",
+          "lines_b": [
+            46,
+            49
+          ],
+          "snippet_b": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n    50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))"
+        }
+      ]
+    },
+    {
+      "sub_a": "s007",
+      "sub_b": "s009",
+      "jaccard": 0.3026,
+      "containment": 0.5641,
+      "metric_similarity": 0.8879,
+      "shared_fingerprints": 22,
+      "total_fingerprints_a": 105,
+      "total_fingerprints_b": 122,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            6,
+            27
+          ],
+          "snippet_a": "     4 | # even if whole-file fingerprints are slightly different due to reordering.\n     5 | \n>    6 | def main():\n>    7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n>   12 | \n>   13 | \n>   14 | def display_array(arr):\n>   15 |     \"\"\"Display function — moved to middle.\"\"\"\n>   16 |     for i in range(len(arr)):\n>   17 |         print(arr[i], end=\" \")\n>   18 |     print()\n>   19 | \n>   20 | \n>   21 | def bubble_sort(arr):\n>   22 |     \"\"\"Bubble sort — moved to bottom instead of top.\"\"\"\n>   23 |     n = len(arr)\n>   24 |     for i in range(n):\n>   25 |         for j in range(0, n - i - 1):\n>   26 |             if arr[j] > arr[j + 1]:\n>   27 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    28 | \n    29 | ",
+          "file_b": "sort.py",
+          "lines_b": [
+            10,
+            20
+          ],
+          "snippet_b": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        }
+      ]
+    },
+    {
+      "sub_a": "s004",
+      "sub_b": "s010",
+      "jaccard": 0.2976,
+      "containment": 0.5229,
+      "metric_similarity": 0.9473,
+      "shared_fingerprints": 34,
+      "total_fingerprints_a": 139,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            20
+          ],
+          "snippet_a": "     2 | # Used bubble sort (partially copied from Alice's s001, but added insertion sort too)\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | # Diana added her own insertion sort\n>   17 | def insertion_sort(arr):\n>   18 |     for i in range(1, len(arr)):\n>   19 |         key = arr[i]\n>   20 |         j = i - 1\n    21 |         while j >= 0 and arr[j] > key:\n    22 |             arr[j + 1] = arr[j]",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            28,
+            31
+          ],
+          "snippet_a": "    26 | \n    27 | def compare_sorts():\n>   28 |     data1 = [5, 3, 8, 6, 2]\n>   29 |     data2 = data1.copy()\n>   30 |     \n>   31 |     print(\"Bubble sort:\", bubble_sort(data1))\n    32 |     print(\"Insertion sort:\", insertion_sort(data2))\n    33 | ",
+          "file_b": "sort.py",
+          "lines_b": [
+            27,
+            30
+          ],
+          "snippet_b": "    25 |         \n    26 |     Returns:\n>   27 |         None (sorts in place)\n>   28 |     \"\"\"\n>   29 |     # Get the length of the array\n>   30 |     n = len(arr)\n    31 |     \n    32 |     # Outer loop - iterate through all elements"
+        }
+      ]
+    },
+    {
+      "sub_a": "s005",
+      "sub_b": "s007",
+      "jaccard": 0.3012,
+      "containment": 0.513,
+      "metric_similarity": 0.916,
+      "shared_fingerprints": 34,
+      "total_fingerprints_a": 194,
+      "total_fingerprints_b": 105,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sorting_utils.py",
+          "lines_a": [
+            4,
+            20
+          ],
+          "snippet_a": "     2 | # Multi-file submission: sorting utilities + main\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n    21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j",
+          "file_b": "sort.py",
+          "lines_b": [
+            8,
+            11
+          ],
+          "snippet_b": "     6 | def main():\n     7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n    12 | \n    13 | "
+        },
+        {
+          "file_a": "main.py",
+          "lines_a": [
+            6,
+            8
+          ],
+          "snippet_a": "     4 | def run_tests():\n     5 |     test_cases = [\n>    6 |         [64, 34, 25, 12, 22, 11, 90],\n>    7 |         [5, 1, 4, 2, 8],\n>    8 |         [1],\n     9 |         [],\n    10 |         [3, 3, 3],",
+          "file_b": "sort.py",
+          "lines_b": [
+            8,
+            11
+          ],
+          "snippet_b": "     6 | def main():\n     7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n>   11 |     print(\"Sorted array:\", data)\n    12 | \n    13 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "s009",
+      "sub_b": "s010",
+      "jaccard": 0.275,
+      "containment": 0.5,
+      "metric_similarity": 0.8996,
+      "shared_fingerprints": 23,
+      "total_fingerprints_a": 122,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            10,
+            20
+          ],
+          "snippet_a": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            33,
+            47
+          ],
+          "snippet_a": "    31 |     idx = 0\n    32 |     while idx < len(number_list):\n>   33 |         print(number_list[idx], end=\" \")\n>   34 |         idx += 1\n>   35 |     print()\n>   36 | \n>   37 | \n>   38 | def run():\n>   39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n>   44 | \n>   45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     run()",
+          "file_b": "sort.py",
+          "lines_b": [
+            31,
+            32
+          ],
+          "snippet_b": "    29 |     # Get the length of the array\n    30 |     n = len(arr)\n>   31 |     \n>   32 |     # Outer loop - iterate through all elements\n    33 |     for i in range(n):\n    34 |         # Inner loop - compare adjacent elements"
+        }
+      ]
+    },
+    {
+      "sub_a": "s005",
+      "sub_b": "s010",
+      "jaccard": 0.2759,
+      "containment": 0.4941,
+      "metric_similarity": 0.9495,
+      "shared_fingerprints": 33,
+      "total_fingerprints_a": 194,
+      "total_fingerprints_b": 95,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sorting_utils.py",
+          "lines_a": [
+            4,
+            20
+          ],
+          "snippet_a": "     2 | # Multi-file submission: sorting utilities + main\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n    21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        },
+        {
+          "file_a": "main.py",
+          "lines_a": [
+            6,
+            8
+          ],
+          "snippet_a": "     4 | def run_tests():\n     5 |     test_cases = [\n>    6 |         [64, 34, 25, 12, 22, 11, 90],\n>    7 |         [5, 1, 4, 2, 8],\n>    8 |         [1],\n     9 |         [],\n    10 |         [3, 3, 3],",
+          "file_b": "sort.py",
+          "lines_b": [
+            9,
+            23
+          ],
+          "snippet_b": "     7 | Assignment: Sorting Algorithms\n     8 | Student: Anonymous\n>    9 | Date: 2024-01-15\n>   10 | This is my implementation of the bubble sort algorithm.\n>   11 | I learned about it in class and implemented it myself.\n>   12 | References: Chapter 5 of Introduction to Algorithms\n>   13 | \"\"\"\n>   14 | \n>   15 | \n>   16 | def bubble_sort(arr):  # Main sorting function\n>   17 |     \"\"\"\n>   18 |     Implements the bubble sort algorithm.\n>   19 |     \n>   20 |     Time complexity: O(n^2) in worst case\n>   21 |     Space complexity: O(1) - in-place sorting\n>   22 |     \n>   23 |     Args:\n    24 |         arr: List of comparable elements to sort\n    25 |         "
+        }
+      ]
+    },
+    {
+      "sub_a": "s004",
+      "sub_b": "s005",
+      "jaccard": 0.3143,
+      "containment": 0.4857,
+      "metric_similarity": 0.97,
+      "shared_fingerprints": 55,
+      "total_fingerprints_a": 139,
+      "total_fingerprints_b": 194,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            19
+          ],
+          "snippet_a": "     2 | # Used bubble sort (partially copied from Alice's s001, but added insertion sort too)\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | # Diana added her own insertion sort\n>   17 | def insertion_sort(arr):\n>   18 |     for i in range(1, len(arr)):\n>   19 |         key = arr[i]\n    20 |         j = i - 1\n    21 |         while j >= 0 and arr[j] > key:",
+          "file_b": "sorting_utils.py",
+          "lines_b": [
+            4,
+            21
+          ],
+          "snippet_b": "     2 | # Multi-file submission: sorting utilities + main\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n>   21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j\n    23 |         arr[i], arr[min_idx] = arr[min_idx], arr[i]"
+        }
+      ]
+    },
+    {
+      "sub_a": "s008",
+      "sub_b": "s012",
+      "jaccard": 0.0577,
+      "containment": 0.4688,
+      "metric_similarity": 0.9072,
+      "shared_fingerprints": 2,
+      "total_fingerprints_a": 221,
+      "total_fingerprints_b": 270,
+      "matched_regions_count": 0,
+      "matched_regions": []
+    },
+    {
+      "sub_a": "s004",
+      "sub_b": "s007",
+      "jaccard": 0.325,
+      "containment": 0.4568,
+      "metric_similarity": 0.9439,
+      "shared_fingerprints": 35,
+      "total_fingerprints_a": 139,
+      "total_fingerprints_b": 105,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            20
+          ],
+          "snippet_a": "     2 | # Used bubble sort (partially copied from Alice's s001, but added insertion sort too)\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | # Diana added her own insertion sort\n>   17 | def insertion_sort(arr):\n>   18 |     for i in range(1, len(arr)):\n>   19 |         key = arr[i]\n>   20 |         j = i - 1\n    21 |         while j >= 0 and arr[j] > key:\n    22 |             arr[j + 1] = arr[j]",
+          "file_b": "sort.py",
+          "lines_b": [
+            6,
+            10
+          ],
+          "snippet_b": "     4 | # even if whole-file fingerprints are slightly different due to reordering.\n     5 | \n>    6 | def main():\n>    7 |     \"\"\"Main function — moved to top instead of bottom.\"\"\"\n>    8 |     data = [64, 34, 25, 12, 22, 11, 90]\n>    9 |     print(\"Original array:\", data)\n>   10 |     bubble_sort(data)\n    11 |     print(\"Sorted array:\", data)\n    12 | "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            27,
+            31
+          ],
+          "snippet_a": "    25 |     return arr\n    26 | \n>   27 | def compare_sorts():\n>   28 |     data1 = [5, 3, 8, 6, 2]\n>   29 |     data2 = data1.copy()\n>   30 |     \n>   31 |     print(\"Bubble sort:\", bubble_sort(data1))\n    32 |     print(\"Insertion sort:\", insertion_sort(data2))\n    33 | ",
+          "file_b": "sort.py",
+          "lines_b": [
+            14,
+            17
+          ],
+          "snippet_b": "    12 | \n    13 | \n>   14 | def display_array(arr):\n>   15 |     \"\"\"Display function — moved to middle.\"\"\"\n>   16 |     for i in range(len(arr)):\n>   17 |         print(arr[i], end=\" \")\n    18 |     print()\n    19 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "s004",
+      "sub_b": "s008",
+      "jaccard": 0.2422,
+      "containment": 0.4429,
+      "metric_similarity": 0.9456,
+      "shared_fingerprints": 33,
+      "total_fingerprints_a": 139,
+      "total_fingerprints_b": 221,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            5,
+            20
+          ],
+          "snippet_a": "     3 | \n     4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | # Diana added her own insertion sort\n>   17 | def insertion_sort(arr):\n>   18 |     for i in range(1, len(arr)):\n>   19 |         key = arr[i]\n>   20 |         j = i - 1\n    21 |         while j >= 0 and arr[j] > key:\n    22 |             arr[j + 1] = arr[j]",
+          "file_b": "utils.py",
+          "lines_b": [
+            21,
+            32
+          ],
+          "snippet_b": "    19 |     The bubble sort portion is copied from s001.\"\"\"\n    20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\""
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            28,
+            31
+          ],
+          "snippet_a": "    26 | \n    27 | def compare_sorts():\n>   28 |     data1 = [5, 3, 8, 6, 2]\n>   29 |     data2 = data1.copy()\n>   30 |     \n>   31 |     print(\"Bubble sort:\", bubble_sort(data1))\n    32 |     print(\"Insertion sort:\", insertion_sort(data2))\n    33 | ",
+          "file_b": "utils.py",
+          "lines_b": [
+            46,
+            47
+          ],
+          "snippet_b": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n    48 |     print(\"Original:\", test)\n    49 |     result = hybrid_sort(test[:])"
+        }
+      ]
+    },
+    {
+      "sub_a": "s008",
+      "sub_b": "s009",
+      "jaccard": 0.1783,
+      "containment": 0.4387,
+      "metric_similarity": 0.8818,
+      "shared_fingerprints": 20,
+      "total_fingerprints_a": 221,
+      "total_fingerprints_b": 122,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "utils.py",
+          "lines_a": [
+            23,
+            25
+          ],
+          "snippet_a": "    21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n    22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n    26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    27 |         # --- END COPIED ---",
+          "file_b": "sort.py",
+          "lines_b": [
+            17,
+            20
+          ],
+          "snippet_b": "    15 |         swapped = False\n    16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        },
+        {
+          "file_a": "utils.py",
+          "lines_a": [
+            46,
+            50
+          ],
+          "snippet_a": "    44 | \n    45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     test = [64, 34, 25, 12, 22, 11, 90, 5, 3, 1]\n>   48 |     print(\"Original:\", test)\n>   49 |     result = hybrid_sort(test[:])\n>   50 |     print(\"Sorted:\", result)\n    51 |     print(\"Benchmarks:\", benchmark([5, 50, 100]))",
+          "file_b": "sort.py",
+          "lines_b": [
+            40,
+            46
+          ],
+          "snippet_b": "    38 | def run():\n    39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n>   44 | \n>   45 | \n>   46 | if __name__ == \"__main__\":\n    47 |     run()"
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s009",
+      "jaccard": 0.2,
+      "containment": 0.4286,
+      "metric_similarity": 0.918,
+      "shared_fingerprints": 19,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 122,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            10
+          ],
+          "snippet_a": "     2 | # Student: Alice\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    11 |                 swapped = True\n    12 |         if not swapped:",
+          "file_b": "sort.py",
+          "lines_b": [
+            10,
+            20
+          ],
+          "snippet_b": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            19,
+            27
+          ],
+          "snippet_a": "    17 |     for item in arr:\n    18 |         print(item, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "sort.py",
+          "lines_b": [
+            35,
+            43
+          ],
+          "snippet_b": "    33 |         print(number_list[idx], end=\" \")\n    34 |         idx += 1\n>   35 |     print()\n>   36 | \n>   37 | \n>   38 | def run():\n>   39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n    44 | \n    45 | "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "sort.py",
+          "lines_b": [
+            35,
+            43
+          ],
+          "snippet_b": "    33 |         print(number_list[idx], end=\" \")\n    34 |         idx += 1\n>   35 |     print()\n>   36 | \n>   37 | \n>   38 | def run():\n>   39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n    44 | \n    45 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s009",
+      "jaccard": 0.2,
+      "containment": 0.4286,
+      "metric_similarity": 0.918,
+      "shared_fingerprints": 19,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 122,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            10
+          ],
+          "snippet_a": "     2 | # Student: Bob (COPIED from Alice, renamed variables)\n     3 | \n>    4 | def bubble_sort(lst):\n>    5 |     length = len(lst)\n>    6 |     for outer in range(length):\n>    7 |         did_swap = False\n>    8 |         for inner in range(0, length - outer - 1):\n>    9 |             if lst[inner] > lst[inner + 1]:\n>   10 |                 lst[inner], lst[inner + 1] = lst[inner + 1], lst[inner]\n    11 |                 did_swap = True\n    12 |         if not did_swap:",
+          "file_b": "sort.py",
+          "lines_b": [
+            10,
+            20
+          ],
+          "snippet_b": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            19,
+            27
+          ],
+          "snippet_a": "    17 |     for element in lst:\n    18 |         print(element, end=\" \")\n>   19 |     print()\n>   20 | \n>   21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n    28 |     print_array(sorted_data)\n    29 |     ",
+          "file_b": "sort.py",
+          "lines_b": [
+            35,
+            43
+          ],
+          "snippet_b": "    33 |         print(number_list[idx], end=\" \")\n    34 |         idx += 1\n>   35 |     print()\n>   36 | \n>   37 | \n>   38 | def run():\n>   39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n    44 | \n    45 | "
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            31,
+            34
+          ],
+          "snippet_a": "    29 |     \n    30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n    35 | \n    36 | if __name__ == \"__main__\":",
+          "file_b": "sort.py",
+          "lines_b": [
+            35,
+            43
+          ],
+          "snippet_b": "    33 |         print(number_list[idx], end=\" \")\n    34 |         idx += 1\n>   35 |     print()\n>   36 | \n>   37 | \n>   38 | def run():\n>   39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n    44 | \n    45 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "s005",
+      "sub_b": "s008",
+      "jaccard": 0.2197,
+      "containment": 0.4103,
+      "metric_similarity": 0.9655,
+      "shared_fingerprints": 32,
+      "total_fingerprints_a": 194,
+      "total_fingerprints_b": 221,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sorting_utils.py",
+          "lines_a": [
+            5,
+            20
+          ],
+          "snippet_a": "     3 | \n     4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   11 |                 swapped = True\n>   12 |         if not swapped:\n>   13 |             break\n>   14 |     return arr\n>   15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n    21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j",
+          "file_b": "utils.py",
+          "lines_b": [
+            21,
+            32
+          ],
+          "snippet_b": "    19 |     The bubble sort portion is copied from s001.\"\"\"\n    20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\""
+        },
+        {
+          "file_a": "main.py",
+          "lines_a": [
+            6,
+            8
+          ],
+          "snippet_a": "     4 | def run_tests():\n     5 |     test_cases = [\n>    6 |         [64, 34, 25, 12, 22, 11, 90],\n>    7 |         [5, 1, 4, 2, 8],\n>    8 |         [1],\n     9 |         [],\n    10 |         [3, 3, 3],",
+          "file_b": "utils.py",
+          "lines_b": [
+            21,
+            32
+          ],
+          "snippet_b": "    19 |     The bubble sort portion is copied from s001.\"\"\"\n    20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n>   23 |         for i in range(n):\n>   24 |             for j in range(0, n - i - 1):\n>   25 |                 if arr[j] > arr[j + 1]:\n>   26 |                     arr[j], arr[j + 1] = arr[j + 1], arr[j]\n>   27 |         # --- END COPIED ---\n>   28 |         return arr\n>   29 |     else:\n>   30 |         return quicksort(arr)\n>   31 | \n>   32 | \n    33 | def benchmark(sizes):\n    34 |     \"\"\"Benchmark sorting — completely original.\"\"\""
+        }
+      ]
+    },
+    {
+      "sub_a": "s003",
+      "sub_b": "s008",
+      "jaccard": 0.2063,
+      "containment": 0.375,
+      "metric_similarity": 0.9511,
+      "shared_fingerprints": 24,
+      "total_fingerprints_a": 158,
+      "total_fingerprints_b": 221,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            9
+          ],
+          "snippet_a": "     2 | # Student: Charlie (wrote independently)\n     3 | \n>    4 | def merge_sort(arr):\n>    5 |     if len(arr) <= 1:\n>    6 |         return arr\n>    7 |     \n>    8 |     mid = len(arr) // 2\n>    9 |     left_half = merge_sort(arr[:mid])\n    10 |     right_half = merge_sort(arr[mid:])\n    11 |     ",
+          "file_b": "utils.py",
+          "lines_b": [
+            6,
+            11
+          ],
+          "snippet_b": "     4 | # The k=25 pass should miss this (too short), but k=10 should catch it.\n     5 | \n>    6 | def quicksort(arr):\n>    7 |     \"\"\"Quicksort implementation — completely original.\"\"\"\n>    8 |     if len(arr) <= 1:\n>    9 |         return arr\n>   10 |     pivot = arr[len(arr) // 2]\n>   11 |     left = [x for x in arr if x < pivot]\n    12 |     middle = [x for x in arr if x == pivot]\n    13 |     right = [x for x in arr if x > pivot]"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            33,
+            39
+          ],
+          "snippet_a": "    31 |     print(\" -> \".join(str(x) for x in data))\n    32 | \n>   33 | if __name__ == \"__main__\":\n>   34 |     numbers = [38, 27, 43, 3, 9, 82, 10]\n>   35 |     print(\"Before sorting:\")\n>   36 |     display_list(numbers)\n>   37 |     \n>   38 |     sorted_numbers = merge_sort(numbers)\n>   39 |     print(\"After sorting:\")\n    40 |     display_list(sorted_numbers)",
+          "file_b": "utils.py",
+          "lines_b": [
+            17,
+            22
+          ],
+          "snippet_b": "    15 | \n    16 | \n>   17 | def hybrid_sort(arr):\n>   18 |     \"\"\"Hybrid sort: uses quicksort for large arrays, bubble for small.\n>   19 |     The bubble sort portion is copied from s001.\"\"\"\n>   20 |     if len(arr) <= 10:\n>   21 |         # --- COPIED FROM s001 (bubble sort inner logic) ---\n>   22 |         n = len(arr)\n    23 |         for i in range(n):\n    24 |             for j in range(0, n - i - 1):"
+        }
+      ]
+    },
+    {
+      "sub_a": "s005",
+      "sub_b": "s009",
+      "jaccard": 0.1491,
+      "containment": 0.3031,
+      "metric_similarity": 0.9199,
+      "shared_fingerprints": 19,
+      "total_fingerprints_a": 194,
+      "total_fingerprints_b": 122,
+      "matched_regions_count": 3,
+      "matched_regions": [
+        {
+          "file_a": "sorting_utils.py",
+          "lines_a": [
+            4,
+            10
+          ],
+          "snippet_a": "     2 | # Multi-file submission: sorting utilities + main\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    11 |                 swapped = True\n    12 |         if not swapped:",
+          "file_b": "sort.py",
+          "lines_b": [
+            10,
+            20
+          ],
+          "snippet_b": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        },
+        {
+          "file_a": "sorting_utils.py",
+          "lines_a": [
+            16,
+            20
+          ],
+          "snippet_a": "    14 |     return arr\n    15 | \n>   16 | def selection_sort(arr):\n>   17 |     n = len(arr)\n>   18 |     for i in range(n):\n>   19 |         min_idx = i\n>   20 |         for j in range(i + 1, n):\n    21 |             if arr[j] < arr[min_idx]:\n    22 |                 min_idx = j",
+          "file_b": "sort.py",
+          "lines_b": [
+            40,
+            43
+          ],
+          "snippet_b": "    38 | def run():\n    39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n    44 | \n    45 | "
+        },
+        {
+          "file_a": "main.py",
+          "lines_a": [
+            6,
+            8
+          ],
+          "snippet_a": "     4 | def run_tests():\n     5 |     test_cases = [\n>    6 |         [64, 34, 25, 12, 22, 11, 90],\n>    7 |         [5, 1, 4, 2, 8],\n>    8 |         [1],\n     9 |         [],\n    10 |         [3, 3, 3],",
+          "file_b": "sort.py",
+          "lines_b": [
+            10,
+            20
+          ],
+          "snippet_b": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        }
+      ]
+    },
+    {
+      "sub_a": "s001",
+      "sub_b": "s003",
+      "jaccard": 0.1753,
+      "containment": 0.302,
+      "metric_similarity": 0.9047,
+      "shared_fingerprints": 17,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 158,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            22,
+            37
+          ],
+          "snippet_a": "    20 | \n    21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n>   28 |     print_array(sorted_data)\n>   29 |     \n>   30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n>   35 | \n>   36 | if __name__ == \"__main__\":\n>   37 |     main()",
+          "file_b": "sort.py",
+          "lines_b": [
+            34,
+            40
+          ],
+          "snippet_b": "    32 | \n    33 | if __name__ == \"__main__\":\n>   34 |     numbers = [38, 27, 43, 3, 9, 82, 10]\n>   35 |     print(\"Before sorting:\")\n>   36 |     display_list(numbers)\n>   37 |     \n>   38 |     sorted_numbers = merge_sort(numbers)\n>   39 |     print(\"After sorting:\")\n>   40 |     display_list(sorted_numbers)"
+        }
+      ]
+    },
+    {
+      "sub_a": "s002",
+      "sub_b": "s003",
+      "jaccard": 0.1753,
+      "containment": 0.302,
+      "metric_similarity": 0.9047,
+      "shared_fingerprints": 17,
+      "total_fingerprints_a": 120,
+      "total_fingerprints_b": 158,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            22,
+            37
+          ],
+          "snippet_a": "    20 | \n    21 | def main():\n>   22 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   23 |     print(\"Original array:\")\n>   24 |     print_array(test_data)\n>   25 |     \n>   26 |     sorted_data = bubble_sort(test_data)\n>   27 |     print(\"Sorted array:\")\n>   28 |     print_array(sorted_data)\n>   29 |     \n>   30 |     # Test with already sorted\n>   31 |     sorted_test = [1, 2, 3, 4, 5]\n>   32 |     result = bubble_sort(sorted_test)\n>   33 |     print(\"Already sorted:\")\n>   34 |     print_array(result)\n>   35 | \n>   36 | if __name__ == \"__main__\":\n>   37 |     main()",
+          "file_b": "sort.py",
+          "lines_b": [
+            34,
+            40
+          ],
+          "snippet_b": "    32 | \n    33 | if __name__ == \"__main__\":\n>   34 |     numbers = [38, 27, 43, 3, 9, 82, 10]\n>   35 |     print(\"Before sorting:\")\n>   36 |     display_list(numbers)\n>   37 |     \n>   38 |     sorted_numbers = merge_sort(numbers)\n>   39 |     print(\"After sorting:\")\n>   40 |     display_list(sorted_numbers)"
+        }
+      ]
+    },
+    {
+      "sub_a": "s004",
+      "sub_b": "s009",
+      "jaccard": 0.1727,
+      "containment": 0.2765,
+      "metric_similarity": 0.9531,
+      "shared_fingerprints": 19,
+      "total_fingerprints_a": 139,
+      "total_fingerprints_b": 122,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            4,
+            10
+          ],
+          "snippet_a": "     2 | # Used bubble sort (partially copied from Alice's s001, but added insertion sort too)\n     3 | \n>    4 | def bubble_sort(arr):\n>    5 |     n = len(arr)\n>    6 |     for i in range(n):\n>    7 |         swapped = False\n>    8 |         for j in range(0, n - i - 1):\n>    9 |             if arr[j] > arr[j + 1]:\n>   10 |                 arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    11 |                 swapped = True\n    12 |         if not swapped:",
+          "file_b": "sort.py",
+          "lines_b": [
+            10,
+            20
+          ],
+          "snippet_b": "     8 | # (loop count, nesting depth, conditionals, complexity) should match.\n     9 | \n>   10 | def sort_numbers(numbers):\n>   11 |     \"\"\"Sort using bubble technique with early termination.\"\"\"\n>   12 |     count = len(numbers)\n>   13 |     iteration = 0\n>   14 |     while iteration < count:\n>   15 |         swapped = False\n>   16 |         position = 0\n>   17 |         while position < count - iteration - 1:\n>   18 |             if numbers[position] > numbers[position + 1]:\n>   19 |                 temp = numbers[position]\n>   20 |                 numbers[position] = numbers[position + 1]\n    21 |                 numbers[position + 1] = temp\n    22 |                 swapped = True"
+        },
+        {
+          "file_a": "sort.py",
+          "lines_a": [
+            27,
+            35
+          ],
+          "snippet_a": "    25 |     return arr\n    26 | \n>   27 | def compare_sorts():\n>   28 |     data1 = [5, 3, 8, 6, 2]\n>   29 |     data2 = data1.copy()\n>   30 |     \n>   31 |     print(\"Bubble sort:\", bubble_sort(data1))\n>   32 |     print(\"Insertion sort:\", insertion_sort(data2))\n>   33 | \n>   34 | if __name__ == \"__main__\":\n>   35 |     compare_sorts()",
+          "file_b": "sort.py",
+          "lines_b": [
+            38,
+            47
+          ],
+          "snippet_b": "    36 | \n    37 | \n>   38 | def run():\n>   39 |     \"\"\"Entry point.\"\"\"\n>   40 |     test_data = [64, 34, 25, 12, 22, 11, 90]\n>   41 |     print(\"Before sorting:\", test_data)\n>   42 |     sort_numbers(test_data)\n>   43 |     print(\"After sorting:\", test_data)\n>   44 | \n>   45 | \n>   46 | if __name__ == \"__main__\":\n>   47 |     run()"
+        }
+      ]
+    }
+  ],
+  "per_submission": {
+    "s001": [
+      "s002",
+      "s004",
+      "s007",
+      "s010",
+      "s005"
+    ],
+    "s002": [
+      "s001",
+      "s004",
+      "s007",
+      "s010",
+      "s005"
+    ],
+    "s007": [
+      "s010",
+      "s008",
+      "s001",
+      "s002",
+      "s009"
+    ],
+    "s010": [
+      "s007",
+      "s001",
+      "s002",
+      "s008",
+      "s004"
+    ],
+    "s004": [
+      "s001",
+      "s002",
+      "s010",
+      "s005",
+      "s007"
+    ],
+    "s008": [
+      "s007",
+      "s010",
+      "s001",
+      "s002",
+      "s012"
+    ],
+    "s005": [
+      "s001",
+      "s002",
+      "s007",
+      "s010",
+      "s004"
+    ],
+    "s009": [
+      "s007",
+      "s010",
+      "s008",
+      "s001",
+      "s002"
+    ],
+    "s012": [
+      "s008"
+    ],
+    "s003": [
+      "s008",
+      "s001",
+      "s002"
+    ]
+  }
+}

@@ -1,0 +1,370 @@
+{
+  "assignment": "dataset_test",
+  "summary": {
+    "total_submissions": 5,
+    "total_pairs_checked": 10,
+    "suspicious_pairs": 10,
+    "threshold_jaccard": 0.0,
+    "threshold_containment": 0.0
+  },
+  "pairs": [
+    {
+      "sub_a": "student_a",
+      "sub_b": "student_d",
+      "jaccard": 0.152,
+      "containment": 0.2778,
+      "metric_similarity": 0.9812,
+      "shared_fingerprints": 20,
+      "total_fingerprints_a": 49,
+      "total_fingerprints_b": 52,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            3,
+            13
+          ],
+          "snippet_a": "     1 | def fib_iterative(n: int) -> list[int]:\n     2 |     \"\"\"\n>    3 |     Calculates the first n (0-indexed) Fibonacci numbers using iteration\n>    4 |     \"\"\"\n>    5 |     if n < 0:\n>    6 |         raise ValueError(\"n is negative\")\n>    7 |     if n == 0:\n>    8 |         return [0]\n>    9 |     fib = [0, 1]\n>   10 |     for _ in range(n - 1):\n>   11 |         fib.append(fib[-1] + fib[-2])\n>   12 |     return fib\n>   13 | \n    14 | if __name__ == \"__main__\":\n    15 |     print(fib_iterative(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            4,
+            21
+          ],
+          "snippet_b": "     2 | def get_fib_sequence(number_of_items):\n     3 |     # check for negative\n>    4 |     if number_of_items < 0:\n>    5 |         raise ValueError(\"bad input\")\n>    6 |     if number_of_items == 0:\n>    7 |         return [0]\n>    8 |     \n>    9 |     # initialize array\n>   10 |     my_result_array = [0, 1]\n>   11 |     \n>   12 |     # loop and add previous two\n>   13 |     for i in range(number_of_items - 1):\n>   14 |         last_item = my_result_array[-1]\n>   15 |         second_last = my_result_array[-2]\n>   16 |         my_result_array.append(last_item + second_last)\n>   17 |         \n>   18 |     return my_result_array\n>   19 | \n>   20 | if __name__ == \"__main__\":\n>   21 |     print(get_fib_sequence(10))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_b",
+      "sub_b": "student_c",
+      "jaccard": 0.0642,
+      "containment": 0.1359,
+      "metric_similarity": 0.967,
+      "shared_fingerprints": 16,
+      "total_fingerprints_a": 67,
+      "total_fingerprints_b": 80,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            1,
+            14
+          ],
+          "snippet_a": ">    1 | def fib_recursive(n: int) -> list[int]:\n>    2 |     def fib_recursive_term(i: int) -> int:\n>    3 |         if i < 0:\n>    4 |             raise ValueError(\"n is negative\")\n>    5 |         if i < 2:\n>    6 |             return i\n>    7 |         return fib_recursive_term(i - 1) + fib_recursive_term(i - 2)\n>    8 | \n>    9 |     if n < 0:\n>   10 |         raise ValueError(\"n is negative\")\n>   11 |     return [fib_recursive_term(i) for i in range(n + 1)]\n>   12 | \n>   13 | if __name__ == \"__main__\":\n>   14 |     print(fib_recursive(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            1,
+            18
+          ],
+          "snippet_b": ">    1 | def fib_memoization(n: int) -> list[int]:\n>    2 |     if n < 0:\n>    3 |         raise ValueError(\"n is negative\")\n>    4 |     \n>    5 |     cache: dict[int, int] = {0: 0, 1: 1, 2: 1}\n>    6 | \n>    7 |     def rec_fn_memoized(num: int) -> int:\n>    8 |         if num in cache:\n>    9 |             return cache[num]\n>   10 | \n>   11 |         value = rec_fn_memoized(num - 1) + rec_fn_memoized(num - 2)\n>   12 |         cache[num] = value\n>   13 |         return value\n>   14 | \n>   15 |     return [rec_fn_memoized(i) for i in range(n + 1)]\n>   16 | \n>   17 | if __name__ == \"__main__\":\n>   18 |     print(fib_memoization(10))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_a",
+      "sub_b": "student_c",
+      "jaccard": 0.0226,
+      "containment": 0.0642,
+      "metric_similarity": 0.9646,
+      "shared_fingerprints": 6,
+      "total_fingerprints_a": 49,
+      "total_fingerprints_b": 80,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            1,
+            7
+          ],
+          "snippet_a": ">    1 | def fib_iterative(n: int) -> list[int]:\n>    2 |     \"\"\"\n>    3 |     Calculates the first n (0-indexed) Fibonacci numbers using iteration\n>    4 |     \"\"\"\n>    5 |     if n < 0:\n>    6 |         raise ValueError(\"n is negative\")\n>    7 |     if n == 0:\n     8 |         return [0]\n     9 |     fib = [0, 1]",
+          "file_b": "fib.py",
+          "lines_b": [
+            1,
+            5
+          ],
+          "snippet_b": ">    1 | def fib_memoization(n: int) -> list[int]:\n>    2 |     if n < 0:\n>    3 |         raise ValueError(\"n is negative\")\n>    4 |     \n>    5 |     cache: dict[int, int] = {0: 0, 1: 1, 2: 1}\n     6 | \n     7 |     def rec_fn_memoized(num: int) -> int:"
+        },
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            12,
+            13
+          ],
+          "snippet_a": "    10 |     for _ in range(n - 1):\n    11 |         fib.append(fib[-1] + fib[-2])\n>   12 |     return fib\n>   13 | \n    14 | if __name__ == \"__main__\":\n    15 |     print(fib_iterative(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            17,
+            18
+          ],
+          "snippet_b": "    15 |     return [rec_fn_memoized(i) for i in range(n + 1)]\n    16 | \n>   17 | if __name__ == \"__main__\":\n>   18 |     print(fib_memoization(10))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_b",
+      "sub_b": "student_e",
+      "jaccard": 0.0237,
+      "containment": 0.0467,
+      "metric_similarity": 0.9791,
+      "shared_fingerprints": 8,
+      "total_fingerprints_a": 67,
+      "total_fingerprints_b": 62,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            3,
+            14
+          ],
+          "snippet_a": "     1 | def fib_recursive(n: int) -> list[int]:\n     2 |     def fib_recursive_term(i: int) -> int:\n>    3 |         if i < 0:\n>    4 |             raise ValueError(\"n is negative\")\n>    5 |         if i < 2:\n>    6 |             return i\n>    7 |         return fib_recursive_term(i - 1) + fib_recursive_term(i - 2)\n>    8 | \n>    9 |     if n < 0:\n>   10 |         raise ValueError(\"n is negative\")\n>   11 |     return [fib_recursive_term(i) for i in range(n + 1)]\n>   12 | \n>   13 | if __name__ == \"__main__\":\n>   14 |     print(fib_recursive(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            4,
+            16
+          ],
+          "snippet_b": "     2 | def compute_fibonacci_recursively(max_val):\n     3 |     def get_term(idx):\n>    4 |         if idx < 0:\n>    5 |             raise ValueError(\"Too low\")\n>    6 |         if idx < 2:\n>    7 |             return idx\n>    8 |         \n>    9 |         # calculate sum of previous two\n>   10 |         ans = get_term(idx - 1) + get_term(idx - 2)\n>   11 |         return ans\n>   12 | \n>   13 |     if max_val < 0:\n>   14 |         raise ValueError(\"Too low\")\n>   15 |         \n>   16 |     out = []\n    17 |     for x in range(max_val + 1):\n    18 |         out.append(get_term(x))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_d",
+      "sub_b": "student_e",
+      "jaccard": 0.0178,
+      "containment": 0.0412,
+      "metric_similarity": 0.9799,
+      "shared_fingerprints": 6,
+      "total_fingerprints_a": 52,
+      "total_fingerprints_b": 62,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            2,
+            10
+          ],
+          "snippet_a": "     1 | # This is my custom fibonacci homework\n>    2 | def get_fib_sequence(number_of_items):\n>    3 |     # check for negative\n>    4 |     if number_of_items < 0:\n>    5 |         raise ValueError(\"bad input\")\n>    6 |     if number_of_items == 0:\n>    7 |         return [0]\n>    8 |     \n>    9 |     # initialize array\n>   10 |     my_result_array = [0, 1]\n    11 |     \n    12 |     # loop and add previous two",
+          "file_b": "fib.py",
+          "lines_b": [
+            3,
+            10
+          ],
+          "snippet_b": "     1 | # Recursive method for Fibonacci\n     2 | def compute_fibonacci_recursively(max_val):\n>    3 |     def get_term(idx):\n>    4 |         if idx < 0:\n>    5 |             raise ValueError(\"Too low\")\n>    6 |         if idx < 2:\n>    7 |             return idx\n>    8 |         \n>    9 |         # calculate sum of previous two\n>   10 |         ans = get_term(idx - 1) + get_term(idx - 2)\n    11 |         return ans\n    12 | "
+        },
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            18,
+            21
+          ],
+          "snippet_a": "    16 |         my_result_array.append(last_item + second_last)\n    17 |         \n>   18 |     return my_result_array\n>   19 | \n>   20 | if __name__ == \"__main__\":\n>   21 |     print(get_fib_sequence(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            20,
+            23
+          ],
+          "snippet_b": "    18 |         out.append(get_term(x))\n    19 |         \n>   20 |     return out\n>   21 | \n>   22 | if __name__ == \"__main__\":\n>   23 |     print(compute_fibonacci_recursively(10))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_c",
+      "sub_b": "student_e",
+      "jaccard": 0.0145,
+      "containment": 0.0325,
+      "metric_similarity": 0.9755,
+      "shared_fingerprints": 5,
+      "total_fingerprints_a": 80,
+      "total_fingerprints_b": 62,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            2,
+            5
+          ],
+          "snippet_a": "     1 | def fib_memoization(n: int) -> list[int]:\n>    2 |     if n < 0:\n>    3 |         raise ValueError(\"n is negative\")\n>    4 |     \n>    5 |     cache: dict[int, int] = {0: 0, 1: 1, 2: 1}\n     6 | \n     7 |     def rec_fn_memoized(num: int) -> int:",
+          "file_b": "fib.py",
+          "lines_b": [
+            10,
+            18
+          ],
+          "snippet_b": "     8 |         \n     9 |         # calculate sum of previous two\n>   10 |         ans = get_term(idx - 1) + get_term(idx - 2)\n>   11 |         return ans\n>   12 | \n>   13 |     if max_val < 0:\n>   14 |         raise ValueError(\"Too low\")\n>   15 |         \n>   16 |     out = []\n>   17 |     for x in range(max_val + 1):\n>   18 |         out.append(get_term(x))\n    19 |         \n    20 |     return out"
+        },
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            11,
+            18
+          ],
+          "snippet_a": "     9 |             return cache[num]\n    10 | \n>   11 |         value = rec_fn_memoized(num - 1) + rec_fn_memoized(num - 2)\n>   12 |         cache[num] = value\n>   13 |         return value\n>   14 | \n>   15 |     return [rec_fn_memoized(i) for i in range(n + 1)]\n>   16 | \n>   17 | if __name__ == \"__main__\":\n>   18 |     print(fib_memoization(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            22,
+            23
+          ],
+          "snippet_b": "    20 |     return out\n    21 | \n>   22 | if __name__ == \"__main__\":\n>   23 |     print(compute_fibonacci_recursively(10))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_a",
+      "sub_b": "student_b",
+      "jaccard": 0.0085,
+      "containment": 0.0212,
+      "metric_similarity": 0.9903,
+      "shared_fingerprints": 4,
+      "total_fingerprints_a": 49,
+      "total_fingerprints_b": 67,
+      "matched_regions_count": 2,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            1,
+            7
+          ],
+          "snippet_a": ">    1 | def fib_iterative(n: int) -> list[int]:\n>    2 |     \"\"\"\n>    3 |     Calculates the first n (0-indexed) Fibonacci numbers using iteration\n>    4 |     \"\"\"\n>    5 |     if n < 0:\n>    6 |         raise ValueError(\"n is negative\")\n>    7 |     if n == 0:\n     8 |         return [0]\n     9 |     fib = [0, 1]",
+          "file_b": "fib.py",
+          "lines_b": [
+            1,
+            7
+          ],
+          "snippet_b": ">    1 | def fib_recursive(n: int) -> list[int]:\n>    2 |     def fib_recursive_term(i: int) -> int:\n>    3 |         if i < 0:\n>    4 |             raise ValueError(\"n is negative\")\n>    5 |         if i < 2:\n>    6 |             return i\n>    7 |         return fib_recursive_term(i - 1) + fib_recursive_term(i - 2)\n     8 | \n     9 |     if n < 0:"
+        },
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            12,
+            13
+          ],
+          "snippet_a": "    10 |     for _ in range(n - 1):\n    11 |         fib.append(fib[-1] + fib[-2])\n>   12 |     return fib\n>   13 | \n    14 | if __name__ == \"__main__\":\n    15 |     print(fib_iterative(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            13,
+            14
+          ],
+          "snippet_b": "    11 |     return [fib_recursive_term(i) for i in range(n + 1)]\n    12 | \n>   13 | if __name__ == \"__main__\":\n>   14 |     print(fib_recursive(10))"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_b",
+      "sub_b": "student_d",
+      "jaccard": 0.0081,
+      "containment": 0.0192,
+      "metric_similarity": 0.9625,
+      "shared_fingerprints": 4,
+      "total_fingerprints_a": 67,
+      "total_fingerprints_b": 52,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            3,
+            14
+          ],
+          "snippet_a": "     1 | def fib_recursive(n: int) -> list[int]:\n     2 |     def fib_recursive_term(i: int) -> int:\n>    3 |         if i < 0:\n>    4 |             raise ValueError(\"n is negative\")\n>    5 |         if i < 2:\n>    6 |             return i\n>    7 |         return fib_recursive_term(i - 1) + fib_recursive_term(i - 2)\n>    8 | \n>    9 |     if n < 0:\n>   10 |         raise ValueError(\"n is negative\")\n>   11 |     return [fib_recursive_term(i) for i in range(n + 1)]\n>   12 | \n>   13 | if __name__ == \"__main__\":\n>   14 |     print(fib_recursive(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            4,
+            10
+          ],
+          "snippet_b": "     2 | def get_fib_sequence(number_of_items):\n     3 |     # check for negative\n>    4 |     if number_of_items < 0:\n>    5 |         raise ValueError(\"bad input\")\n>    6 |     if number_of_items == 0:\n>    7 |         return [0]\n>    8 |     \n>    9 |     # initialize array\n>   10 |     my_result_array = [0, 1]\n    11 |     \n    12 |     # loop and add previous two"
+        }
+      ]
+    },
+    {
+      "sub_a": "student_a",
+      "sub_b": "student_e",
+      "jaccard": 0.005,
+      "containment": 0.0125,
+      "metric_similarity": 0.972,
+      "shared_fingerprints": 3,
+      "total_fingerprints_a": 49,
+      "total_fingerprints_b": 62,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            3,
+            13
+          ],
+          "snippet_a": "     1 | def fib_iterative(n: int) -> list[int]:\n     2 |     \"\"\"\n>    3 |     Calculates the first n (0-indexed) Fibonacci numbers using iteration\n>    4 |     \"\"\"\n>    5 |     if n < 0:\n>    6 |         raise ValueError(\"n is negative\")\n>    7 |     if n == 0:\n>    8 |         return [0]\n>    9 |     fib = [0, 1]\n>   10 |     for _ in range(n - 1):\n>   11 |         fib.append(fib[-1] + fib[-2])\n>   12 |     return fib\n>   13 | \n    14 | if __name__ == \"__main__\":\n    15 |     print(fib_iterative(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            4,
+            10
+          ],
+          "snippet_b": "     2 | def compute_fibonacci_recursively(max_val):\n     3 |     def get_term(idx):\n>    4 |         if idx < 0:\n>    5 |             raise ValueError(\"Too low\")\n>    6 |         if idx < 2:\n>    7 |             return idx\n>    8 |         \n>    9 |         # calculate sum of previous two\n>   10 |         ans = get_term(idx - 1) + get_term(idx - 2)\n    11 |         return ans\n    12 | "
+        }
+      ]
+    },
+    {
+      "sub_a": "student_c",
+      "sub_b": "student_d",
+      "jaccard": 0.0,
+      "containment": 0.0,
+      "metric_similarity": 0.972,
+      "shared_fingerprints": 1,
+      "total_fingerprints_a": 80,
+      "total_fingerprints_b": 52,
+      "matched_regions_count": 1,
+      "matched_regions": [
+        {
+          "file_a": "fib.py",
+          "lines_a": [
+            17,
+            18
+          ],
+          "snippet_a": "    15 |     return [rec_fn_memoized(i) for i in range(n + 1)]\n    16 | \n>   17 | if __name__ == \"__main__\":\n>   18 |     print(fib_memoization(10))",
+          "file_b": "fib.py",
+          "lines_b": [
+            20,
+            21
+          ],
+          "snippet_b": "    18 |     return my_result_array\n    19 | \n>   20 | if __name__ == \"__main__\":\n>   21 |     print(get_fib_sequence(10))"
+        }
+      ]
+    }
+  ],
+  "per_submission": {
+    "student_a": [
+      "student_d",
+      "student_c",
+      "student_b",
+      "student_e"
+    ],
+    "student_d": [
+      "student_a",
+      "student_e",
+      "student_b",
+      "student_c"
+    ],
+    "student_b": [
+      "student_c",
+      "student_e",
+      "student_a",
+      "student_d"
+    ],
+    "student_c": [
+      "student_b",
+      "student_a",
+      "student_e",
+      "student_d"
+    ],
+    "student_e": [
+      "student_b",
+      "student_d",
+      "student_c",
+      "student_a"
+    ]
+  }
+}
