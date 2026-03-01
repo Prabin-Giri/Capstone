@@ -22,9 +22,9 @@ import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import './FacultyCourseView.css';
+import './TACourseView.css';
 
-const FacultyCourseView: React.FC = () => {
+const TACourseView: React.FC = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
     const [course, setCourse] = useState<Course | null>(null);
@@ -827,4 +827,4 @@ const FacultyCourseView: React.FC = () => {
     );
 };
 
-export default FacultyCourseView;
+export default TACourseView;
