@@ -26,7 +26,8 @@ const TADashboard: React.FC = () => {
         setLoading(true);
         try {
             const user = getUser();
-            const data = await getCourses({ instructorId: user?.id });
+            // TAs fetch courses they've been specifically invited to using taId
+            const data = await getCourses(user ? { taId: user.id } : {});
             setCourses(data);
         } catch (err) {
             console.error('Failed to load courses', err);

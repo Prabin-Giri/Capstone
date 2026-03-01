@@ -4,7 +4,7 @@ const { getDb, queryToObjects, queryOne } = require('../db');
 
 // GET /api/courses - Get courses (filtered by instructor for faculty, by enrollment for students)
 router.get('/', async (req, res, next) => {
-    const { instructorId, studentId } = req.query;
+    const { instructorId, studentId, taId } = req.query;
     try {
         const db = getDb();
         let result;
@@ -16,6 +16,13 @@ router.get('/', async (req, res, next) => {
 
         if (instructorId) {
             result = await db.execute(`SELECT ${selectFields} FROM courses c WHERE c.instructor_id = ? ORDER BY c.id`, [instructorId]);
+        } else if (taId) {
+            result = await db.execute(`
+                SELECT ${selectFields} FROM courses c
+                JOIN course_tas ct ON c.id = ct.course_id
+                WHERE ct.ta_id = ?
+                ORDER BY c.id
+            `, [taId]);
         } else if (studentId) {
             result = await db.execute(`
                 SELECT ${selectFields} FROM courses c
@@ -299,12 +306,78 @@ router.post('/:id/enroll-csv', async (req, res, next) => {
 
 // POST /api/courses/:id/enroll - Enroll a student
 router.post('/:id/enroll', async (req, res, next) => {
-    const { studentId } = req.body;
+    const { studentId } = req.query; // Allow fallback explicitly
+    const actualId = req.body.studentId || studentId;
     const courseId = req.params.id;
     try {
         const db = getDb();
-        await db.query('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, studentId]);
+        await db.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, actualId]);
         res.json({ message: 'Student enrolled successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/courses/:id/invite-ta - Invite a TA by email or ID
+router.post('/:id/invite-ta', async (req, res, next) => {
+    const { email, taId } = req.body;
+    const courseId = req.params.id;
+
+    if (!email && !taId) {
+        return res.status(400).json({ error: 'TA email or ID is required' });
+    }
+
+    try {
+        const db = getDb();
+        let finalTaId = taId;
+
+        if (email) {
+            const [userRows] = await db.execute('SELECT id, role FROM users WHERE LOWER(email) = ?', [email.trim().toLowerCase()]);
+            if (userRows.length === 0) {
+                return res.status(404).json({ error: 'User not found with this email' });
+            }
+            if (userRows[0].role !== 'ta') {
+                return res.status(400).json({ error: 'User exists but is not registered as a Teaching Assistant' });
+            }
+            finalTaId = userRows[0].id;
+        }
+
+        // Insert TA dynamically using JSON privileges
+        await db.execute(
+            'INSERT IGNORE INTO course_tas (course_id, ta_id, permissions) VALUES (?, ?, ?)',
+            [courseId, finalTaId, JSON.stringify({ can_grade: true, can_edit_assignments: true })]
+        );
+
+        res.json({ message: 'TA added successfully', taId: finalTaId });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/courses/:id/tas - Get invited TAs
+router.get('/:id/tas', async (req, res, next) => {
+    const courseId = req.params.id;
+    try {
+        const db = getDb();
+        const result = await db.execute(`
+            SELECT u.id, u.name, u.email, ct.permissions
+            FROM users u
+            JOIN course_tas ct ON u.id = ct.ta_id
+            WHERE ct.course_id = ?
+        `, [courseId]);
+        res.json(queryToObjects(result));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/courses/:id/tas/:taId - Remove a TA
+router.delete('/:id/tas/:taId', async (req, res, next) => {
+    const { id: courseId, taId } = req.params;
+    try {
+        const db = getDb();
+        await db.execute('DELETE FROM course_tas WHERE course_id = ? AND ta_id = ?', [courseId, taId]);
+        res.json({ message: 'TA removed successfully' });
     } catch (err) {
         next(err);
     }

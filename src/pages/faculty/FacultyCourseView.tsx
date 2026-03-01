@@ -15,12 +15,15 @@ import {
     unenrollStudent,
     getEnrolledStudents,
     searchStudents,
+    getTAs,
+    inviteTA,
+    removeTA,
     type User,
     type CsvEnrollResult
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2 } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
 
@@ -36,10 +39,14 @@ const FacultyCourseView: React.FC = () => {
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
     const [archiveInput, setArchiveInput] = useState('');
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
+    const [enrolledTAs, setEnrolledTAs] = useState<User[]>([]);
     const [studentToUnenroll, setStudentToUnenroll] = useState<User | null>(null);
+    const [taToRemove, setTaToRemove] = useState<User | null>(null);
     const [showEnrollModal, setShowEnrollModal] = useState(false);
+    const [showInviteTAModal, setShowInviteTAModal] = useState(false);
     const [enrollTab, setEnrollTab] = useState<'manual' | 'csv'>('manual');
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
+    const [taSearchQuery, setTaSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<User[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -71,16 +78,18 @@ const FacultyCourseView: React.FC = () => {
     async function loadData() {
         if (!courseId) return;
         try {
-            const [courseData, assignmentsData, documentsData, studentsData] = await Promise.all([
+            const [courseData, assignmentsData, documentsData, studentsData, tasData] = await Promise.all([
                 getCourse(courseId),
                 getCourseAssignments(courseId),
                 getCourseDocuments(courseId),
-                getEnrolledStudents(courseId)
+                getEnrolledStudents(courseId),
+                getTAs(courseId)
             ]);
             setCourse(courseData);
             setAssignments(assignmentsData);
             setDocuments(documentsData);
             setEnrolledStudents(studentsData);
+            setEnrolledTAs(tasData);
         } catch (err) {
             console.error(err);
         } finally {
@@ -115,6 +124,20 @@ const FacultyCourseView: React.FC = () => {
         } catch (err) {
             console.error('Failed to unenroll student', err);
             alert('Failed to unenroll student');
+        }
+    };
+
+    const handleRemoveTA = async () => {
+        if (!courseId || !taToRemove) return;
+        try {
+            await removeTA(courseId, taToRemove.id);
+            // Refresh TAs
+            const tas = await getTAs(courseId);
+            setEnrolledTAs(tas);
+            setTaToRemove(null);
+        } catch (err) {
+            console.error('Failed to remove TA', err);
+            alert('Failed to remove Teaching Assistant');
         }
     };
 
@@ -187,6 +210,20 @@ const FacultyCourseView: React.FC = () => {
         } catch (err) {
             console.error('Enrollment failed', err);
             alert('Failed to enroll student');
+        }
+    };
+
+    const handleInviteTA = async (taId: string) => {
+        if (!courseId) return;
+        try {
+            await inviteTA(courseId, { taId });
+            const tas = await getTAs(courseId);
+            setEnrolledTAs(tas);
+            setTaSearchQuery('');
+            setShowInviteTAModal(false);
+        } catch (err) {
+            console.error('Invite TA failed', err);
+            alert('Failed to invite Teaching Assistant');
         }
     };
 
@@ -327,6 +364,16 @@ const FacultyCourseView: React.FC = () => {
                                 >
                                     <UserPlus size={16} />
                                     Enroll Student
+                                </button>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => {
+                                        setShowInviteTAModal(true);
+                                        setShowDropdown(false);
+                                    }}
+                                >
+                                    <Key size={16} />
+                                    Invite Assistant
                                 </button>
                                 <div className="dropdown-divider"></div>
                                 <button
@@ -493,13 +540,54 @@ const FacultyCourseView: React.FC = () => {
 
                 <div className="students-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h2 className="section-title" style={{ margin: 0 }}>Enrolled Students</h2>
-                        <button className="enroll-btn-small" onClick={() => setShowEnrollModal(true)}>
-                            <UserPlus size={14} />
-                            Enroll
-                        </button>
+                        <h2 className="section-title" style={{ margin: 0 }}>Enrolled Roster</h2>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="enroll-btn-small" style={{ background: 'var(--card-glass)', color: 'var(--text-secondary)' }} onClick={() => setShowInviteTAModal(true)}>
+                                <Key size={14} />
+                                Invite TA
+                            </button>
+                            <button className="enroll-btn-small" onClick={() => setShowEnrollModal(true)}>
+                                <UserPlus size={14} />
+                                Enroll Student
+                            </button>
+                        </div>
                     </div>
+
+                    {/* TAs List */}
+                    {enrolledTAs.length > 0 && (
+                        <div className="students-list glass" style={{ marginBottom: '16px', borderLeft: '3px solid var(--primary-color)' }}>
+                            <p style={{ margin: '0 0 12px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teaching Assistants</p>
+                            {enrolledTAs.map(ta => (
+                                <div key={ta.id} className="student-item" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
+                                    <div className="student-info">
+                                        <div className="student-avatar" style={{ background: 'var(--primary-color)' }}>
+                                            {ta.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <div className="student-name-row">
+                                                <p className="student-name" style={{ fontWeight: 600 }}>{ta.name}</p>
+                                                <span className="student-id-tag" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>TA STAFF</span>
+                                            </div>
+                                            <p className="student-email">{ta.email}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setTaToRemove(ta)}
+                                        className="trash-btn-red"
+                                        title="Remove TA"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Students List */}
                     <div className="students-list glass">
+                        {enrolledTAs.length > 0 && (
+                            <p style={{ margin: '0 0 12px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Students</p>
+                        )}
                         {enrolledStudents.length === 0 ? (
                             <p className="empty-text">No students enrolled yet.</p>
                         ) : (
@@ -656,6 +744,116 @@ const FacultyCourseView: React.FC = () => {
                                     Confirm Unenroll
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Remove TA Confirmation Modal */}
+            {taToRemove && (
+                <div className="unenroll-overlay">
+                    <div className="unenroll-content">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="unenroll-icon-wrapper">
+                                <AlertTriangle size={32} />
+                            </div>
+                            <h3 className="unenroll-title">Remove Teaching Assistant?</h3>
+                            <p className="unenroll-text">
+                                Are you sure you want to revoke access for <strong>{taToRemove.name}</strong> to this course?
+                            </p>
+
+                            <div className="unenroll-btn-group">
+                                <button
+                                    onClick={() => setTaToRemove(null)}
+                                    className="unenroll-btn unenroll-btn-cancel"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleRemoveTA}
+                                    className="unenroll-btn unenroll-btn-confirm"
+                                >
+                                    Remove Access
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Invite TA Modal */}
+            {showInviteTAModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '480px', width: '100%' }}>
+                        <div className="enroll-modal-header">
+                            <h3 className="enroll-modal-title">Invite Teaching Assistant</h3>
+                            <button className="enroll-modal-close" onClick={() => setShowInviteTAModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="search-input-wrapper" style={{ marginTop: '16px' }}>
+                            <Search className="search-icon-inside" size={18} />
+                            <input
+                                type="text"
+                                value={taSearchQuery}
+                                onChange={async (e) => {
+                                    setTaSearchQuery(e.target.value);
+                                    if (e.target.value.length > 2) {
+                                        setIsSearching(true);
+                                        try {
+                                            const res = await searchStudents(e.target.value);
+                                            // Assume roles are returned or just filter any
+                                            setSearchResults(res.filter(s => !enrolledTAs.find(t => t.id === s.id)));
+                                        } finally {
+                                            setIsSearching(false);
+                                        }
+                                    } else {
+                                        setSearchResults([]);
+                                    }
+                                }}
+                                placeholder="Search TA by name or email..."
+                                className="student-search-input"
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="search-results-container custom-scrollbar">
+                            {isSearching ? (
+                                <p className="text-center py-4 text-gray-400 font-medium">Searching database...</p>
+                            ) : searchResults.length > 0 ? (
+                                searchResults.map(ta => (
+                                    <div key={ta.id} className="search-result-item">
+                                        <div className="search-result-info">
+                                            <div className="search-result-avatar">
+                                                {ta.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="search-result-name">{ta.name}</p>
+                                                <p className="search-result-email">{ta.email}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleInviteTA(ta.id)}
+                                            className="btn-enroll-icon"
+                                            title="Invite TA"
+                                            style={{ color: 'var(--primary-color)' }}
+                                        >
+                                            <Plus size={18} />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                taSearchQuery.length > 0
+                                    ? <p className="text-center py-4 text-gray-500">No assistant found matching your search.</p>
+                                    : <p className="text-center py-4 text-xs text-gray-400 font-medium">Type to invite a faculty or TA...</p>
+                            )}
+                        </div>
+
+                        <div className="modal-footer">
+                            <Button variant="secondary" onClick={() => setShowInviteTAModal(false)}>
+                                Close
+                            </Button>
                         </div>
                     </div>
                 </div>

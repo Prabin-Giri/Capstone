@@ -214,6 +214,15 @@ async function initializeSchema() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS course_tas (
+            course_id VARCHAR(255) NOT NULL,
+            ta_id VARCHAR(255) NOT NULL,
+            permissions JSON,
+            enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (course_id, ta_id),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+            FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
         )`
     ];
 

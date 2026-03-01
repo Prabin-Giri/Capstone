@@ -23,12 +23,13 @@ export interface Course {
     created_at?: string;
 }
 
-export async function getCourses(filters?: { instructorId?: string; studentId?: string }): Promise<Course[]> {
+export async function getCourses(filters?: { instructorId?: string; studentId?: string; taId?: string }): Promise<Course[]> {
     let url = '/courses';
     if (filters) {
         const params = new URLSearchParams();
         if (filters.instructorId) params.append('instructorId', filters.instructorId);
         if (filters.studentId) params.append('studentId', filters.studentId);
+        if (filters.taId) params.append('taId', filters.taId);
         const queryString = params.toString();
         if (queryString) url += `?${queryString}`;
     }
@@ -128,6 +129,26 @@ export async function enrollStudent(courseId: string, studentId: string): Promis
 
 export async function unenrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/courses/${courseId}/enroll/${studentId}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function inviteTA(courseId: string, payload: { email?: string; taId?: string }): Promise<{ message: string; taId: string }> {
+    return apiFetch<{ message: string; taId: string }>(`/courses/${courseId}/invite-ta`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function getTAs(courseId: string): Promise<User[]> {
+    return apiFetch<User[]>(`/courses/${courseId}/tas`);
+}
+
+export async function removeTA(courseId: string, taId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/courses/${courseId}/tas/${taId}`, {
         method: 'DELETE',
     });
 }
