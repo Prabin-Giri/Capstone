@@ -18,6 +18,12 @@ const LandingPage: React.FC = () => {
                         <div className="role-action">Continue as Student &rarr;</div>
                     </Link>
 
+                    <Link to="/login/ta" className="role-card">
+                        <span className="role-icon">📚</span>
+                        <div className="role-type">Teaching Assistant</div>
+                        <div className="role-action">Continue as TA &rarr;</div>
+                    </Link>
+
                     <Link to="/login/faculty" className="role-card">
                         <span className="role-icon">🏫</span>
                         <div className="role-type">Faculty</div>

@@ -11,8 +11,8 @@ const Login: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const targetRole = role === 'faculty' ? AUTH_ROLES.FACULTY : AUTH_ROLES.STUDENT;
-    const title = role === 'faculty' ? 'Faculty Login' : 'Student Login';
+    const targetRole = role === 'faculty' ? AUTH_ROLES.FACULTY : (role === 'ta' ? AUTH_ROLES.TA : AUTH_ROLES.STUDENT);
+    const title = role === 'faculty' ? 'Faculty Login' : (role === 'ta' ? 'TA Login' : 'Student Login');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
