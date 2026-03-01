@@ -32,7 +32,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', async (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, type = 'individual' } = req.body;
+        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, test_case_file_path, type = 'individual' } = req.body;
 
         if (!course_id || !title || !due_date) {
             return res.status(400).json({ error: 'Missing required fields' });
