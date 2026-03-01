@@ -10,6 +10,8 @@ const calendarRouter = require('./routes/calendar');
 const uploadsRouter = require('./routes/uploads');
 const testCasesRouter = require('./routes/testCases');
 const usersRouter = require('./routes/users');
+const graderRouter = require('./routes/grader');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,6 +31,8 @@ app.use('/api/calendar', calendarRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/test-cases', testCasesRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/grader', graderRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -42,10 +46,12 @@ app.use((err, req, res, next) => {
 });
 
 // Initialize database then start server
-initDb().then(() => {
+initDb().then(async () => {
+    const { initGraderSchema } = require('./grader/initGraderSchema');
+    await initGraderSchema();
     const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log(`Database: MySQL (${process.env.DB_NAME || 'intelligrade'})`);
+        console.log(`Database: MySQL (${process.env.MYSQL_DATABASE || process.env.DB_NAME || 'intelligrade'})`);
     });
 
     // Handle server errors (like EADDRINUSE)

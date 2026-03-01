@@ -32,7 +32,8 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', async (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, type = 'individual' } = req.body;
+        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, test_case_file_path = null, type = 'individual',
+            late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap } = req.body;
 
         if (!course_id || !title || !due_date) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -44,10 +45,17 @@ router.post('/', async (req, res, next) => {
         const id = req.body.id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4);
 
         const db = getDb();
-        await db.execute('INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type]);
+        const lateEnabled = late_penalty_enabled === true || late_penalty_enabled === 1 || late_penalty_enabled === '1';
+        const lateType = late_penalty_type || 'per_day';
+        const lateValue = late_penalty_value != null ? Number(late_penalty_value) : 10;
+        const lateCap = late_penalty_cap != null ? Number(late_penalty_cap) : 50;
 
-        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type });
+        await db.execute(
+            'INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type, lateEnabled ? 1 : 0, lateType, lateValue, lateCap]
+        );
+
+        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, late_penalty_enabled: lateEnabled, late_penalty_type: lateType, late_penalty_value: lateValue, late_penalty_cap: lateCap });
     } catch (err) {
         next(err);
     }
@@ -56,7 +64,8 @@ router.post('/', async (req, res, next) => {
 // PUT /api/assignments/:id - Update assignment
 router.put('/:id', async (req, res, next) => {
     try {
-        const { title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type } = req.body;
+        const { title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type,
+            late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap } = req.body;
         const id = req.params.id;
 
         const db = getDb();
@@ -67,7 +76,6 @@ router.put('/:id', async (req, res, next) => {
         if (description !== undefined) { updates.push('description = ?'); values.push(description); }
         if (due_date !== undefined) {
             updates.push('due_date = ?');
-            // Convert ISO 8601 to MySQL DATETIME format
             const mysqlDueDate = new Date(due_date).toISOString().slice(0, 19).replace('T', ' ');
             values.push(mysqlDueDate);
         }
@@ -77,6 +85,10 @@ router.put('/:id', async (req, res, next) => {
         if (starter_code_path !== undefined) { updates.push('starter_code_path = ?'); values.push(starter_code_path); }
         if (test_case_file_path !== undefined) { updates.push('test_case_file_path = ?'); values.push(test_case_file_path); }
         if (type !== undefined) { updates.push('type = ?'); values.push(type); }
+        if (late_penalty_enabled !== undefined) { updates.push('late_penalty_enabled = ?'); values.push(late_penalty_enabled === true || late_penalty_enabled === 1 || late_penalty_enabled === '1' ? 1 : 0); }
+        if (late_penalty_type !== undefined) { updates.push('late_penalty_type = ?'); values.push(late_penalty_type); }
+        if (late_penalty_value !== undefined) { updates.push('late_penalty_value = ?'); values.push(Number(late_penalty_value)); }
+        if (late_penalty_cap !== undefined) { updates.push('late_penalty_cap = ?'); values.push(Number(late_penalty_cap)); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
@@ -155,11 +167,19 @@ router.get('/:id/grades/export', async (req, res, next) => {
     }
 });
 
-// POST /api/assignments/:id/test - Run tests for a specific assignment
+// POST /api/assignments/:id/test - Run tests for a specific assignment (Docker, same as autograder)
 router.post('/:id/test', async (req, res, next) => {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { runCode } = require('../grader/runCode');
+    const config = require('../grader/config');
+
     try {
         const { code, language } = req.body;
         const assignmentId = req.params.id;
+
+        console.log('[Run Tests]', { assignmentId, language: language || 'python', codeLength: (code || '').length });
 
         if (!code) {
             return res.status(400).json({ error: 'Code is required' });
@@ -167,74 +187,92 @@ router.post('/:id/test', async (req, res, next) => {
 
         const db = getDb();
 
-        // Get test cases
         const [testCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
 
         if (testCases.length === 0) {
             return res.json({ results: [], summary: 'No test cases defined.' });
         }
 
-        const results = [];
-        const fs = require('fs');
-        const path = require('path');
-        const { exec } = require('child_process');
-        const os = require('os');
-
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograder-'));
-        const fileName = language === 'python' ? 'main.py' : (language === 'javascript' ? 'main.js' : 'main.txt');
-        const filePath = path.join(tmpDir, fileName);
-
-        fs.writeFileSync(filePath, code);
-
-        const runTestCase = (testCase) => {
-            return new Promise((resolve) => {
-                let command = '';
-                if (language === 'python') {
-                    command = `py "${filePath}"`;
-                } else if (language === 'javascript') {
-                    command = `node "${filePath}"`;
-                } else {
-                    return resolve({
-                        id: testCase.id,
-                        passed: false,
-                        output: 'Unsupported language for testing',
-                        expected: testCase.expected_output,
-                        is_public: testCase.is_public
-                    });
-                }
-
-                const child = exec(command, { timeout: 2000 }, (error, stdout, stderr) => {
-                    const output = stdout.trim();
-                    const expected = testCase.expected_output.trim();
-                    const passed = output === expected;
-
-                    resolve({
-                        id: testCase.id,
-                        input: testCase.input,
-                        expected: expected,
-                        actual: output,
-                        error: stderr ? stderr.trim() : error ? error.message : null,
-                        passed,
-                        is_public: testCase.is_public
-                    });
-                });
-
-                if (testCase.input) {
-                    child.stdin.write(testCase.input);
-                    child.stdin.end();
-                }
+        const lang = (language === 'node' ? 'javascript' : language) || 'python';
+        const supported = ['python', 'javascript', 'java', 'php'];
+        if (!supported.includes(lang)) {
+            return res.json({
+                results: testCases.map(tc => ({
+                    id: tc.id,
+                    input: tc.input,
+                    expected: tc.expected_output,
+                    actual: '',
+                    error: `Unsupported language for testing: ${language}. Use python, javascript, or java.`,
+                    passed: false,
+                    is_public: tc.is_public,
+                    points: tc.points ?? 0
+                }))
             });
-        };
-
-        for (const tc of testCases) {
-            const result = await runTestCase(tc);
-            results.push(result);
         }
 
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-        res.json({ results });
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'student-test-'));
+        const fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : (lang === 'java' ? 'Main.java' : 'main.php'));
+        const filePath = path.join(tmpDir, fileName);
 
+        try {
+            fs.writeFileSync(filePath, code);
+
+            const results = [];
+            const timeoutMs = config.runTimeoutMs || 10000;
+
+            for (const tc of testCases) {
+                const pts = tc.points ?? 0;
+                try {
+                    const runResult = await runCode({
+                        sourceFilePath: filePath,
+                        language: lang,
+                        stdin: tc.input || '',
+                        timeoutMs
+                    });
+                    const actual = (runResult.stdout || '').trim();
+                    const expected = (tc.expected_output || '').trim();
+                    const passed = actual === expected;
+                    const error = runResult.timedOut
+                        ? 'Run timed out.'
+                        : (runResult.stderr && runResult.stderr.trim()) || (runResult.exitCode !== 0 && runResult.exitCode !== null ? `Exit code ${runResult.exitCode}` : null);
+
+                    results.push({
+                        id: tc.id,
+                        input: tc.input,
+                        expected,
+                        actual,
+                        error: error || null,
+                        passed,
+                        is_public: tc.is_public,
+                        points: pts
+                    });
+                } catch (runErr) {
+                    console.log('[Run Tests] test case failed', { assignmentId, testCaseId: tc.id, error: runErr.message });
+                    results.push({
+                        id: tc.id,
+                        input: tc.input,
+                        expected: (tc.expected_output || '').trim(),
+                        actual: '',
+                        error: runErr.message || 'Docker run failed. Is Docker running?',
+                        passed: false,
+                        is_public: tc.is_public,
+                        points: pts
+                    });
+                }
+            }
+
+            const passed = results.filter(r => r.passed).length;
+            const failed = results.length - passed;
+            console.log('[Run Tests]', { assignmentId, total: results.length, passed, failed, results: results.map(r => ({ id: r.id, passed: r.passed, error: r.error || null })) });
+
+            res.json({ results });
+        } finally {
+            try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            } catch (_) {}
+        }
     } catch (err) {
+        console.error('[Run Tests] error', { assignmentId: req.params.id, message: err.message });
         next(err);
     }
 });

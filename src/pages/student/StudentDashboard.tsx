@@ -33,6 +33,10 @@ const StudentDashboard: React.FC = () => {
         loadData();
     }, []);
 
+    // Only show assignments from courses the student is enrolled in
+    const enrolledCourseIds = new Set(courses.map((c) => c.id));
+    const myAssignments = assignments.filter((a) => enrolledCourseIds.has(a.course_id));
+
     if (loading) {
         return (
             <div className="dashboard-container">
@@ -83,19 +87,21 @@ const StudentDashboard: React.FC = () => {
                 <div className="analytics-card glass">
                     <span className="analytics-label">Pending Assignments</span>
                     <span className="analytics-value">
-                        {assignments.filter(a => a.status === 'active').length}
+                        {myAssignments.filter(a => a.status === 'active').length}
                     </span>
-                    <span className="analytics-desc">Across all courses</span>
+                    <span className="analytics-desc">Across your courses</span>
                 </div>
                 <div className="analytics-card glass">
                     <span className="analytics-label">Next Deadline</span>
                     <span className="analytics-value" style={{ color: 'var(--primary-color)' }}>
-                        {assignments
-                            .filter(a => a.status === 'active' && new Date(a.due_date) >= new Date())
-                            .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0]?.due_date
-                            ? new Date(assignments.filter(a => a.status === 'active' && new Date(a.due_date) >= new Date()).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                            : 'None'
-                        }
+                        {(() => {
+                            const upcoming = myAssignments
+                                .filter(a => a.status === 'active' && new Date(a.due_date) >= new Date())
+                                .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+                            return upcoming[0]?.due_date
+                                ? new Date(upcoming[0].due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                : 'None';
+                        })()}
                     </span>
                     <span className="analytics-desc">Time to focus!</span>
                 </div>
@@ -103,7 +109,7 @@ const StudentDashboard: React.FC = () => {
 
             <div className="dashboard-grid">
                 {courses.map((course) => {
-                    const courseAssignments = assignments.filter(
+                    const courseAssignments = myAssignments.filter(
                         (assignment) => assignment.course_id === course.id
                     );
                     const activeAssignments = courseAssignments

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { getAssignment, getSubmissions, getTestCases, runTests, getFileUrl } from '../../lib/api';
-import { Code, Download, Eye, Play, CheckCircle, XCircle, Zap, Clock, PenTool } from 'lucide-react';
+import { Code, Download, Eye, Play, CheckCircle, XCircle } from 'lucide-react';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
 
@@ -17,6 +17,7 @@ const AssignmentDetails: React.FC = () => {
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [testCases, setTestCases] = useState<TestCase[]>([]);
     const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+    const [testRunLog, setTestRunLog] = useState<string | null>(null);
     const [isRunningTests, setIsRunningTests] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -62,12 +63,6 @@ const AssignmentDetails: React.FC = () => {
 
     // Use assignment.points if available, falling back to 100
     const points = assignment.points || 100;
-    const rubric = [
-        { criteria: 'Correctness (Public Tests)', points: 40 },
-        { criteria: 'Edge Cases', points: 20 },
-        { criteria: 'Time Complexity O(log n)', points: 20 },
-        { criteria: 'Code Style', points: 20 },
-    ];
     const description = assignment.description || 'No description provided.';
 
     const displayDate = new Date(assignment.due_date).toLocaleString('en-US', {
@@ -88,16 +83,24 @@ const AssignmentDetails: React.FC = () => {
 
         setIsRunningTests(true);
         setTestResults(null);
+        setTestRunLog(null);
         try {
-            // 1. Fetch file content
-            const fileUrl = getFileUrl(submission.file_path);
+            // 1. Resolve path: submission.file_path can be JSON array of { name, path }
+            const pathToFetch = (submission.files && submission.files[0]?.path)
+                ? submission.files[0].path
+                : submission.file_path;
+            const fileUrl = getFileUrl(pathToFetch);
             const res = await fetch(fileUrl);
+            if (!res.ok) throw new Error(`Failed to load file: ${res.status}`);
             const code = await res.text();
 
             // 2. Run tests
-            const { results } = await runTests(assignment.id, code, assignment.language || 'python');
-            setTestResults(results);
+            const data = await runTests(assignment.id, code, assignment.language || 'python');
+            setTestResults(data.results);
+            setTestRunLog(JSON.stringify({ request: { assignmentId: assignment.id, language: assignment.language || 'python', codeLength: code.length }, response: data }, null, 2));
         } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setTestRunLog(`Error: ${msg}`);
             console.error(err);
             alert('Failed to run tests. Please try again.');
         } finally {
@@ -193,96 +196,41 @@ const AssignmentDetails: React.FC = () => {
 
                 {testResults && (
                     <div className="test-results-container mt-4">
-                        {/* Full Grading Report Card - MOCKED SCORES as requested */}
-                        <div className="grading-report">
-                            <div className="report-header">
-                                <div>
-                                    <div className="total-score-label">Total Score</div>
-                                    <div className="total-score-value">
-                                        88
-                                        <span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>/100</span>
-                                    </div>
-                                </div>
-                                <div className="score-progress-container">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>
-                                        <span>Progress</span>
-                                        <span>88%</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div
-                                            className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                                            style={{ width: '88%' }}
-                                        ></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="criteria-list">
-                                {/* Correctness - Mocked to 35/40 (87.5%) */}
-                                <div className="criteria-item">
-                                    <div className="criteria-icon" style={{ background: '#dcfce7', color: '#166534' }}>
-                                        <CheckCircle size={20} />
-                                    </div>
-                                    <div className="criteria-content">
-                                        <div className="criteria-title">Correctness</div>
-                                        <div className="criteria-desc">
-                                            Passed public tests with minor edge case warnings.
+                        {(() => {
+                            const totalTestPoints = testResults.reduce((s, r) => s + (r.points ?? 0), 0);
+                            const earnedTestPoints = testResults.reduce((s, r) => s + (r.passed ? (r.points ?? 0) : 0), 0);
+                            const pct = totalTestPoints > 0 ? Math.round((earnedTestPoints / totalTestPoints) * 100) : 0;
+                            return (
+                                <div className="grading-report">
+                                    <div className="report-header">
+                                        <div>
+                                            <div className="total-score-label">Test Score</div>
+                                            <div className="total-score-value">
+                                                {totalTestPoints > 0 ? (
+                                                    <><span>{earnedTestPoints}</span><span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>/{totalTestPoints}</span></>
+                                                ) : (
+                                                    <><span>{testResults.filter(r => r.passed).length}</span><span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>/{testResults.length} passed</span></>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="criteria-score">
-                                        35
-                                        <span>/40</span>
-                                    </div>
-                                </div>
-
-                                {/* Edge Cases - Mocked to 18/20 (90%) */}
-                                <div className="criteria-item">
-                                    <div className="criteria-icon" style={{ background: '#fef9c3', color: '#854d0e' }}>
-                                        <Zap size={20} />
-                                    </div>
-                                    <div className="criteria-content">
-                                        <div className="criteria-title">Edge Cases</div>
-                                        <div className="criteria-desc">
-                                            Robust handling of null inputs and boundary values.
-                                        </div>
-                                    </div>
-                                    <div className="criteria-score">
-                                        18
-                                        <span>/20</span>
+                                        {totalTestPoints > 0 && (
+                                            <div className="score-progress-container">
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>
+                                                    <span>Progress</span>
+                                                    <span>{pct}%</span>
+                                                </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                                    <div
+                                                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Complexity - Mocked to 17/20 (85%) */}
-                                <div className="criteria-item">
-                                    <div className="criteria-icon" style={{ background: '#e0e7ff', color: '#4338ca' }}>
-                                        <Clock size={20} />
-                                    </div>
-                                    <div className="criteria-content">
-                                        <div className="criteria-title">Time Complexity</div>
-                                        <div className="criteria-desc">O(log n) algorithm implementation detected (within limits).</div>
-                                    </div>
-                                    <div className="criteria-score">
-                                        17
-                                        <span>/20</span>
-                                    </div>
-                                </div>
-
-                                {/* Style - Mocked to 18/20 (90%) */}
-                                <div className="criteria-item">
-                                    <div className="criteria-icon" style={{ background: '#f3e8ff', color: '#7e22ce' }}>
-                                        <PenTool size={20} />
-                                    </div>
-                                    <div className="criteria-content">
-                                        <div className="criteria-title">Code Style</div>
-                                        <div className="criteria-desc">Clean, readable code. Good variable naming conventions.</div>
-                                    </div>
-                                    <div className="criteria-score">
-                                        18
-                                        <span>/20</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                            );
+                        })()}
 
                         <h3 className="text-lg font-semibold mb-3">Detailed Results</h3>
                         <div className="test-results-grid" style={{ display: 'grid', gap: '1rem' }}>
@@ -315,6 +263,13 @@ const AssignmentDetails: React.FC = () => {
                                 </div>
                             ))}
                         </div>
+
+                        {testRunLog && (
+                            <details className="test-run-log" style={{ marginTop: '1rem', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                                <summary style={{ padding: '0.75rem 1rem', background: '#f3f4f6', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>Log (debug – remove later)</summary>
+                                <pre style={{ margin: 0, padding: '1rem', background: '#111827', color: '#e5e7eb', fontSize: '0.75rem', overflow: 'auto', maxHeight: '20rem' }}>{testRunLog}</pre>
+                            </details>
+                        )}
                     </div>
                 )}
             </div>
@@ -345,23 +300,10 @@ const AssignmentDetails: React.FC = () => {
             )}
 
             <div className="section">
-                <h2 className="section-title">Grading Rubric</h2>
-                <table className="rubric-table">
-                    <thead>
-                        <tr>
-                            <th>Criteria</th>
-                            <th style={{ textAlign: 'right' }}>Points</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rubric.map((item, index) => (
-                            <tr key={index}>
-                                <td>{item.criteria}</td>
-                                <td style={{ textAlign: 'right' }}>{item.points}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <h2 className="section-title">Grading</h2>
+                <p className="description-text" style={{ marginBottom: 0 }}>
+                    This assignment is graded automatically by the autograder based on test cases. Total points: <strong>{points}</strong>. Run tests above to see sample results; your final grade may include additional hidden tests and will appear here after grading.
+                </p>
             </div>
 
             {allSubmissions.length > 0 && (

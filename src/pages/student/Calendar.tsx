@@ -47,14 +47,17 @@ const Calendar: React.FC = () => {
     const loadData = async () => {
         try {
             const [fetchedCourses, fetchedAssignments, fetchedTodos, fetchedColors] = await Promise.all([
-                getCourses(),
+                getCourses({ studentId }),
                 getAssignments(),
                 getTodos({ student_id: studentId }),
                 getColors(studentId)
             ]);
 
+            const enrolledCourseIds = new Set(fetchedCourses.map((c) => c.id));
+            const myAssignments = fetchedAssignments.filter((a) => enrolledCourseIds.has(a.course_id));
+
             setCourses(fetchedCourses);
-            setAssignments(fetchedAssignments);
+            setAssignments(myAssignments);
             setTodos(fetchedTodos);
             setCourseColors(fetchedColors);
         } catch (err) {
