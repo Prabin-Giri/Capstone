@@ -97,6 +97,11 @@ export interface Assignment {
     test_case_file_path?: string;
     type?: 'individual' | 'group';
     created_at?: string;
+    /** Faculty-configured: apply penalty when submitted after due_date (uses submission submitted_at) */
+    late_penalty_enabled?: boolean | number;
+    late_penalty_type?: 'per_day' | 'per_hour' | 'fixed';
+    late_penalty_value?: number;
+    late_penalty_cap?: number;
 }
 
 export async function getAssignments(): Promise<Assignment[]> {
@@ -449,6 +454,7 @@ export interface TestResult {
     error: string | null;
     passed: boolean;
     is_public: number;
+    points?: number;
 }
 
 export async function runTests(assignmentId: string, code: string, language: string): Promise<{ results: TestResult[] }> {

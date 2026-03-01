@@ -7,28 +7,39 @@ const CONNECT_TIMEOUT_MS = 10000;
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2000;
 
-function formatDbError(err) {
+function getDbConfig() {
+    const host = process.env.MYSQL_HOST || process.env.DB_HOST;
+    const user = process.env.MYSQL_USER || process.env.DB_USER || 'root';
+    const password = process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD || '';
+    const database = process.env.MYSQL_DATABASE || process.env.DB_NAME || 'intelligrade';
+    const port = process.env.MYSQL_PORT || process.env.DB_PORT || '3306';
+    const useSsl = process.env.MYSQL_SSL === '1' || process.env.USE_SSL === 'true' ||
+        (host && host.includes('rds.amazonaws.com'));
+    return { host, user, password, database, port, useSsl };
+}
+
+function formatDbError(err, config) {
     const code = err.code || '';
     const msg = err.message || '';
-    const host = process.env.DB_HOST;
-    const port = process.env.DB_PORT || '3306';
+    const host = config?.host || process.env.MYSQL_HOST || process.env.DB_HOST;
+    const port = config?.port || process.env.MYSQL_PORT || process.env.DB_PORT || '3306';
     if (code === 'ECONNREFUSED') {
         return `Cannot connect to MySQL at ${host}:${port}. ` +
-            'Ensure MySQL is running and DB_HOST in .env is correct.';
+            'Ensure MySQL is running and MYSQL_HOST (or DB_HOST) in .env is correct.';
     }
     if (code === 'ETIMEDOUT' || code === 'ECONNRESET') {
         return (
             `Connection to MySQL at ${host}:${port} timed out. ` +
-            'If DB_HOST is a public IP (e.g. Google Cloud SQL), ensure the instance allows inbound TCP:3306 from your network ' +
-            '(Cloud SQL “Authorized networks”) or use the Cloud SQL Auth Proxy and set DB_HOST=127.0.0.1. ' +
-            'Otherwise verify MySQL is running locally and DB_HOST/DB_PORT are correct.'
+            'If using cloud MySQL (e.g. AWS RDS), ensure the security group allows inbound TCP:3306 from your IP. ' +
+            'Otherwise verify MySQL is running and MYSQL_HOST/DB_HOST are correct.'
         );
     }
     if (code === 'ER_ACCESS_DENIED_ERROR') {
-        return 'MySQL access denied. Check DB_USER and DB_PASSWORD in .env (e.g. root with no password, or your MySQL user).';
+        return 'MySQL access denied. Check MYSQL_USER/MYSQL_PASSWORD (or DB_USER/DB_PASSWORD) in .env.';
     }
     if (code === 'ER_BAD_DB_ERROR') {
-        return `Database "${process.env.DB_NAME || 'intelligrade'}" not found. It will be created if the connection user has permission.`;
+        const db = config?.database || process.env.MYSQL_DATABASE || process.env.DB_NAME || 'intelligrade';
+        return `Database "${db}" not found. It will be created if the connection user has permission.`;
     }
     if (code === 'PROTOCOL_CONNECTION_LOST' || code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR') {
         return 'MySQL connection was lost. The server may have closed the connection.';
@@ -43,21 +54,18 @@ function formatDbError(err) {
 async function initDb() {
     if (pool) return pool;
 
-    const host = process.env.DB_HOST;
+    const config = getDbConfig();
+    const { host, user, password, database, port, useSsl } = config;
     if (!host) {
-        throw new Error('DB_HOST is required in .env (use your Google Cloud SQL public IP).');
+        throw new Error('MYSQL_HOST or DB_HOST is required in .env (e.g. your AWS RDS endpoint or Google Cloud SQL IP).');
     }
-    const user = process.env.DB_USER || 'root';
-    const password = process.env.DB_PASSWORD || '';
-    const database = process.env.DB_NAME || 'intelligrade';
-    const port = parseInt(process.env.DB_PORT || '3306', 10);
-    const useSsl = process.env.USE_SSL === 'true';
 
+    const portNum = parseInt(port, 10);
     const baseOptions = {
         host,
         user,
         password,
-        port,
+        port: portNum,
         connectTimeout: CONNECT_TIMEOUT_MS,
         ...(useSsl && {
             ssl: {
@@ -86,7 +94,7 @@ async function initDb() {
                 keepAliveInitialDelay: 0
             });
 
-            console.log(`Database: Connected to MySQL at ${host}:${port} (Database: ${database})`);
+            console.log(`Database: Connected to MySQL at ${host}:${portNum} (Database: ${database})`);
 
             // 3. Initialize Schema
             await initializeSchema();
@@ -94,7 +102,7 @@ async function initDb() {
             return pool;
         } catch (err) {
             lastError = err;
-            const friendly = formatDbError(err);
+            const friendly = formatDbError(err, { ...config, port: String(portNum) });
             console.error(`❌ Database attempt ${attempt}/${RETRY_ATTEMPTS} failed: ${friendly}`);
             if (attempt < RETRY_ATTEMPTS) {
                 console.log(`Retrying in ${RETRY_DELAY_MS / 1000}s...`);
@@ -104,7 +112,7 @@ async function initDb() {
     }
 
     console.error('Database Initialization Failed after', RETRY_ATTEMPTS, 'attempts.');
-    const e = new Error(formatDbError(lastError));
+    const e = new Error(formatDbError(lastError, { ...config, port: String(portNum) }));
     e.original = lastError;
     throw e;
 }
@@ -229,6 +237,15 @@ async function initializeSchema() {
         await pool.query("INSERT INTO assignments (id, course_id, title, due_date) VALUES (?, ?, ?, ?)",
             ['lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19 00:00:00']);
     }
+
+    // Late penalty columns (faculty-configured; used by autograder with submission submitted_at vs due_date)
+    const [lateCols] = await pool.query("SHOW COLUMNS FROM assignments LIKE 'late_penalty_enabled'");
+    if (!lateCols || lateCols.length === 0) {
+        await pool.query("ALTER TABLE assignments ADD COLUMN late_penalty_enabled TINYINT(1) DEFAULT 0");
+        await pool.query("ALTER TABLE assignments ADD COLUMN late_penalty_type VARCHAR(50) DEFAULT 'per_day'");
+        await pool.query("ALTER TABLE assignments ADD COLUMN late_penalty_value DOUBLE DEFAULT 10");
+        await pool.query("ALTER TABLE assignments ADD COLUMN late_penalty_cap DOUBLE DEFAULT 50");
+    }
 }
 
 function queryToObjects(result) {
@@ -269,5 +286,6 @@ module.exports = {
     run,
     saveDb,
     queryToObjects,
-    queryOne
+    queryOne,
+    isMySQL: true
 };

@@ -22,7 +22,11 @@ const AssignmentWizard: React.FC = () => {
         language: '',
         starter_code_path: '',
         test_case_file_path: '',
-        type: 'individual' as 'individual' | 'group'
+        type: 'individual' as 'individual' | 'group',
+        late_penalty_enabled: false,
+        late_penalty_type: 'per_day' as 'per_day' | 'per_hour' | 'fixed',
+        late_penalty_value: 10,
+        late_penalty_cap: 50
     });
     const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
     const [testCaseFile, setTestCaseFile] = useState<File | null>(null);
@@ -47,7 +51,11 @@ const AssignmentWizard: React.FC = () => {
                     language: data.language || '',
                     starter_code_path: data.starter_code_path || '',
                     test_case_file_path: data.test_case_file_path || '',
-                    type: data.type || 'individual'
+                    type: data.type || 'individual',
+                    late_penalty_enabled: !!(data.late_penalty_enabled === true || data.late_penalty_enabled === 1),
+                    late_penalty_type: (data.late_penalty_type as 'per_day' | 'per_hour' | 'fixed') || 'per_day',
+                    late_penalty_value: data.late_penalty_value != null ? Number(data.late_penalty_value) : 10,
+                    late_penalty_cap: data.late_penalty_cap != null ? Number(data.late_penalty_cap) : 50
                 });
                 setTestCases(cases);
                 setLoading(false);
@@ -234,6 +242,59 @@ const AssignmentWizard: React.FC = () => {
                             <option value="group">Group</option>
                         </select>
                     </div>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <h3 className="section-title-wizard" style={{ marginTop: 0, marginBottom: '0.75rem' }}>Late submission penalty</h3>
+                    <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>When enabled, the autograder applies a deduction based on submission time vs due date. Submission time is recorded automatically.</p>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <input
+                            type="checkbox"
+                            checked={formData.late_penalty_enabled}
+                            onChange={e => setFormData({ ...formData, late_penalty_enabled: e.target.checked })}
+                        />
+                        <span>Enable late penalty</span>
+                    </label>
+                    {formData.late_penalty_enabled && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                            <div>
+                                <label className="form-label">Type</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.late_penalty_type}
+                                    onChange={e => setFormData({ ...formData, late_penalty_type: e.target.value as any })}
+                                >
+                                    <option value="per_day">Per day</option>
+                                    <option value="per_hour">Per hour</option>
+                                    <option value="fixed">Fixed %</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="form-label">{formData.late_penalty_type === 'fixed' ? 'Deduction %' : 'Value (% per day/hour)'}</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    className="form-input"
+                                    value={formData.late_penalty_value}
+                                    onChange={e => setFormData({ ...formData, late_penalty_value: parseFloat(e.target.value) || 0 })}
+                                />
+                            </div>
+                            <div>
+                                <label className="form-label">Cap (%)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    className="form-input"
+                                    value={formData.late_penalty_cap}
+                                    onChange={e => setFormData({ ...formData, late_penalty_cap: parseFloat(e.target.value) || 50 })}
+                                />
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Max deduction</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="form-row">

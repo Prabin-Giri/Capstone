@@ -56,7 +56,6 @@ async function gradeSubmission(submissionId, opts = {}) {
         if (fs.existsSync(graderPath)) {
             const result = await gradeWithCustomFile(submission, assignment, graderPath, opts);
             await updateSubmissionGrade(submissionId, {
-                correctness_score: result.earned_points,
                 grade: result.grade,
                 feedback: result.feedback,
                 status: 'graded'
@@ -86,7 +85,7 @@ async function gradeSubmission(submissionId, opts = {}) {
 
     if (!fs.existsSync(sourcePath)) {
         const feedback = `Submission file not found: ${submission.file_path}`;
-        await updateSubmissionGrade(submissionId, { correctness_score: 0, grade: 0, feedback, status: 'graded' });
+        await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'graded' });
         return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
     }
 
@@ -168,7 +167,7 @@ async function gradeSubmission(submissionId, opts = {}) {
             continue;
         }
 
-        const actualOutput = runResult.outputFileContent != null ? runResult.outputFileContent : runResult.stdout;
+        const actualOutput = (runResult.outputFileContent != null ? runResult.outputFileContent : runResult.stdout) ?? '';
         const ranOk = !runResult.timedOut && runResult.exitCode === 0;
 
         let allMatch;
@@ -222,9 +221,8 @@ async function gradeSubmission(submissionId, opts = {}) {
     ];
     const feedback = feedbackLines.join('\n');
 
-    if (!opts.publicOnly) {
+        if (!opts.publicOnly) {
         await updateSubmissionGrade(submissionId, {
-            correctness_score: earned,
             grade: Math.round(finalGrade * 100) / 100,
             feedback,
             status: 'graded',
@@ -243,13 +241,9 @@ async function gradeSubmission(submissionId, opts = {}) {
 }
 
 async function updateSubmissionGrade(submissionId, opts) {
-    const { correctness_score, grade, feedback, status } = opts;
+    const { grade, feedback, status } = opts;
     const updates = ["feedback = ?", "status = ?", "updated_at = CURRENT_TIMESTAMP"];
     const params = [feedback ?? '', status ?? 'graded'];
-    if (correctness_score !== undefined) {
-        updates.push('correctness_score = ?');
-        params.push(correctness_score);
-    }
     if (grade !== undefined) {
         updates.push('grade = ?');
         params.push(grade);
