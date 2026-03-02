@@ -1,4 +1,12 @@
 /* App Shell Layout */
+:root {
+    --global-sidebar-width: 120px;
+}
+
+body.no-scroll {
+    overflow: hidden !important;
+}
+
 .app-shell {
     display: flex;
     height: 100vh;
@@ -23,6 +31,26 @@
     flex: 1;
     display: flex;
     min-width: 0;
+    transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+.account-drawer-active .app-body,
+.account-drawer-active .topbar,
+.account-drawer-active .course-sidebar {
+    pointer-events: none !important;
+    user-select: none;
+    filter: grayscale(0.5) blur(2px);
+    opacity: 0.6;
+}
+
+/* Sidebar navigation remains visually sharp and interactive */
+.account-drawer-active .global-sidebar,
+.account-drawer-active .mobile-nav {
+    pointer-events: auto !important;
+}
+
+.account-drawer-active .account-drawer {
+    pointer-events: auto !important;
 }
 
 @media (max-width: 768px) {
@@ -41,7 +69,7 @@
     height: 100%;
     color: white;
     box-shadow: var(--shadow-lg);
-    z-index: 100;
+    z-index: 2000;
 }
 
 .global-sidebar-header {
@@ -86,6 +114,7 @@
     text-decoration: none;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    width: 100%;
 }
 
 .global-nav-link:hover {
@@ -94,13 +123,16 @@
 }
 
 .global-nav-link.active {
-    color: var(--primary-color);
-    background-color: var(--secondary-color);
-    box-shadow: 0 4px 12px rgba(253, 185, 19, 0.3);
+    color: white !important;
+    background-color: var(--sidebar-active-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--sidebar-active-border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .global-nav-link.active .global-nav-text {
-    color: var(--primary-color);
+    color: white !important;
 }
 
 .global-nav-divider {
@@ -117,7 +149,7 @@
 /* Course Sidebar */
 .course-sidebar {
     width: var(--course-sidebar-width);
-    background-color: white;
+    background-color: var(--bg-surface);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -134,7 +166,7 @@
 .course-context-name {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(--primary-text);
     margin-bottom: 0.25rem;
 }
 
@@ -168,8 +200,11 @@
 }
 
 .course-nav-link.active {
-    background-color: var(--primary-light);
-    color: var(--primary-color);
+    background-color: rgba(132, 0, 41, 0.15);
+    color: var(--primary-text);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(132, 0, 41, 0.2);
 }
 
 /* Main Layout Area */
@@ -222,9 +257,9 @@
 
 /* Topbar - Glass Effect */
 .topbar {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-bottom: 1px solid var(--border-color);
     height: var(--header-height);
     display: flex;
@@ -271,24 +306,35 @@
     gap: 1.5rem;
 }
 
+.icon-group {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
 .avatar-circle {
     height: 2.5rem;
     width: 2.5rem;
     background-color: var(--secondary-color);
-    border-radius: 12px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary-color);
+    color: var(--primary-text);
     font-weight: 800;
     font-size: 1rem;
     box-shadow: var(--shadow-sm);
+    overflow: hidden;
 }
 
 /* Responsive Layout Adjustments */
 @media (max-width: 1024px) {
+    :root {
+        --global-sidebar-width: 80px;
+    }
+
     .global-sidebar {
-        width: 80px;
+        width: var(--global-sidebar-width);
     }
 
     .global-nav-text {
@@ -395,7 +441,7 @@
         height: auto;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
-        background: white;
+        background: var(--bg-surface);
         padding: 0.75rem 0.5rem;
         position: sticky;
         top: 60px;
@@ -437,9 +483,12 @@
     }
 
     .course-nav-link.active {
-        background-color: var(--primary-color);
-        color: white;
-        box-shadow: 0 4px 10px rgba(132, 0, 41, 0.2);
+        background-color: rgba(132, 0, 41, 0.15);
+        color: var(--primary-text);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(132, 0, 41, 0.2);
     }
 
     .course-page-content {
@@ -461,12 +510,20 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: white;
+    background: var(--bg-surface);
     border-top: 1px solid var(--border-color);
     height: 64px;
-    z-index: 1000;
+    z-index: 3000;
     padding: 0 1rem;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
+}
+
+.mobile-nav.hidden-behind-sidebar {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+    filter: blur(10px);
 }
 
 @media (max-width: 768px) {

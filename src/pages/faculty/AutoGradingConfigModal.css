@@ -29,14 +29,14 @@
 }
 
 .ac-modal-card {
-    background: #ffffff;
+    background-color: var(--bg-surface);
     border-radius: 20px;
-    box-shadow: 0 25px 50px -12px rgba(132, 0, 41, 0.15);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
     max-width: 500px;
     width: 100%;
     overflow: hidden;
     position: relative;
-    border: 1px solid rgba(132, 0, 41, 0.1);
+    border: 1px solid var(--border-color);
     animation: ac-slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -111,36 +111,37 @@
 .ac-select,
 .ac-input {
     width: 100%;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border-color);
     border-radius: 12px;
     padding: 12px 16px;
     font-size: 0.95rem;
-    color: #111827;
-    background: #f9fafb;
+    color: var(--text-primary);
+    background: var(--light-grey);
     transition: all 0.2s;
     outline: none;
 }
 
 .ac-select:focus,
 .ac-input:focus {
-    border-color: var(--primary-color);
-    background: #ffffff;
+    border-color: var(--primary-text);
+    background-color: var(--bg-surface);
     box-shadow: 0 0 0 4px var(--primary-light);
 }
 
 .ac-help-text {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-tertiary);
     margin-top: 6px;
     display: block;
 }
 
 .ac-alert {
-    background: #fffbeb;
+    background-color: var(--bg-surface);
     border: 1px solid #fef3c7;
     border-radius: 12px;
     padding: 16px;
     display: flex;
+    align-items: center;
     gap: 12px;
     margin-bottom: 24px;
 }
@@ -181,13 +182,13 @@
 }
 
 .ac-btn-outline {
-    background: #ffffff;
-    border: 2px solid #e5e7eb;
-    color: #4b5563;
+    background-color: var(--bg-surface);
+    border: 2px solid var(--border-color);
+    color: var(--text-secondary);
 }
 
 .ac-btn-outline:hover {
-    background: #f9fafb;
+    background: var(--light-grey);
     border-color: #d1d5db;
 }
 
@@ -195,12 +196,12 @@
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
     border: none;
     color: white;
-    box-shadow: 0 4px 12px rgba(132, 0, 41, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .ac-btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(132, 0, 41, 0.35);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
 .ac-btn-primary:active {

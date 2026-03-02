@@ -9,14 +9,14 @@
 .wizard-title {
     font-size: 2.25rem;
     font-weight: 800;
-    color: var(--primary-color);
+    color: var(--primary-text);
     margin-bottom: 2rem;
     letter-spacing: -0.04em;
 }
 
 /* Form Container */
 .wizard-form {
-    background-color: white;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
@@ -49,16 +49,17 @@
     font-size: 1rem;
     line-height: 1.5;
     color: var(--text-primary);
-    background-color: white;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     transition: all 0.2s;
+    color-scheme: inherit;
 }
 
 .form-input:focus,
 .form-textarea:focus,
 .form-select:focus {
-    border-color: var(--primary-color);
+    border-color: var(--primary-text);
     outline: 0;
     box-shadow: 0 0 0 4px var(--primary-light);
 }
@@ -76,6 +77,19 @@
     align-items: end;
 }
 
+.form-input-group {
+    display: flex;
+    gap: 12px;
+}
+
+.form-input-group .form-input:first-child {
+    flex: 2;
+}
+
+.form-input-group .form-input:last-child {
+    flex: 1;
+}
+
 /* Actions */
 .form-actions {
     display: flex;
@@ -88,15 +102,15 @@
 
 .upload-box-wizard {
     padding: 1.5rem;
-    background: rgba(132, 0, 41, 0.02);
+    background: var(--bg-surface);
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-md);
     transition: all 0.2s;
 }
 
 .upload-box-wizard:hover {
-    border-color: var(--primary-color);
-    background: rgba(132, 0, 41, 0.05);
+    border-color: var(--primary-text);
+    background: var(--bg-surface);
 }
 
 .form-input-file {
@@ -108,6 +122,69 @@
     margin-top: 0.75rem;
     font-size: 0.85rem;
     color: var(--text-secondary);
+}
+
+/* Late Penalty Card */
+.late-penalty-card {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background-color: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+}
+
+.late-penalty-title {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.late-penalty-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.form-group-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    width: fit-content;
+    user-select: none;
+}
+
+.form-group-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.form-group-checkbox input[type="checkbox"]:hover {
+    transform: scale(1.1);
+}
+
+.checkbox-label-text {
+    cursor: default;
+}
+
+.late-penalty-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+}
+
+.late-penalty-cap-info {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
 }
 
 /* Test Cases Section */
@@ -140,7 +217,7 @@
     padding: 1.5rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
-    background-color: white;
+    background-color: var(--bg-surface);
     transition: all 0.2s;
 }
 
@@ -160,7 +237,7 @@
 
 .tc-index {
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(--primary-text);
     font-size: 1rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -195,12 +272,12 @@
 }
 
 .tc-toggle-btn.hidden {
-    background-color: #f3f4f6;
-    color: #4b5563;
+    background-color: var(--light-grey);
+    color: var(--text-secondary);
 }
 
 .tc-toggle-btn.hidden:hover {
-    background-color: #e5e7eb;
+    background-color: var(--border-color);
 }
 
 .tc-delete-btn {
@@ -211,7 +288,7 @@
     height: 32px;
     border-radius: 8px;
     border: 1px solid #fee2e2;
-    background-color: #fff1f2;
+    background-color: var(--bg-surface);
     color: #ef4444;
     cursor: pointer;
     transition: all 0.2s;
@@ -251,8 +328,8 @@
 .tc-textarea:focus,
 .tc-input:focus {
     outline: none;
-    background-color: white;
-    border-color: var(--primary-color);
+    background-color: var(--bg-surface);
+    border-color: var(--primary-text);
     box-shadow: 0 0 0 3px var(--primary-light);
 }
 
@@ -271,7 +348,7 @@
 
 .test-case-file-container {
     padding: 1.5rem;
-    background: white;
+    background-color: var(--bg-surface);
 }
 
 .tc-description-wizard {
@@ -296,7 +373,7 @@
 .active-filename {
     font-size: 0.95rem;
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
 
 .active-filesize {
@@ -314,7 +391,7 @@
 }
 
 .tc-remove-btn:hover {
-    background: #fff1f2 !important;
+    background-color: var(--bg-surface);
 }
 
 @media (max-width: 768px) {

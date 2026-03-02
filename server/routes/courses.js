@@ -389,7 +389,7 @@ router.get('/:id/students', async (req, res, next) => {
     try {
         const db = getDb();
         const result = await db.execute(`
-            SELECT u.id, u.name, u.email 
+            SELECT u.id, u.name, u.email, u.profile_picture 
             FROM users u
             JOIN course_enrollments ce ON u.id = ce.student_id
             WHERE ce.course_id = ?

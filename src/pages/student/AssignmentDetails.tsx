@@ -111,33 +111,37 @@ const AssignmentDetails: React.FC = () => {
     return (
         <div className="assignment-details">
             <div className="details-header">
-                <div>
+                <div className="details-header-left">
                     <h1 className="details-title">{assignment.title}</h1>
-                    <div className="details-meta" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Due:</span>
-                            <span style={{ fontWeight: 600 }}>{displayDate}</span>
+                    <div className="details-meta">
+                        <div className="meta-item">
+                            <span className="meta-label">Due:</span>
+                            <span className="meta-value">{displayDate}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Points:</span>
-                            <span style={{ fontWeight: 600 }}>{points}</span>
+                        <div className="meta-row-combined">
+                            <div className="meta-item">
+                                <span className="meta-label">Points:</span>
+                                <span className="meta-value">{points}</span>
+                            </div>
+                            <StatusBadge status={displayStatus as any} />
                         </div>
                         {assignment.language && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Code size={16} color="var(--primary-color)" />
-                                <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{assignment.language}</span>
+                            <div className="meta-item">
+                                <Code size={16} className="meta-icon" />
+                                <span className="meta-value text-capitalize">{assignment.language}</span>
                             </div>
                         )}
-                        <StatusBadge status={displayStatus as any} />
                     </div>
                 </div>
 
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Current Grade</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>
-                        {submission && submission.grade !== undefined && submission.grade !== null && (submission.status === 'graded' || submission.status === 'returned')
-                            ? `${submission.grade}/${points}`
-                            : `-/${points}`}
+                <div className="details-header-right">
+                    <div className="details-grade">
+                        <div className="grade-label">Current Grade</div>
+                        <div className="grade-value">
+                            {submission && submission.grade !== undefined && submission.grade !== null && (submission.status === 'graded' || submission.status === 'returned')
+                                ? `${submission.grade}/${points}`
+                                : `-/${points}`}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -207,15 +211,15 @@ const AssignmentDetails: React.FC = () => {
                                             <div className="total-score-label">Test Score</div>
                                             <div className="total-score-value">
                                                 {totalTestPoints > 0 ? (
-                                                    <><span>{earnedTestPoints}</span><span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>/{totalTestPoints}</span></>
+                                                    <><span>{earnedTestPoints}</span><span style={{ fontSize: '1.25rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>/{totalTestPoints}</span></>
                                                 ) : (
-                                                    <><span>{testResults.filter(r => r.passed).length}</span><span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>/{testResults.length} passed</span></>
+                                                    <><span>{testResults.filter(r => r.passed).length}</span><span style={{ fontSize: '1.25rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>/{testResults.length} passed</span></>
                                                 )}
                                             </div>
                                         </div>
                                         {totalTestPoints > 0 && (
                                             <div className="score-progress-container">
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
                                                     <span>Progress</span>
                                                     <span>{pct}%</span>
                                                 </div>
@@ -237,7 +241,7 @@ const AssignmentDetails: React.FC = () => {
                             {testResults.map((result, idx) => (
                                 <div
                                     key={idx}
-                                    className={`p-4 rounded-lg border ${result.passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+                                    className={`p-4 rounded-lg border ${result.passed ? '' : ''}`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
@@ -251,8 +255,8 @@ const AssignmentDetails: React.FC = () => {
                                         <div className="text-sm mt-2">
                                             {!result.passed && (
                                                 <>
-                                                    <div className="mb-1"><span className="font-semibold">Expected:</span> <code className="bg-white px-1 rounded border">{result.expected}</code></div>
-                                                    <div className="mb-1"><span className="font-semibold">Actual:</span> <code className="bg-white px-1 rounded border">{result.actual}</code></div>
+                                                    <div className="mb-1"><span className="font-semibold">Expected:</span> <code className="px-1 rounded border">{result.expected}</code></div>
+                                                    <div className="mb-1"><span className="font-semibold">Actual:</span> <code className="px-1 rounded border">{result.actual}</code></div>
                                                 </>
                                             )}
                                             {result.error && (
@@ -265,8 +269,8 @@ const AssignmentDetails: React.FC = () => {
                         </div>
 
                         {testRunLog && (
-                            <details className="test-run-log" style={{ marginTop: '1rem', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                                <summary style={{ padding: '0.75rem 1rem', background: '#f3f4f6', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>Log (debug – remove later)</summary>
+                            <details className="test-run-log" style={{ marginTop: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                                <summary style={{ padding: '0.75rem 1rem', background: 'var(--light-grey)', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>Log (debug – remove later)</summary>
                                 <pre style={{ margin: 0, padding: '1rem', background: '#111827', color: '#e5e7eb', fontSize: '0.75rem', overflow: 'auto', maxHeight: '20rem' }}>{testRunLog}</pre>
                             </details>
                         )}
@@ -280,7 +284,7 @@ const AssignmentDetails: React.FC = () => {
                     <div className="materials-box">
                         <div className="material-item">
                             <div className="material-info">
-                                <Download size={20} color="var(--primary-color)" />
+                                <Download size={20} color="var(--primary-text)" />
                                 <div>
                                     <div className="material-name">Starter Code</div>
                                     <div className="material-size">Download resources to begin the assignment</div>
@@ -290,7 +294,7 @@ const AssignmentDetails: React.FC = () => {
                                 href={`http://localhost:3001/uploads/${assignment.starter_code_path}`}
                                 download
                                 className="btn btn-outline"
-                                style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)' }}
+
                             >
                                 Download ZIP
                             </a>
@@ -316,17 +320,17 @@ const AssignmentDetails: React.FC = () => {
 
                             return (
                                 <div key={sub.id} style={{
-                                    border: '1px solid #e5e7eb',
+                                    border: '1px solid var(--border-color)',
                                     borderRadius: '8px',
                                     padding: '16px',
-                                    background: '#f9fafb',
+                                    background: 'var(--bg-surface)',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center'
                                 }}>
                                     <div>
-                                        <div style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>{attemptLabel}</div>
-                                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{attemptLabel}</div>
+                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                                             Submitted: {new Date(sub.submitted_at).toLocaleString()}
                                         </div>
                                         <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>
@@ -347,7 +351,7 @@ const AssignmentDetails: React.FC = () => {
                                     <Link
                                         to={`/student/courses/${assignment.course_id}/assignments/${assignment.id}/submissions/${sub.id}`}
                                         className="btn btn-outline"
-                                        style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)' }}
+
                                     >
                                         View Details
                                     </Link>

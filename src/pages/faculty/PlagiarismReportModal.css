@@ -29,7 +29,7 @@
 }
 
 .plagiarism-modal-card {
-    background: white;
+    background-color: var(--bg-surface);
     width: 100%;
     max-width: 800px;
     max-height: 90vh;
@@ -43,12 +43,13 @@
 
 /* Header */
 .pm-header {
-    background: linear-gradient(to right, #faf5ff, #ffffff);
-    padding: 24px;
-    border-bottom: 1px solid #f3f4f6;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    padding: 24px 32px;
+    border-bottom: none;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    color: white;
 }
 
 .pm-header-content {
@@ -60,40 +61,43 @@
 .pm-icon-wrapper {
     width: 48px;
     height: 48px;
-    background-color: var(--primary-light);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary-color);
-    border: 1px solid rgba(132, 0, 41, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
 }
 
 .pm-title {
     margin: 0;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #111827;
+    color: white;
 }
 
 .pm-subtitle {
     margin: 4px 0 0 0;
     font-size: 0.875rem;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.75);
 }
 
 .pm-highlight {
-    color: var(--primary-color);
-    font-weight: 600;
+    color: white;
+    font-weight: 700;
 }
 
 .pm-close-btn {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.1);
     border: none;
-    color: #9ca3af;
+    color: white;
     cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
+    padding: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     transition: all 0.2s;
     display: flex;
     align-items: center;
@@ -101,8 +105,7 @@
 }
 
 .pm-close-btn:hover {
-    background-color: #f3f4f6;
-    color: #4b5563;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* Body */
@@ -110,7 +113,7 @@
     padding: 32px;
     overflow-y: auto;
     flex: 1;
-    background-color: #f9fafb;
+    background-color: var(--light-grey);
 }
 
 /* Empty State */
@@ -122,12 +125,12 @@
 }
 
 .pm-empty-card {
-    background: white;
+    background-color: var(--bg-surface);
     padding: 40px;
     border-radius: 16px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
     max-width: 500px;
     width: 100%;
 }
@@ -149,12 +152,12 @@
 .pm-hero-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--text-primary);
     margin-bottom: 12px;
 }
 
 .pm-hero-text {
-    color: #6b7280;
+    color: var(--text-tertiary);
     margin-bottom: 32px;
     line-height: 1.6;
 }
@@ -175,12 +178,12 @@
     width: 100%;
     justify-content: center;
     transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 14px 0 rgba(132, 0, 41, 0.25);
+    box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.25);
 }
 
 .pm-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px 0 rgba(132, 0, 41, 0.35);
+    box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.35);
 }
 
 /* Loading State */
@@ -197,7 +200,7 @@
     width: 60px;
     height: 60px;
     border: 5px solid var(--primary-light);
-    border-top: 5px solid var(--primary-color);
+    border-top: 5px solid var(--primary-border);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 24px;
@@ -206,7 +209,7 @@
 .pm-loading-text {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #4b5563;
+    color: var(--text-secondary);
 }
 
 /* Results List */
@@ -227,7 +230,7 @@
 }
 
 .pm-badge-count {
-    background-color: #e5e7eb;
+    background-color: var(--border-color);
     color: #374151;
     font-size: 0.75rem;
     padding: 2px 8px;
@@ -237,14 +240,14 @@
 .pm-clean-record {
     text-align: center;
     padding: 60px;
-    background: white;
+    background-color: var(--bg-surface);
     border-radius: 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
 }
 
 .pm-match-card {
-    background: white;
-    border: 1px solid #e5e7eb;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 16px;
@@ -284,7 +287,7 @@
 }
 
 .pm-score-med {
-    background-color: #fff7ed;
+    background-color: var(--bg-surface);
     color: #ea580c;
     border: 1px solid #ffedd5;
 }
@@ -304,10 +307,10 @@
 }
 
 .pm-student-badge {
-    background-color: #f3f4f6;
+    background-color: var(--light-grey);
     padding: 6px 12px;
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -328,33 +331,34 @@
 
 .pm-vs {
     font-size: 0.875rem;
-    color: #9ca3af;
+    color: var(--text-tertiary);
     font-weight: 700;
 }
 
 /* Footer */
 .pm-footer {
     padding: 20px 32px;
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid var(--light-grey);
     display: flex;
     justify-content: flex-end;
-    background: white;
+    background-color: var(--bg-surface);
 }
 
 .pm-btn-close {
-    padding: 10px 24px;
-    border-radius: 8px;
-    border: 1px solid #d1d5db;
-    background: white;
-    color: #374151;
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: 2px solid var(--border-color);
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
     font-weight: 600;
+    font-size: 0.95rem;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .pm-btn-close:hover {
-    background-color: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--light-grey);
+    border-color: var(--text-primary);
 }
 
 /* Animations */

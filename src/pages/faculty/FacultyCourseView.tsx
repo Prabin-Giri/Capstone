@@ -385,7 +385,7 @@ const FacultyCourseView: React.FC = () => {
                                         setArchiveInput('');
                                         setActionError(null);
                                     }}
-                                    style={{ color: course.is_archived ? 'var(--primary-color)' : '#ef4444' }}
+                                    style={{ color: course.is_archived ? 'var(--text-primary)' : '#ef4444' }}
                                 >
                                     <Archive size={16} />
                                     {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
@@ -423,7 +423,7 @@ const FacultyCourseView: React.FC = () => {
                 </div>
                 <div className="analytics-card glass">
                     <span className="analytics-label">Pending Grading</span>
-                    <span className="analytics-value" style={{ color: 'var(--primary-color)' }}>
+                    <span className="analytics-value" style={{ color: 'var(--text-primary)' }}>
                         {assignments.filter(a => a.status === 'closed').length * enrolledStudents.length}
                     </span>
                     <span className="analytics-desc">Total submissions to review</span>
@@ -477,7 +477,7 @@ const FacultyCourseView: React.FC = () => {
                                             <h3
                                                 className="assignment-title"
                                                 onClick={() => navigate(`assignments/${assignment.id}/grading`)}
-                                                style={{ cursor: 'pointer', color: 'var(--primary-color)' }}
+                                                style={{ cursor: 'pointer', color: 'var(--text-primary)' }}
                                             >
                                                 {assignment.title}
                                             </h3>
@@ -595,8 +595,22 @@ const FacultyCourseView: React.FC = () => {
                             enrolledStudents.map(student => (
                                 <div key={student.id} className="student-item">
                                     <div className="student-info">
-                                        <div className="student-avatar">
-                                            {student.name.charAt(0)}
+                                        <div className="student-avatar" style={{ padding: student.profile_picture ? 0 : undefined, overflow: 'hidden' }}>
+                                            {student.profile_picture ? (
+                                                <img
+                                                    src={getFileUrl(student.profile_picture)}
+                                                    alt={`${student.name} profile`}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                        target.parentElement!.style.padding = '';
+                                                        target.parentElement!.textContent = student.name.charAt(0);
+                                                    }}
+                                                />
+                                            ) : (
+                                                student.name.charAt(0)
+                                            )}
                                         </div>
                                         <div>
                                             <div className="student-name-row">
@@ -625,9 +639,14 @@ const FacultyCourseView: React.FC = () => {
                 <div className="archive-modal-overlay">
                     <div className="archive-modal-card">
                         <div className="archive-header">
-                            <h2 className="archive-title">
-                                {course.is_archived ? 'Unarchive Course?' : 'Archive Course?'}
-                            </h2>
+                            <div className="archive-title-container">
+                                <div className="archive-icon-container">
+                                    <Archive size={22} />
+                                </div>
+                                <h2 className="archive-title">
+                                    {course.is_archived ? 'Unarchive Course?' : 'Archive Course?'}
+                                </h2>
+                            </div>
                             <button className="archive-close-btn" onClick={() => setShowArchiveModal(false)}>
                                 <X size={20} />
                             </button>
@@ -635,7 +654,7 @@ const FacultyCourseView: React.FC = () => {
 
                         <div className="archive-body">
                             <p className="archive-instruction">
-                                To confirm, type <span style={{ fontWeight: 800, color: 'var(--primary-color)' }}>{course.name}</span> below.
+                                To confirm, type <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{course.name}</span> below.
                             </p>
 
                             <div className="archive-input-container">
@@ -917,8 +936,22 @@ const FacultyCourseView: React.FC = () => {
                                         searchResults.map(student => (
                                             <div key={student.id} className="search-result-item">
                                                 <div className="search-result-info">
-                                                    <div className="search-result-avatar">
-                                                        {student.name.charAt(0)}
+                                                    <div className="search-result-avatar" style={{ padding: student.profile_picture ? 0 : undefined, overflow: 'hidden' }}>
+                                                        {student.profile_picture ? (
+                                                            <img
+                                                                src={getFileUrl(student.profile_picture)}
+                                                                alt={`${student.name} profile`}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onError={(e) => {
+                                                                    const target = e.target as HTMLImageElement;
+                                                                    target.style.display = 'none';
+                                                                    target.parentElement!.style.padding = '';
+                                                                    target.parentElement!.textContent = student.name.charAt(0);
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            student.name.charAt(0)
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <p className="search-result-name">{student.name}</p>
@@ -1015,7 +1048,7 @@ const FacultyCourseView: React.FC = () => {
                         )}
 
                         <div className="modal-footer">
-                            <Button variant="secondary" onClick={resetEnrollModal}>
+                            <Button variant="primary" onClick={resetEnrollModal}>
                                 Close
                             </Button>
                         </div>

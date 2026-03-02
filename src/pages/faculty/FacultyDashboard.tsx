@@ -82,15 +82,17 @@ const FacultyDashboard: React.FC = () => {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <Button
-                        variant="secondary"
+                    <button
+                        className="btn-header-outline"
                         onClick={() => setShowArchived(!showArchived)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         {showArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
                         {showArchived ? 'Show Active' : 'Show Archived'}
-                    </Button>
-                    <Button onClick={() => navigate('/faculty/courses/new')}>
+                    </button>
+                    <Button
+                        onClick={() => navigate('/faculty/courses/new')}
+                        style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+                    >
                         + Create New Course
                     </Button>
                 </div>
@@ -162,9 +164,14 @@ const FacultyDashboard: React.FC = () => {
                 <div className="archive-modal-overlay">
                     <div className="archive-modal-card">
                         <div className="archive-header">
-                            <h2 className="archive-title">
-                                {archiveModal.currentlyArchived ? 'Unarchive Course?' : 'Archive Course?'}
-                            </h2>
+                            <div className="archive-title-container">
+                                <div className="archive-icon-container">
+                                    <Archive size={22} />
+                                </div>
+                                <h2 className="archive-title">
+                                    {archiveModal.currentlyArchived ? 'Unarchive Course?' : 'Archive Course?'}
+                                </h2>
+                            </div>
                             <button className="archive-close-btn" onClick={() => setArchiveModal(null)}>
                                 <X size={20} />
                             </button>
@@ -194,9 +201,9 @@ const FacultyDashboard: React.FC = () => {
 
                             {!archiveModal.currentlyArchived && (
                                 <div className="archive-warning">
-                                    <AlertTriangle size={16} className="text-red-600" />
+                                    <AlertTriangle size={24} className="text-yellow-600" />
                                     <p className="archive-warning-text">
-                                        Archiving will make this course read-only for all students.
+                                        <strong>Note:</strong> Archiving will make this course read-only for all students.
                                     </p>
                                 </div>
                             )}

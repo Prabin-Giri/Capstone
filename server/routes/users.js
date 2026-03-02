@@ -21,7 +21,7 @@ router.post('/signup', async (req, res, next) => {
         const id = email; // Using email as ID for consistency with existing code
         await db.execute("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)", [id, name, email, password, role]);
 
-        res.status(201).json({ id, name, email, role });
+        res.status(201).json({ id, name, email, role, profile_picture: null });
     } catch (err) {
         next(err);
     }
@@ -36,7 +36,7 @@ router.post('/login', async (req, res, next) => {
         }
 
         const db = getDb();
-        const [rows] = await db.execute('SELECT id, name, email, role, password FROM users WHERE email = ?', [email]);
+        const [rows] = await db.execute('SELECT id, name, email, role, password, profile_picture FROM users WHERE email = ?', [email]);
         const user = rows[0];
 
         if (!user || user.password !== password) {
@@ -56,7 +56,7 @@ router.get('/students', async (req, res, next) => {
     const { q } = req.query;
     try {
         const db = getDb();
-        let query = "SELECT id, name, email FROM users WHERE role = 'student'";
+        let query = "SELECT id, name, email, profile_picture FROM users WHERE role = 'student'";
         const params = [];
         if (q) {
             query += " AND (name LIKE ? OR email LIKE ? OR id LIKE ?)";
@@ -91,6 +91,36 @@ router.get('/search', async (req, res, next) => {
 
         const result = await db.execute(query, params);
         res.json(queryToObjects(result));
+    } catch (err) {
+        next(err);
+    }
+});
+
+// PUT /api/users/profile - Update user profile
+router.put('/profile', async (req, res, next) => {
+    try {
+        const { id, name, email } = req.body;
+        if (!id || !name || !email) {
+            return res.status(400).json({ error: 'ID, name, and email are required' });
+        }
+
+        const db = getDb();
+
+        // Check if new email is taken by another user
+        if (email !== id) {
+            const [existing] = await db.execute('SELECT id FROM users WHERE email = ? AND id != ?', [email, id]);
+            if (existing.length > 0) {
+                return res.status(400).json({ error: 'Email is already in use by another account' });
+            }
+        }
+
+        await db.execute(
+            'UPDATE users SET name = ?, email = ? WHERE id = ?',
+            [name, email, id]
+        );
+
+        const [updatedUser] = await db.execute('SELECT id, name, email, role, profile_picture FROM users WHERE id = ?', [id]);
+        res.json({ ...updatedUser[0], message: 'Profile updated successfully' });
     } catch (err) {
         next(err);
     }

@@ -48,8 +48,8 @@
 }
 
 .table-btn.active {
-    background-color: var(--primary-light);
-    color: var(--primary-color);
+    background-color: var(--border-color);
+    color: var(--primary-text);
 }
 
 .db-content {
@@ -65,7 +65,7 @@
 .table-header h1 {
     font-size: 2.25rem;
     font-weight: 800;
-    color: var(--primary-color);
+    color: var(--primary-text);
     margin-bottom: 0.5rem;
     letter-spacing: -0.04em;
 }
@@ -76,7 +76,7 @@
 }
 
 .table-card {
-    background-color: white;
+    background-color: var(--bg-surface);
     border-radius: var(--radius-lg);
     overflow: hidden;
 }
@@ -119,7 +119,7 @@
     align-self: flex-start;
     font-size: 0.65rem;
     background-color: var(--secondary-color);
-    color: var(--primary-color);
+    color: var(--primary-text);
     padding: 1px 4px;
     border-radius: 4px;
     font-weight: 800;

@@ -13,7 +13,18 @@ export interface UserSession {
     name: string;
     email: string;
     role: AuthRole;
+    profilePicture?: string;
 }
+
+export const updateUser = (updates: Partial<UserSession>) => {
+    const current = getSession();
+    if (current) {
+        const updated = { ...current, ...updates };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+        // Optional: Trigger a custom event to notify other components
+        window.dispatchEvent(new Event('user-profile-updated'));
+    }
+};
 
 export const getSession = (): UserSession | null => {
     const session = localStorage.getItem(SESSION_KEY);
