@@ -159,11 +159,11 @@ export interface CsvEnrollResult {
     alreadyEnrolled: { email: string; name: string }[];
 }
 
-export async function enrollStudentsByCSV(courseId: string, emails: string[]): Promise<CsvEnrollResult> {
+export async function enrollStudentsByCSV(courseId: string, students: { id: string, name: string, email: string }[]): Promise<CsvEnrollResult> {
     return apiFetch<CsvEnrollResult>(`/courses/${courseId}/enroll-csv`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails }),
+        body: JSON.stringify({ students }),
     });
 }
 

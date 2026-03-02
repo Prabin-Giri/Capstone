@@ -253,48 +253,60 @@ router.get('/:id/grades/export', async (req, res, next) => {
     }
 });
 
-// POST /api/courses/:id/enroll-csv - Bulk enroll students by email list
+// POST /api/courses/:id/enroll-csv - Bulk enroll students by CSV data (auto-creates accounts if needed)
 router.post('/:id/enroll-csv', async (req, res, next) => {
-    const { emails } = req.body;
+    const { students } = req.body;
     const courseId = req.params.id;
 
-    if (!Array.isArray(emails) || emails.length === 0) {
-        return res.status(400).json({ error: 'emails array is required' });
+    if (!Array.isArray(students) || students.length === 0) {
+        return res.status(400).json({ error: 'students array is required' });
     }
 
     try {
         const db = getDb();
         const enrolled = [];
-        const notFound = [];
         const alreadyEnrolled = [];
+        const notFound = [];
 
-        for (const rawEmail of emails) {
-            const email = rawEmail.trim().toLowerCase();
-            if (!email) continue;
+        for (const student of students) {
+            const { id, name, email } = student;
+            if (!id || !name || !email) continue;
 
-            // Look up user by email
-            const [userRows] = await db.execute('SELECT id, name, email FROM users WHERE LOWER(email) = ?', [email]);
-            if (userRows.length === 0) {
-                notFound.push(email);
-                continue;
-            }
+            const normalizedEmail = email.trim().toLowerCase();
 
-            const user = userRows[0];
-
-            // Check if already enrolled
-            const [existing] = await db.execute(
-                'SELECT 1 FROM course_enrollments WHERE course_id = ? AND student_id = ?',
-                [courseId, user.id]
+            // Check if user already exists by id or email
+            const [existingRows] = await db.execute(
+                'SELECT id, name, email FROM users WHERE id = ? OR LOWER(email) = ?',
+                [id, normalizedEmail]
             );
 
-            if (existing.length > 0) {
-                alreadyEnrolled.push({ email, name: user.name });
+            let userId = id;
+
+            if (existingRows.length === 0) {
+                // Auto-create the account with the specified id, name, email, role=student, password=password123
+                await db.execute(
+                    'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
+                    [id, name, normalizedEmail, 'password123', 'student']
+                );
+            } else {
+                // Use the existing user's id
+                userId = existingRows[0].id;
+            }
+
+            // Check if already enrolled in this course
+            const [existingEnrollment] = await db.execute(
+                'SELECT 1 FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+                [courseId, userId]
+            );
+
+            if (existingEnrollment.length > 0) {
+                alreadyEnrolled.push({ email: normalizedEmail, name });
             } else {
                 await db.execute(
                     'INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)',
-                    [courseId, user.id]
+                    [courseId, userId]
                 );
-                enrolled.push({ email, name: user.name });
+                enrolled.push({ email: normalizedEmail, name });
             }
         }
 

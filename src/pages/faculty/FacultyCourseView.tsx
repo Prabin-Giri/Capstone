@@ -52,7 +52,7 @@ const FacultyCourseView: React.FC = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
     // CSV enrollment state
-    const [csvEmails, setCsvEmails] = useState<string[]>([]);
+    const [csvData, setCsvData] = useState<{ id: string, name: string, email: string }[]>([]);
     const [csvFileName, setCsvFileName] = useState<string>('');
     const [csvResult, setCsvResult] = useState<CsvEnrollResult | null>(null);
     const [csvLoading, setCsvLoading] = useState(false);
@@ -234,33 +234,65 @@ const FacultyCourseView: React.FC = () => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target?.result as string;
-            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-            if (lines.length === 0) { setCsvEmails([]); return; }
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            if (lines.length === 0) { setCsvData([]); return; }
 
-            // Parse first row to detect headers
-            const firstRow = lines[0].split(',').map(c => c.trim().toLowerCase());
-            const emailColIndex = firstRow.indexOf('email');
+            // Proper quoted-CSV row parser — handles fields like "Last, First"
+            const parseCsvRow = (row: string): string[] => {
+                const result: string[] = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < row.length; i++) {
+                    const ch = row[i];
+                    if (ch === '"') {
+                        if (inQuotes && row[i + 1] === '"') { current += '"'; i++; }
+                        else { inQuotes = !inQuotes; }
+                    } else if (ch === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += ch;
+                    }
+                }
+                result.push(current.trim());
+                return result;
+            };
 
-            let emails: string[];
-            if (emailColIndex >= 0) {
-                // Multi-column CSV with an 'email' header — extract that column
-                emails = lines.slice(1)
-                    .map(line => line.split(',')[emailColIndex]?.trim())
-                    .filter(Boolean) as string[];
+            const headers = parseCsvRow(lines[0]).map(h => h.toLowerCase());
+
+            // Map exact expected column names
+            const sisLoginIdIndex = headers.indexOf('sis login id');
+            const studentIndex = headers.indexOf('student');
+            const idIndex = headers.indexOf('id');
+
+            if (sisLoginIdIndex >= 0 && studentIndex >= 0 && idIndex >= 0) {
+                const students = lines.slice(1).map(line => {
+                    const cols = parseCsvRow(line);
+                    const sisLoginId = cols[sisLoginIdIndex]?.trim();
+                    const name = cols[studentIndex]?.trim();  // Full "Last, First" preserved
+                    const id = cols[idIndex]?.trim();
+
+                    if (!sisLoginId || !name || !id) return null;
+                    return {
+                        id,
+                        name,
+                        email: `${sisLoginId}@example.edu`
+                    };
+                }).filter(Boolean) as { id: string, name: string, email: string }[];
+                setCsvData(students);
             } else {
-                // Single-column or no header — treat each line as an email, skip if it looks like a header
-                emails = lines.filter(l => l.toLowerCase() !== 'email' && l.includes('@'));
+                alert('Invalid CSV format. Please ensure the CSV contains "ID", "Student", and "SIS Login ID" headers.');
+                setCsvData([]);
             }
-            setCsvEmails(emails);
         };
         reader.readAsText(file);
     };
 
     const handleCsvEnroll = async () => {
-        if (!courseId || csvEmails.length === 0) return;
+        if (!courseId || csvData.length === 0) return;
         setCsvLoading(true);
         try {
-            const result = await enrollStudentsByCSV(courseId, csvEmails);
+            const result = await enrollStudentsByCSV(courseId, csvData);
             setCsvResult(result);
             // Refresh student list
             const students = await getEnrolledStudents(courseId);
@@ -276,7 +308,7 @@ const FacultyCourseView: React.FC = () => {
     const resetEnrollModal = () => {
         setShowEnrollModal(false);
         setEnrollTab('manual');
-        setCsvEmails([]);
+        setCsvData([]);
         setCsvFileName('');
         setCsvResult(null);
         setStudentSearchQuery('');
@@ -982,26 +1014,26 @@ const FacultyCourseView: React.FC = () => {
                                 {/* Drop zone */}
                                 <div
                                     onClick={() => csvInputRef.current?.click()}
-                                    className={`csv-upload-box ${csvEmails.length > 0 ? 'has-file' : ''}`}
+                                    className={`csv-upload-box ${csvData.length > 0 ? 'has-file' : ''}`}
                                 >
-                                    <Upload size={28} style={{ margin: '0 auto 12px', color: csvEmails.length > 0 ? 'var(--success-color)' : 'var(--text-tertiary)' }} />
+                                    <Upload size={28} style={{ margin: '0 auto 12px', color: csvData.length > 0 ? 'var(--success-color)' : 'var(--text-tertiary)' }} />
                                     {csvFileName ? (
                                         <>
                                             <p style={{ fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>{csvFileName}</p>
-                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>{csvEmails.length} email{csvEmails.length !== 1 ? 's' : ''} detected — click to change</p>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>{csvData.length} student{csvData.length !== 1 ? 's' : ''} detected — click to change</p>
                                         </>
                                     ) : (
                                         <>
                                             <p style={{ fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Click to upload CSV</p>
-                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', margin: 0 }}>One email per row (Header row optional)</p>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', margin: 0 }}>Canvas CSV with ID, Student, SIS Login ID columns</p>
                                         </>
                                     )}
                                 </div>
 
-                                {/* Email preview */}
-                                {csvEmails.length > 0 && !csvResult && (
+                                {/* Student preview */}
+                                {csvData.length > 0 && !csvResult && (
                                     <div style={{ maxHeight: '140px', overflowY: 'auto', background: '#f9fafb', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '0.8rem', color: '#374151' }}>
-                                        {csvEmails.map((e, i) => <div key={i} style={{ padding: '2px 0', borderBottom: '1px solid #e5e7eb' }}>{e}</div>)}
+                                        {csvData.map((s: { id: string, name: string, email: string }, i: number) => <div key={i} style={{ padding: '2px 0', borderBottom: '1px solid #e5e7eb' }}>{s.name} — {s.email}</div>)}
                                     </div>
                                 )}
 
@@ -1031,7 +1063,7 @@ const FacultyCourseView: React.FC = () => {
                                 )}
 
                                 {/* Enroll button */}
-                                {csvEmails.length > 0 && !csvResult && (
+                                {csvData.length > 0 && !csvResult && (
                                     <button
                                         onClick={handleCsvEnroll}
                                         disabled={csvLoading}
@@ -1041,7 +1073,7 @@ const FacultyCourseView: React.FC = () => {
                                             fontWeight: 600, fontSize: '0.95rem', cursor: csvLoading ? 'not-allowed' : 'pointer',
                                         }}
                                     >
-                                        {csvLoading ? 'Enrolling...' : `Enroll ${csvEmails.length} Student${csvEmails.length !== 1 ? 's' : ''}`}
+                                        {csvLoading ? 'Enrolling...' : `Enroll ${csvData.length} Student${csvData.length !== 1 ? 's' : ''}`}
                                     </button>
                                 )}
                             </div>
