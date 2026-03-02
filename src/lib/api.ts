@@ -175,6 +175,10 @@ export async function searchStudents(query: string): Promise<User[]> {
     return apiFetch<User[]>(`/users/students?q=${encodeURIComponent(query)}`);
 }
 
+export async function searchTAs(query: string): Promise<User[]> {
+    return apiFetch<User[]>(`/users/search?role=ta&q=${encodeURIComponent(query)}`);
+}
+
 export async function createAssignment(assignment: Omit<Assignment, 'id' | 'created_at'> & { id?: string }): Promise<Assignment> {
     return apiFetch<Assignment>('/assignments', {
         method: 'POST',

@@ -15,6 +15,7 @@ import {
     unenrollStudent,
     getEnrolledStudents,
     searchStudents,
+    searchTAs,
     getTAs,
     inviteTA,
     removeTA,
@@ -802,7 +803,7 @@ const FacultyCourseView: React.FC = () => {
                                     if (e.target.value.length > 2) {
                                         setIsSearching(true);
                                         try {
-                                            const res = await searchStudents(e.target.value);
+                                            const res = await searchTAs(e.target.value);
                                             // Assume roles are returned or just filter any
                                             setSearchResults(res.filter(s => !enrolledTAs.find(t => t.id === s.id)));
                                         } finally {

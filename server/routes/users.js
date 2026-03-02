@@ -70,4 +70,30 @@ router.get('/students', async (req, res, next) => {
     }
 });
 
+// GET /api/users/search - Get users dynamically by role
+router.get('/search', async (req, res, next) => {
+    const { q, role } = req.query;
+    try {
+        const db = getDb();
+        let query = "SELECT id, name, email, role FROM users WHERE 1=1";
+        const params = [];
+
+        if (role) {
+            query += " AND role = ?";
+            params.push(role);
+        }
+
+        if (q) {
+            query += " AND (name LIKE ? OR email LIKE ? OR id LIKE ?)";
+            const search = `%${q}%`;
+            params.push(search, search, search);
+        }
+
+        const result = await db.execute(query, params);
+        res.json(queryToObjects(result));
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;
