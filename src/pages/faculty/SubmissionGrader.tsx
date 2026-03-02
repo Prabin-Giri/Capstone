@@ -2,14 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde } from '../../lib/api';
 import type { Submission, Assignment } from '../../lib/api';
+import { getRole } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
 import { Play } from 'lucide-react';
+import AlertModal from '../../components/ui/AlertModal';
 
 import './SubmissionGrader.css';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
     const navigate = useNavigate();
+    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [assignment, setAssignment] = useState<Assignment | null>(null);
@@ -20,6 +23,7 @@ const SubmissionGrader: React.FC = () => {
     const [previewFileName, setPreviewFileName] = useState<string | null>(null);
     const [isAutograding, setIsAutograding] = useState(false);
     const [showAttemptSelector, setShowAttemptSelector] = useState(false);
+    const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
 
     // Form State
     const [grade, setGrade] = useState('');
@@ -94,10 +98,10 @@ const SubmissionGrader: React.FC = () => {
             // Update the attempt list to reflect the new grade
             setAllSubmissions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s));
 
-            alert('Autograding completed successfully.');
+            setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed successfully.' });
         } catch (err) {
             console.error(err);
-            alert('Autograding failed. Please check test cases and system logs.');
+            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Autograding failed. Please check test cases and system logs.' });
         } finally {
             setIsAutograding(false);
         }
@@ -119,10 +123,10 @@ const SubmissionGrader: React.FC = () => {
                 feedback,
                 status: 'graded' // Auto-update status to graded on save
             });
-            navigate(`/faculty/courses/${courseId}/assignments/${assignmentId}/grading`);
+            navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`);
         } catch (err) {
             console.error('Failed to save grade', err);
-            alert('Failed to save grade');
+            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Failed to save grade.' });
         }
     }
 
@@ -318,6 +322,16 @@ const SubmissionGrader: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Alert Modal */}
+            {alertConfig.show && (
+                <AlertModal
+                    type={alertConfig.type}
+                    title={alertConfig.title}
+                    message={alertConfig.message}
+                    onClose={() => setAlertConfig({ ...alertConfig, show: false })}
+                />
             )}
         </div>
     );

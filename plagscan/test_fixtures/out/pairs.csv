@@ -1,7 +1,0 @@
-Submission A,Submission B,Jaccard,Containment,Metric Similarity,Shared Fingerprints,Fingerprints A,Fingerprints B,Matched Regions
-s001,s002,1.0000,1.0000,1.0000,120,120,120,1
-s001,s004,0.1193,0.5122,0.9683,61,120,139,2
-s001,s005,0.0702,0.5122,0.9654,57,120,194,2
-s002,s004,0.1193,0.5122,0.9683,61,120,139,2
-s002,s005,0.0702,0.5122,0.9654,57,120,194,2
-s004,s005,0.0577,0.4667,0.9700,55,139,194,1

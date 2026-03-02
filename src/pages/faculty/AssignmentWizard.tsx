@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase } from '../../lib/api';
 import type { TestCase } from '../../lib/api';
+import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
 import { Plus, Trash2, Eye, EyeOff } from 'lucide-react';
@@ -10,6 +11,7 @@ import './AssignmentWizard.css';
 const AssignmentWizard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
+    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
     const isEditing = !!assignmentId;
 
     const [formData, setFormData] = useState({
@@ -61,7 +63,7 @@ const AssignmentWizard: React.FC = () => {
                 setLoading(false);
             }).catch(err => {
                 console.error(err);
-                navigate(`/faculty/courses/${courseId}`);
+                navigate(`${basePath}/courses/${courseId}`);
             });
         }
     }, [isEditing, assignmentId, courseId, navigate]);
@@ -152,7 +154,7 @@ const AssignmentWizard: React.FC = () => {
                 }
             }
 
-            navigate(`/faculty/courses/${courseId}`);
+            navigate(`${basePath}/courses/${courseId}`);
         } catch (err: any) {
             console.error('Failed to save', err);
             const message = err.message || 'Unknown error';
@@ -478,7 +480,7 @@ const AssignmentWizard: React.FC = () => {
                 </div>
 
                 <div className="form-actions">
-                    <Button type="button" variant="ghost" onClick={() => navigate(`/faculty/courses/${courseId}`)} disabled={saving}>
+                    <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}`)} disabled={saving}>
                         Cancel
                     </Button>
                     <Button type="submit" disabled={saving}>

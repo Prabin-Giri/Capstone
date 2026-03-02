@@ -79,6 +79,11 @@ export const router = createBrowserRouter([
                 children: [
                     { index: true, element: <TADashboard /> },
                     { path: 'courses/:courseId', element: <TACourseView /> },
+                    { path: 'courses/:courseId/assignments/new', element: <AssignmentWizard /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId/edit', element: <AssignmentWizard /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId/grading', element: <GradingDashboard /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId/grading/:submissionId', element: <SubmissionGrader /> },
+                    { path: 'courses/:courseId/gradebook', element: <CourseGradebook /> },
                 ]
             }
         ]

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getCourseGrades, getCourseGradesExportUrl } from '../../lib/api';
 import type { GradebookData } from '../../lib/api';
+import { getRole } from '../../lib/auth';
 import { Download, FileSpreadsheet, FileText, ChevronLeft, BarChart2, Printer, X, PieChart } from 'lucide-react';
 import './CourseGradebook.css';
 
@@ -19,6 +20,7 @@ interface ReportStats {
 
 const CourseGradebook: React.FC = () => {
     const { courseId } = useParams();
+    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
     const [data, setData] = useState<GradebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [showExportModal, setShowExportModal] = useState(false);
@@ -125,7 +127,7 @@ const CourseGradebook: React.FC = () => {
             <div className="gradebook-header">
                 <div>
                     <div className="breadcrumb">
-                        <Link to={`/faculty/courses/${courseId}`}>
+                        <Link to={`${basePath}/courses/${courseId}`}>
                             <ChevronLeft size={14} />
                             Back to Course
                         </Link>

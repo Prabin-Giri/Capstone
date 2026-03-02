@@ -2,23 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
+import { getRole } from '../../lib/auth';
 import { BarChart2, Search, Play } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import PlagiarismReportModal from './PlagiarismReportModal';
 import AutoGradingConfigModal from './AutoGradingConfigModal';
+import AlertModal from '../../components/ui/AlertModal';
 
 import './GradingDashboard.css';
 
 const GradingDashboard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
+    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [groupedSubmissions, setGroupedSubmissions] = useState<Record<string, Submission[]>>({});
     const [selectedStudentSubmissions, setSelectedStudentSubmissions] = useState<Submission[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
     const [showAutoGradeModal, setShowAutoGradeModal] = useState(false);
+    const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
 
     useEffect(() => {
         loadData();
@@ -59,8 +63,14 @@ const GradingDashboard: React.FC = () => {
 
     const handleAutoGrade = async (config: { latePenalty: string; timeout: number }) => {
         if (!assignmentId) return;
-        await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
-        await loadData(); // Reload to show new grades
+        try {
+            await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
+            await loadData(); // Reload to show new grades
+            setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed successfully.' });
+        } catch (err) {
+            console.error(err);
+            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Autograding failed. Please check test cases and system logs.' });
+        }
     };
 
     if (loading) return <div className="grading-dashboard-container">Loading...</div>;
@@ -71,7 +81,7 @@ const GradingDashboard: React.FC = () => {
             <div className="dashboard-header">
                 <div>
                     <div className="breadcrumb">
-                        <Link to={`/faculty/courses/${courseId}`}>Back to Course</Link>
+                        <Link to={`${basePath}/courses/${courseId}`}>Back to Course</Link>
                         <span>/</span>
                         <span>{assignment.title}</span>
                     </div>
@@ -93,7 +103,7 @@ const GradingDashboard: React.FC = () => {
                         Check Plagiarism
                     </button>
                     <Link
-                        to={`/faculty/courses/${courseId}/gradebook`}
+                        to={`${basePath}/courses/${courseId}/gradebook`}
                         className="btn-dashboard-action btn-gradebook"
                     >
                         <BarChart2 size={20} />
@@ -235,6 +245,16 @@ const GradingDashboard: React.FC = () => {
                     assignmentId={assignment.id}
                     onClose={() => setShowAutoGradeModal(false)}
                     onStart={handleAutoGrade}
+                />
+            )}
+
+            {/* Alert Modal */}
+            {alertConfig.show && (
+                <AlertModal
+                    type={alertConfig.type}
+                    title={alertConfig.title}
+                    message={alertConfig.message}
+                    onClose={() => setAlertConfig({ ...alertConfig, show: false })}
                 />
             )}
         </div>
