@@ -18,19 +18,19 @@ const AssignmentWizard: React.FC = () => {
         due_date: '',
         due_time: '23:59',
         status: 'active' as 'active' | 'closed' | 'late',
-        points: 100,
+        points: '100' as string | number,
         language: '',
         starter_code_path: '',
         test_case_file_path: '',
         type: 'individual' as 'individual' | 'group',
         late_penalty_enabled: false,
         late_penalty_type: 'per_day' as 'per_day' | 'per_hour' | 'fixed',
-        late_penalty_value: 10,
-        late_penalty_cap: 50
+        late_penalty_value: '10' as string | number,
+        late_penalty_cap: '50' as string | number
     });
     const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
     const [testCaseFile, setTestCaseFile] = useState<File | null>(null);
-    const [testCases, setTestCases] = useState<Partial<TestCase>[]>([]);
+    const [testCases, setTestCases] = useState<(Omit<Partial<TestCase>, 'points'> & { points?: number | string })[]>([]);
     const [loading, setLoading] = useState(isEditing);
     const [saving, setSaving] = useState(false);
 
@@ -54,10 +54,10 @@ const AssignmentWizard: React.FC = () => {
                     type: data.type || 'individual',
                     late_penalty_enabled: !!(data.late_penalty_enabled === true || data.late_penalty_enabled === 1),
                     late_penalty_type: (data.late_penalty_type as 'per_day' | 'per_hour' | 'fixed') || 'per_day',
-                    late_penalty_value: data.late_penalty_value != null ? Number(data.late_penalty_value) : 10,
-                    late_penalty_cap: data.late_penalty_cap != null ? Number(data.late_penalty_cap) : 50
+                    late_penalty_value: data.late_penalty_value != null ? data.late_penalty_value : 10,
+                    late_penalty_cap: data.late_penalty_cap != null ? data.late_penalty_cap : 50
                 });
-                setTestCases(cases);
+                setTestCases(cases.map(tc => ({ ...tc, points: tc.points })));
                 setLoading(false);
             }).catch(err => {
                 console.error(err);
@@ -70,7 +70,7 @@ const AssignmentWizard: React.FC = () => {
         setTestCases([...testCases, {
             input: '',
             expected_output: '',
-            points: 0,
+            points: '',
             is_public: 1
         }]);
     };
@@ -116,6 +116,9 @@ const AssignmentWizard: React.FC = () => {
 
             const payload = {
                 ...formData,
+                points: formData.points === '' ? 0 : Number(formData.points),
+                late_penalty_value: formData.late_penalty_value === '' ? 0 : Number(formData.late_penalty_value),
+                late_penalty_cap: formData.late_penalty_cap === '' ? 0 : Number(formData.late_penalty_cap),
                 due_date: combinedDateTime,
                 starter_code_path: starterCodePath,
                 test_case_file_path: testCaseFilePath
@@ -137,10 +140,14 @@ const AssignmentWizard: React.FC = () => {
             // Sync test cases
             if (finalAssignmentId) {
                 for (const tc of testCases) {
+                    const tcPayload = {
+                        ...tc,
+                        points: tc.points === '' || tc.points === undefined ? 0 : Number(tc.points)
+                    };
                     if (tc.id) {
-                        await updateTestCase(tc.id, tc);
+                        await updateTestCase(tc.id, tcPayload);
                     } else {
-                        await createTestCase({ ...tc, assignment_id: finalAssignmentId });
+                        await createTestCase({ ...tcPayload, assignment_id: finalAssignmentId });
                     }
                 }
             }
@@ -190,14 +197,13 @@ const AssignmentWizard: React.FC = () => {
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Due Date</label>
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <div className="form-input-group">
                             <input
                                 type="date"
                                 required
                                 className="form-input"
                                 value={formData.due_date}
                                 onChange={e => setFormData({ ...formData, due_date: e.target.value })}
-                                style={{ flex: 2 }}
                             />
                             <input
                                 type="time"
@@ -205,7 +211,6 @@ const AssignmentWizard: React.FC = () => {
                                 className="form-input"
                                 value={formData.due_time}
                                 onChange={e => setFormData({ ...formData, due_time: e.target.value })}
-                                style={{ flex: 1 }}
                             />
                         </div>
                     </div>
@@ -216,7 +221,7 @@ const AssignmentWizard: React.FC = () => {
                             min="0"
                             className="form-input"
                             value={formData.points}
-                            onChange={e => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })}
+                            onChange={e => setFormData({ ...formData, points: e.target.value })}
                         />
                     </div>
                     <div className="form-group">
@@ -244,19 +249,19 @@ const AssignmentWizard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="form-group" style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <h3 className="section-title-wizard" style={{ marginTop: 0, marginBottom: '0.75rem' }}>Late submission penalty</h3>
-                    <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>When enabled, the autograder applies a deduction based on submission time vs due date. Submission time is recorded automatically.</p>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <div className="late-penalty-card">
+                    <h3 className="late-penalty-title">Late submission penalty</h3>
+                    <p className="late-penalty-info">When enabled, the autograder applies a deduction based on submission time vs due date. Submission time is recorded automatically.</p>
+                    <div className="form-group-checkbox">
                         <input
                             type="checkbox"
                             checked={formData.late_penalty_enabled}
                             onChange={e => setFormData({ ...formData, late_penalty_enabled: e.target.checked })}
                         />
-                        <span>Enable late penalty</span>
-                    </label>
+                        <span className="checkbox-label-text">Enable late penalty</span>
+                    </div>
                     {formData.late_penalty_enabled && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                        <div className="late-penalty-grid">
                             <div>
                                 <label className="form-label">Type</label>
                                 <select
@@ -277,7 +282,7 @@ const AssignmentWizard: React.FC = () => {
                                     step="0.5"
                                     className="form-input"
                                     value={formData.late_penalty_value}
-                                    onChange={e => setFormData({ ...formData, late_penalty_value: parseFloat(e.target.value) || 0 })}
+                                    onChange={e => setFormData({ ...formData, late_penalty_value: e.target.value })}
                                 />
                             </div>
                             <div>
@@ -289,9 +294,9 @@ const AssignmentWizard: React.FC = () => {
                                     step="5"
                                     className="form-input"
                                     value={formData.late_penalty_cap}
-                                    onChange={e => setFormData({ ...formData, late_penalty_cap: parseFloat(e.target.value) || 50 })}
+                                    onChange={e => setFormData({ ...formData, late_penalty_cap: e.target.value })}
                                 />
-                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Max deduction</span>
+                                <span className="late-penalty-cap-info">Max deduction</span>
                             </div>
                         </div>
                     )}
@@ -324,7 +329,7 @@ const AssignmentWizard: React.FC = () => {
                         />
                         {formData.starter_code_path && (
                             <p className="file-info-wizard">
-                                Current: <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>{formData.starter_code_path}</span>
+                                Current: <span className="active-filename">{formData.starter_code_path}</span>
                             </p>
                         )}
                     </div>
@@ -391,8 +396,8 @@ const AssignmentWizard: React.FC = () => {
                                         <input
                                             type="number"
                                             className="tc-input"
-                                            value={tc.points || 0}
-                                            onChange={e => handleTestCaseChange(idx, 'points', parseInt(e.target.value) || 0)}
+                                            value={tc.points ?? ''}
+                                            onChange={e => handleTestCaseChange(idx, 'points', e.target.value)}
                                         />
                                     </div>
                                 </div>

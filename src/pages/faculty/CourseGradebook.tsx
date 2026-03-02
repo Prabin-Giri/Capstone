@@ -181,7 +181,7 @@ const CourseGradebook: React.FC = () => {
                     <tbody>
                         {students.map(student => (
                             <tr key={student.id}>
-                                <td style={{ position: 'sticky', left: 0, background: 'white', zIndex: 10, borderRight: '1px solid #e5e7eb' }}>
+                                <td style={{ position: 'sticky', left: 0, background: 'var(--bg-surface)', zIndex: 10, borderRight: '1px solid var(--border-color)' }}>
                                     <div className="student-name">{student.name}</div>
                                 </td>
                                 <td>
@@ -266,7 +266,7 @@ const CourseGradebook: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleDownload}
-                                className="btn-report premium"
+                                className="btn-report-action"
                             >
                                 Download {exportFormat.toUpperCase()}
                             </button>
@@ -412,12 +412,12 @@ const CourseGradebook: React.FC = () => {
                             {reportStep === 'select' ? (
                                 <>
                                     <button onClick={() => setShowReportModal(false)} className="btn-report">Cancel</button>
-                                    <button onClick={generateReport} className="btn-report premium">Generate Report</button>
+                                    <button onClick={generateReport} className="btn-report-action">Generate Report</button>
                                 </>
                             ) : (
                                 <>
                                     <button onClick={() => setReportStep('select')} className="btn-report">Back</button>
-                                    <button onClick={() => window.print()} className="btn-report premium">
+                                    <button onClick={() => window.print()} className="btn-report-action">
                                         <Printer size={18} /> Print Report
                                     </button>
                                 </>

@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createCourse } from '../../lib/api';
 import { getUser } from '../../lib/auth';
-import { Button } from '../../components/ui/Button';
 import './NewCourse.css';
-
 const NewCourse: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -76,17 +74,17 @@ const NewCourse: React.FC = () => {
                     </div>
 
                     <div className="form-actions">
-                        <Button
+                        <button
                             type="button"
-                            variant="secondary"
+                            className="nc-btn-outline"
                             onClick={() => navigate('/faculty')}
                             disabled={loading}
                         >
                             Cancel
-                        </Button>
-                        <Button type="submit" disabled={loading}>
+                        </button>
+                        <button type="submit" className="nc-btn-primary" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Course'}
-                        </Button>
+                        </button>
                     </div>
                 </form>
             </div>

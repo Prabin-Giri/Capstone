@@ -40,7 +40,8 @@ const SignUp: React.FC = () => {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role as any // Type assertion to handle possible stale API types
+                role: user.role as any,
+                profilePicture: user.profile_picture
             });
         } catch (err: any) {
             setError(err.message || 'Sign up failed. Please try again.');

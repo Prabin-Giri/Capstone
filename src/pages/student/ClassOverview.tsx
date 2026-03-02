@@ -48,9 +48,10 @@ const ClassOverview: React.FC = () => {
         );
     }
 
-    const activeAssignments = assignments.filter(
-        (assignment) => assignment.status === 'active'
-    );
+    const activeAssignments = assignments.filter((assignment) => {
+        const isOpen = new Date(assignment.due_date) >= new Date();
+        return assignment.status === 'active' && isOpen;
+    });
 
     return (
         <div className="class-overview">

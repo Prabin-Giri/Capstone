@@ -41,7 +41,7 @@
 .header-title h1 {
   font-size: 2.25rem;
   font-weight: 800;
-  color: var(--primary-color);
+  color: var(--primary-text);
   letter-spacing: -0.04em;
   margin: 0;
 }
@@ -54,21 +54,20 @@
 }
 
 .create-btn {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--bg-surface);
+  color: var(--primary-text);
   font-weight: 600;
   padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
   font-size: 0.875rem;
-  border: none;
+  border: 2px solid var(--primary-light);
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 6px rgba(132, 0, 41, 0.2);
 }
 
 .create-btn:hover {
-  background-color: var(--primary-hover);
-  box-shadow: 0 6px 12px rgba(132, 0, 41, 0.3);
+  background-color: var(--border-color);
+  border-color: var(--text-primary);
 }
 
 /* Dropdown Menu - Glass Style */
@@ -82,7 +81,7 @@
   left: 0;
   top: 100%;
   margin-top: 12px;
-  background-color: white;
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
@@ -120,8 +119,8 @@
 }
 
 .dropdown-item:hover {
-  background-color: var(--primary-light);
-  color: var(--primary-color);
+  background-color: var(--border-color);
+  color: var(--primary-text);
 }
 
 .dropdown-divider {
@@ -142,7 +141,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: white;
+  background-color: var(--bg-surface);
   padding: 0.5rem 1rem;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -156,9 +155,9 @@
 }
 
 .doc-pill:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background-color: var(--primary-light);
+  border-color: var(--primary-text);
+  color: var(--primary-text);
+  background-color: var(--border-color);
 }
 
 .doc-pill.empty {
@@ -197,30 +196,27 @@
 
 /* Students Section */
 .students-list {
-  background-color: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .student-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid transparent;
-  transition: all 0.2s;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--primary-border);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
 }
 
 .student-item:hover {
-  background: white;
-  border-color: var(--border-color);
-  box-shadow: var(--shadow-sm);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-md);
 }
 
 .student-info {
@@ -234,7 +230,7 @@
   height: 36px;
   border-radius: 50%;
   background: var(--primary-light);
-  color: var(--primary-color);
+  color: var(--primary-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -283,31 +279,31 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: none;
-  border: 1px solid var(--primary-color);
-  color: var(--primary-color);
-  font-size: 0.75rem;
+  background-color: var(--bg-surface);
+  border: 2px solid var(--primary-light);
+  color: var(--primary-text);
+  font-size: 0.8rem;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .enroll-btn-small:hover {
-  background: var(--primary-color);
-  color: white;
+  background-color: var(--border-color);
+  border-color: var(--text-primary);
 }
 
 /* Assignment Card Premium */
 .assignment-card {
-  background-color: white;
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.5rem 2rem;
   transition: all 0.3s ease;
-  border-left: 4px solid var(--primary-color);
+  border-left: 4px solid var(--primary-border);
 }
 
 .assignment-card:hover {
@@ -382,8 +378,8 @@
 }
 
 .action-btn:hover {
-  background-color: white;
-  color: var(--primary-color);
+  background-color: var(--bg-surface);
+  color: var(--primary-text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -491,7 +487,7 @@
 
 .enroll-modal-close:hover {
   background: var(--light-grey);
-  color: var(--primary-color);
+  color: var(--primary-text);
 }
 
 .enroll-modal-tabs {
@@ -517,8 +513,8 @@
 }
 
 .enroll-modal-tab.active {
-  background: white;
-  color: var(--primary-color);
+  background-color: var(--bg-surface);
+  color: var(--primary-text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -539,7 +535,7 @@
 .student-search-input {
   width: 100%;
   padding: 12px 16px 12px 42px;
-  background: white;
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   font-size: 1rem;
@@ -549,7 +545,7 @@
 
 .student-search-input:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--primary-text);
   box-shadow: 0 0 0 4px var(--primary-light);
 }
 
@@ -566,7 +562,7 @@
   justify-content: space-between;
   padding: 12px;
   border-radius: 10px;
-  background: white;
+  background-color: var(--bg-surface);
   border: 1px solid transparent;
   transition: all 0.2s;
   margin-bottom: 8px;
@@ -574,7 +570,7 @@
 
 .search-result-item:hover {
   background: var(--primary-light);
-  border-color: var(--primary-color);
+  border-color: var(--primary-text);
 }
 
 .search-result-info {
@@ -587,7 +583,7 @@
   width: 36px;
   height: 36px;
   background: var(--primary-light);
-  color: var(--primary-color);
+  color: var(--primary-text);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -612,7 +608,7 @@
 .btn-enroll-icon {
   background: transparent;
   border: none;
-  color: var(--primary-color);
+  color: var(--primary-text);
   padding: 6px;
   border-radius: 6px;
   transition: all 0.2s;
@@ -636,7 +632,7 @@
 }
 
 .csv-upload-box:hover {
-  border-color: var(--primary-color);
+  border-color: var(--primary-text);
   background: var(--primary-light);
 }
 
@@ -669,7 +665,7 @@
 }
 
 .unenroll-content {
-  background-color: white;
+  background-color: var(--bg-surface);
   border-radius: 20px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
@@ -682,8 +678,8 @@
 .unenroll-icon-wrapper {
   width: 64px;
   height: 64px;
-  background: #fff5f5;
-  color: #ef4444;
+  background-color: var(--bg-surface);
+  color: var(--danger-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -717,30 +713,29 @@
 }
 
 .unenroll-btn-cancel {
-  background: white;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-secondary);
+  background-color: var(--bg-surface);
+  border: 2px solid var(--primary-light);
+  color: var(--primary-text);
 }
 
 .unenroll-btn-cancel:hover {
-  background: var(--bg-body);
+  background-color: var(--border-color);
+  border-color: var(--text-primary);
 }
 
 .unenroll-btn-confirm {
   background: var(--primary-color) !important;
   color: white !important;
-  box-shadow: 0 4px 12px rgba(132, 0, 41, 0.2);
 }
 
 .unenroll-btn-confirm:hover {
   background: var(--primary-hover) !important;
-  box-shadow: 0 6px 20px rgba(132, 0, 41, 0.3);
 }
 
 /* Red Trash Button in Sidebar */
 .trash-btn-red {
   padding: 6px;
-  color: #ef4444;
+  color: var(--danger-color);
   background: transparent;
   border-radius: 8px;
   transition: all 0.2s;
@@ -750,8 +745,8 @@
 }
 
 .trash-btn-red:hover {
-  color: #dc2626;
-  background: #fee2e2;
+  color: white;
+  background: var(--danger-bg);
 }
 
 .trash-btn-red:active {

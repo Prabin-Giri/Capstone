@@ -148,13 +148,13 @@ const SubmitAssignment: React.FC = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {allSubmissions.map((sub, idx) => (
                                 <div key={sub.id} style={{
-                                    background: '#fef3c7',
+                                    background: 'var(--secondary-color)',
                                     padding: '12px 16px',
                                     borderRadius: '8px',
                                 }}>
                                     <p style={{ margin: 0, fontSize: '14px', marginBottom: '8px' }}>
                                         <strong>Attempt {allSubmissions.length - idx}</strong> <br />
-                                        <span style={{ color: '#666' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>
                                             Submitted: {new Date(sub.submitted_at).toLocaleString()}
                                         </span>
                                     </p>
@@ -181,11 +181,11 @@ const SubmitAssignment: React.FC = () => {
 
                 {error && (
                     <div style={{
-                        background: '#fee2e2',
+                        background: 'var(--danger-bg)',
                         padding: '12px 16px',
                         borderRadius: '8px',
                         marginBottom: '16px',
-                        color: '#dc2626'
+                        color: 'var(--danger-color)'
                     }}>
                         {error}
                     </div>
@@ -198,8 +198,8 @@ const SubmitAssignment: React.FC = () => {
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         style={{
-                            border: isDragging ? '2px dashed #2563eb' : '2px dashed #e5e7eb',
-                            backgroundColor: isDragging ? '#eff6ff' : '#f9fafb'
+                            border: isDragging ? '2px dashed var(--primary-color)' : '2px dashed var(--border-color)',
+                            backgroundColor: isDragging ? 'var(--light-grey)' : 'var(--bg-surface)'
                         }}
                     >
                         <input
@@ -214,8 +214,8 @@ const SubmitAssignment: React.FC = () => {
                             accept={assignment?.language === 'python' ? '.py' : assignment?.language === 'javascript' ? '.js' : assignment?.language === 'java' ? '.java' : undefined}
                         />
                         <label htmlFor="file-upload" className="file-input-label cursor-pointer block h-full" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '150px' }}>
-                            <div style={{ textAlign: 'center', color: '#6b7280' }}>
-                                <p style={{ margin: 0, fontWeight: 500, color: '#374151' }}>Click to upload or drag and drop</p>
+                            <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)' }}>Click to upload or drag and drop</p>
                                 <p style={{ fontSize: '0.875rem', margin: '4px 0 0 0' }}>
                                     {assignment?.language ? `${assignment.language} source file required` : 'Any file'}
                                 </p>
@@ -224,13 +224,13 @@ const SubmitAssignment: React.FC = () => {
                     </div>
 
                     {selectedFiles.length > 0 && (
-                        <div style={{ background: '#f3f4f6', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px' }}>
+                        <div style={{ background: 'var(--light-grey)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px' }}>
                             <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Files to upload:</h4>
                             <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px' }}>
                                 {selectedFiles.map((f, i) => (
                                     <li key={i} style={{ marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
                                         <span>{f.name}</span>
-                                        <button type="button" onClick={() => removeFile(i)} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Remove</button>
+                                        <button type="button" onClick={() => removeFile(i)} style={{ color: 'var(--danger-color)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Remove</button>
                                     </li>
                                 ))}
                             </ul>
@@ -238,11 +238,11 @@ const SubmitAssignment: React.FC = () => {
                     )}
 
                     {assignment?.status === 'closed' ? (
-                        <div style={{ padding: '12px', background: '#fee2e2', color: '#dc2626', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ padding: '12px', background: 'var(--danger-bg)', color: 'var(--danger-color)', borderRadius: '8px', textAlign: 'center' }}>
                             This assignment is closed.
                         </div>
                     ) : existingSubmission && assignment && (assignment.status === 'late' || (assignment.status === 'active' && new Date() > new Date(assignment.due_date))) ? (
-                        <div style={{ padding: '12px', background: '#fee2e2', color: '#dc2626', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ padding: '12px', background: 'var(--danger-bg)', color: 'var(--danger-color)', borderRadius: '8px', textAlign: 'center' }}>
                             Cannot resubmit a late assignment.
                         </div>
                     ) : (

@@ -80,4 +80,28 @@ router.get('/documents/:courseId', async (req, res, next) => {
     }
 });
 
+// POST /api/uploads/profile-picture/:userId
+router.post('/profile-picture/:userId', upload.single('file'), async (req, res, next) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+        const db = getDb();
+        const userId = req.params.userId;
+        const filePath = req.file.filename;
+
+        // Update user record
+        await db.execute(
+            'UPDATE users SET profile_picture = ? WHERE id = ?',
+            [filePath, userId]
+        );
+
+        res.json({
+            message: 'Profile picture updated successfully',
+            filePath: filePath
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;

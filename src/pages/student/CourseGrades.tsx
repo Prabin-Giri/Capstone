@@ -140,22 +140,22 @@ const CourseGrades: React.FC = () => {
                                                 <span className="status-pill status-pending">Pending</span>
                                             )}
                                         </td>
-                                        <td style={{ fontWeight: 500, color: '#374151' }}>
-                                            {submission?.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') ? (
+                                        <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                            {submission?.grade !== null && submission?.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') ? (
                                                 <span>{submission.grade}/{maxPoints}</span>
                                             ) : (
-                                                <span style={{ color: '#9ca3af' }}>-/{maxPoints}</span>
+                                                <span style={{ color: 'var(--text-tertiary)' }}>-/{maxPoints}</span>
                                             )}
                                         </td>
                                         <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {(submission?.status === 'graded' || submission?.status === 'returned') && submission?.feedback ? submission.feedback : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>None</span>}
+                                            {(submission?.status === 'graded' || submission?.status === 'returned') && submission?.feedback ? submission.feedback : <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>None</span>}
                                         </td>
                                         <td>
                                             <Link
                                                 to={`/student/courses/${courseId}/assignments/${assignment.id}/submissions/${submission?.id || ''}`}
                                                 className="view-button"
                                                 onClick={(e) => !submission && e.preventDefault()}
-                                                style={!submission ? { color: '#9ca3af', cursor: 'not-allowed' } : {}}
+                                                style={!submission ? { color: 'var(--text-tertiary)', cursor: 'not-allowed' } : {}}
                                             >
                                                 {submission ? 'View' : 'No Submission'}
                                             </Link>
@@ -165,9 +165,9 @@ const CourseGrades: React.FC = () => {
                             })
                         )}
                         {assignments.length > 0 && (
-                            <tr className="grade-row" style={{ backgroundColor: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                            <tr className="grade-row" style={{ backgroundColor: 'var(--bg-surface)', borderTop: '2px solid var(--border-color)' }}>
                                 <td colSpan={4} style={{ fontWeight: 700, paddingLeft: '1.5rem' }}>Total Grade</td>
-                                <td style={{ fontWeight: 700, color: '#111827' }}>
+                                <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                                     {possible > 0 ? `${earned} / ${possible} (${totalPercentage}%)` : '-'}
                                 </td>
                                 <td></td>

@@ -105,9 +105,17 @@ const SubmissionGrader: React.FC = () => {
 
     async function handleSave() {
         if (!submissionId) return;
+        const maxPoints = assignment?.points || 100;
+        const enteredGrade = grade ? parseFloat(grade) : undefined;
+
+        if (enteredGrade !== undefined && enteredGrade > maxPoints) {
+            alert(`Grade cannot exceed the maximum points for this assignment (${maxPoints}).`);
+            return;
+        }
+
         try {
             await updateSubmission(parseInt(submissionId), {
-                grade: grade ? parseFloat(grade) : undefined,
+                grade: enteredGrade,
                 feedback,
                 status: 'graded' // Auto-update status to graded on save
             });
@@ -127,9 +135,9 @@ const SubmissionGrader: React.FC = () => {
             <div className="grader-panel-left">
                 <div className="grader-header">
                     <h2 className="grader-title">{assignment.title}</h2>
-                    <div className="meta-group" style={{ display: 'flex', gap: '2rem' }}>
-                        <p className="grader-meta">STUDENT ID: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{submission.student_id}</span></p>
-                        <p className="grader-meta">SUBMITTED: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{new Date(submission.submitted_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></p>
+                    <div className="meta-group">
+                        <p className="grader-meta">STUDENT ID: <span className="meta-value">{submission.student_id}</span></p>
+                        <p className="grader-meta">SUBMITTED: <span className="meta-value">{new Date(submission.submitted_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></p>
                     </div>
                 </div>
 
@@ -146,11 +154,12 @@ const SubmissionGrader: React.FC = () => {
                                         const url = getFileUrl(f.path);
                                         const isPreviewing = previewFileUrl === url;
                                         return (
-                                            <div key={i} className="file-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div key={i} className="file-box">
                                                 <span className="file-name">{f.name}</span>
-                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                <div className="file-actions">
                                                     <Button
-                                                        variant={isPreviewing ? 'primary' : 'outline'}
+                                                        variant="outline"
+                                                        className="btn-pill"
                                                         size="sm"
                                                         onClick={() => {
                                                             if (isPreviewing) {
@@ -165,7 +174,8 @@ const SubmissionGrader: React.FC = () => {
                                                         {isPreviewing ? 'Hide Preview' : 'Preview'}
                                                     </Button>
                                                     <Button
-                                                        variant="secondary"
+                                                        variant="primary"
+                                                        className="btn-pill"
                                                         size="sm"
                                                         onClick={() => window.open(url, '_blank')}
                                                     >
@@ -207,10 +217,10 @@ const SubmissionGrader: React.FC = () => {
 
             {/* Right Panel: Grading Form */}
             <div className="grader-panel-right">
-                <h2 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '24px' }}>Grading</h2>
+                <h2 className="section-title grader-form-title">Grading</h2>
 
                 <div className="grading-form">
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <div className="form-group autograde-action-group">
                         <Button
                             variant="primary"
                             type="button"
@@ -227,22 +237,30 @@ const SubmissionGrader: React.FC = () => {
                             <Play size={16} />
                             Autograde Submission
                         </Button>
-                        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                        <p className="autograde-hint">
                             Runs all test cases against the submission and updates grade/feedback.
                         </p>
                     </div>
 
-                    <div className="divider" style={{ borderTop: '1px solid #e5e7eb', margin: '8px 0 24px 0' }}></div>
+                    <div className="grader-form-divider"></div>
 
                     <div className="form-group">
-                        <label className="form-label">Grade (0-100)</label>
+                        <label className="form-label">Grade (0-{assignment.points || 100})</label>
                         <input
                             type="number"
                             min="0"
-                            max="100"
+                            max={assignment.points || 100}
                             className="form-input"
                             value={grade}
-                            onChange={(e) => setGrade(e.target.value)}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                const maxPoints = assignment.points || 100;
+                                if (parseFloat(val) > maxPoints) {
+                                    setGrade(maxPoints.toString());
+                                } else {
+                                    setGrade(val);
+                                }
+                            }}
                         />
                     </div>
 
