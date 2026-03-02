@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getSubmission, getFileUrl, getSubmissions } from '../../lib/api';
-import type { Submission } from '../../lib/api';
+import { getSubmission, getFileUrl, getSubmissions, getAssignment } from '../../lib/api';
+import type { Submission, Assignment } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import './SubmissionResults.css';
 
@@ -10,6 +10,7 @@ const SubmissionResults: React.FC = () => {
     const user = getUser();
     const studentId = user?.id || 'student-001';
     const [submission, setSubmission] = useState<Submission | null>(null);
+    const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -18,12 +19,14 @@ const SubmissionResults: React.FC = () => {
         async function loadSubmission() {
             if (!submissionId || !assignmentId) return;
             try {
-                const [data, submissionsData] = await Promise.all([
+                const [data, submissionsData, assignmentData] = await Promise.all([
                     getSubmission(parseInt(submissionId, 10)),
-                    getSubmissions({ assignment_id: assignmentId, student_id: studentId })
+                    getSubmissions({ assignment_id: assignmentId, student_id: studentId }),
+                    getAssignment(assignmentId)
                 ]);
                 setSubmission(data);
                 setAllSubmissions(submissionsData);
+                setAssignment(assignmentData);
             } catch (err) {
                 setError('Failed to load submission');
                 console.error(err);
@@ -47,7 +50,7 @@ const SubmissionResults: React.FC = () => {
     if (error || !submission) {
         return (
             <div className="submission-results">
-                <div className="mb-4">
+                <div className="mb-4" style={{ display: 'flex', justifyContent: 'flex-start' }}>
                     <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                         &larr; Back to Assignment
                     </Link>
@@ -62,7 +65,7 @@ const SubmissionResults: React.FC = () => {
 
     return (
         <div className="submission-results">
-            <div className="mb-4">
+            <div className="mb-4" style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
                     &larr; Back to Assignment
                 </Link>
@@ -71,14 +74,17 @@ const SubmissionResults: React.FC = () => {
             <div className="results-header">
                 <h1 className="results-title">Submission Details</h1>
                 <span className={`status-pill status-${submission.status}`} style={{
-                    padding: '4px 12px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    background: submission.status === 'graded' ? '#dcfce7' :
-                        submission.status === 'pending' ? '#fef3c7' : '#f3f4f6',
-                    color: submission.status === 'graded' ? '#16a34a' :
-                        submission.status === 'pending' ? '#d97706' : '#6b7280'
+                    padding: '2px 8px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    background: submission.status === 'graded' ? 'var(--success-bg)' : submission.status === 'pending' ? 'var(--secondary-color)' : 'var(--light-grey)',
+                    color: 'var(--text-primary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 'fit-content',
+                    textTransform: 'capitalize'
                 }}>
                     {submission.status}
                 </span>
@@ -86,7 +92,7 @@ const SubmissionResults: React.FC = () => {
 
             <div className="results-content" style={{ marginTop: '24px' }}>
                 <div style={{
-                    background: '#f9fafb',
+                    background: 'var(--bg-surface)',
                     padding: '20px',
                     borderRadius: '8px',
                     marginBottom: '20px'
@@ -95,7 +101,7 @@ const SubmissionResults: React.FC = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <tbody>
                             <tr>
-                                <td style={{ padding: '8px 0', color: '#6b7280', verticalAlign: 'top' }}>Files Submitted:</td>
+                                <td style={{ padding: '8px 0', color: 'var(--text-secondary)', verticalAlign: 'top' }}>Files Submitted:</td>
                                 <td style={{ padding: '8px 0', fontWeight: 500 }}>
                                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
                                         {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
@@ -105,19 +111,19 @@ const SubmissionResults: React.FC = () => {
                                 </td>
                             </tr>
                             <tr>
-                                <td style={{ padding: '8px 0', color: '#6b7280' }}>Submitted At:</td>
+                                <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Submitted At:</td>
                                 <td style={{ padding: '8px 0' }}>{new Date(submission.submitted_at).toLocaleString()}</td>
                             </tr>
                             {submission.updated_at !== submission.submitted_at && (
                                 <tr>
-                                    <td style={{ padding: '8px 0', color: '#6b7280' }}>Last Updated:</td>
+                                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Last Updated:</td>
                                     <td style={{ padding: '8px 0' }}>{new Date(submission.updated_at).toLocaleString()}</td>
                                 </tr>
                             )}
                             {submission.grade !== null && submission.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') && (
                                 <tr>
-                                    <td style={{ padding: '8px 0', color: '#6b7280' }}>Grade:</td>
-                                    <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>{submission.grade}/100</td>
+                                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Grade:</td>
+                                    <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>{submission.grade}/{assignment?.points || 100}</td>
                                 </tr>
                             )}
                         </tbody>
@@ -126,41 +132,25 @@ const SubmissionResults: React.FC = () => {
 
                 {submission.feedback && (submission.status === 'graded' || submission.status === 'returned') && (
                     <div style={{
-                        background: '#eff6ff',
+                        background: 'var(--bg-surface)',
                         padding: '20px',
                         borderRadius: '8px',
                         marginBottom: '20px'
                     }}>
                         <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600 }}>Instructor Feedback</h3>
-                        <p style={{ margin: 0, lineHeight: 1.6 }}>{submission.feedback}</p>
+                        <p style={{ margin: 0, lineHeight: 1.6, wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>{submission.feedback}</p>
                     </div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '24px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '24px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
                             <a
                                 key={i}
                                 href={getFileUrl(f.path)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="btn-primary"
-                                style={{
-                                    display: 'inline-block',
-                                    padding: '10px 20px',
-                                    background: 'var(--primary, #9f1239)',
-                                    color: 'white',
-                                    borderRadius: '6px',
-                                    textDecoration: 'none',
-                                    fontWeight: 500,
-                                    transition: 'box-shadow 0.2s ease-in-out'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(159, 18, 57, 0.5), 0 2px 4px -1px rgba(159, 18, 57, 0.3)'; // Primary theme shadow
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.boxShadow = 'none';
-                                }}
+                                className="btn btn-outline btn-pill"
                             >
                                 Download {f.name}
                             </a>
@@ -168,23 +158,7 @@ const SubmissionResults: React.FC = () => {
                     </div>
                     <Link
                         to={`/student/courses/${courseId}/assignments/${assignmentId}/submit`}
-                        className="btn-secondary resubmit-button"
-                        style={{
-                            display: 'inline-block',
-                            padding: '10px 20px',
-                            background: '#f3f4f6',
-                            color: '#374151',
-                            borderRadius: '6px',
-                            textDecoration: 'none',
-                            fontWeight: 500,
-                            transition: 'box-shadow 0.2s ease-in-out'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(254, 226, 226, 0.5), 0 2px 4px -1px rgba(254, 226, 226, 0.3)'; // Light red shadow
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.boxShadow = 'none'; // Remove shadow
-                        }}
+                        className="btn btn-primary btn-pill"
                     >
                         Resubmit Assignment
                     </Link>
@@ -201,23 +175,23 @@ const SubmissionResults: React.FC = () => {
 
                                 return (
                                     <div key={sub.id} style={{
-                                        border: isCurrent ? '2px solid var(--primary-color, #9f1239)' : '1px solid #e5e7eb',
+                                        border: isCurrent ? '2px solid var(--primary-light)' : '1px solid var(--border-color)',
                                         borderRadius: '8px',
                                         padding: '16px',
-                                        background: isCurrent ? '#fff1f2' : '#f9fafb',
+                                        background: isCurrent ? 'var(--light-grey)' : 'var(--bg-surface)',
                                         display: 'flex',
                                         justifyContent: 'space-between',
                                         alignItems: 'center'
                                     }}>
                                         <div>
-                                            <div style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
                                                 {attemptLabel}
                                                 {isCurrent && (
                                                     <span style={{
-                                                        color: 'var(--primary-color, #9f1239)',
+                                                        color: 'var(--text-primary)',
                                                         marginLeft: '8px',
                                                         fontSize: '12px',
-                                                        background: '#ffe4e6',
+                                                        background: 'var(--light-grey)',
                                                         padding: '2px 8px',
                                                         borderRadius: '12px'
                                                     }}>
@@ -225,7 +199,7 @@ const SubmissionResults: React.FC = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                                                 Submitted: {new Date(sub.submitted_at).toLocaleString()}
                                             </div>
                                             <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>
@@ -239,15 +213,15 @@ const SubmissionResults: React.FC = () => {
                                                 {' • '}
                                                 <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
                                                 {isSubGraded && sub.grade !== null && sub.grade !== undefined
-                                                    ? `${sub.grade}/100`
-                                                    : '-'}
+                                                    ? `${sub.grade}/${assignment?.points || 100}`
+                                                    : `-/${assignment?.points || 100}`}
                                             </div>
                                         </div>
                                         {!isCurrent && (
                                             <Link
                                                 to={`/student/courses/${courseId}/assignments/${assignmentId}/submissions/${sub.id}`}
                                                 className="btn btn-outline"
-                                                style={{ borderColor: 'var(--primary-color, #9f1239)', color: 'var(--primary-color, #9f1239)' }}
+                                                style={{ borderColor: 'var(--text-primary)', color: 'var(--text-primary)' }}
                                             >
                                                 View Details
                                             </Link>

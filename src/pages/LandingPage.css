@@ -4,13 +4,24 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: #f3f4f6;
+    background-color: var(--light-grey);
+    background-image: url('/ulm-wallpaper.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     padding: 1rem;
 }
 
 .landing-content {
     text-align: center;
     max-width: 600px;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 }
 
 .landing-title {
@@ -18,11 +29,12 @@
     font-weight: 800;
     color: #1f2937;
     margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
 }
 
 .landing-subtitle {
     font-size: 1.125rem;
-    color: #6b7280;
+    color: var(--text-tertiary);
     margin-bottom: 3rem;
 }
 
@@ -39,7 +51,10 @@
 }
 
 .role-card {
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
     padding: 2rem;
     border-radius: 0.75rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -64,12 +79,12 @@
 .role-type {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
 }
 
 .role-action {
-    color: #4f46e5;
+    color: var(--primary-color);
     font-weight: 500;
     font-size: 0.875rem;
 }

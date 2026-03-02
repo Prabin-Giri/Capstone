@@ -474,6 +474,7 @@ export interface User {
     name: string;
     email: string;
     role: 'student' | 'faculty';
+    profile_picture?: string;
 }
 
 export async function loginRequest(email: string, password: string): Promise<User> {

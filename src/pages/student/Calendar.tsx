@@ -12,7 +12,8 @@ type ViewMode = 'agenda' | 'month';
 
 const Calendar: React.FC = () => {
     const user = getUser();
-    const studentId = user?.id || 'student-001';
+    const userId = user?.id || 'user-001';
+    const isFaculty = user?.role === 'faculty';
     const [view, setView] = useState<ViewMode>('month');
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
@@ -47,10 +48,10 @@ const Calendar: React.FC = () => {
     const loadData = async () => {
         try {
             const [fetchedCourses, fetchedAssignments, fetchedTodos, fetchedColors] = await Promise.all([
-                getCourses({ studentId }),
+                getCourses(isFaculty ? { instructorId: userId } : { studentId: userId }),
                 getAssignments(),
-                getTodos({ student_id: studentId }),
-                getColors(studentId)
+                getTodos({ student_id: userId }),
+                getColors(userId)
             ]);
 
             const enrolledCourseIds = new Set(fetchedCourses.map((c) => c.id));
@@ -68,7 +69,7 @@ const Calendar: React.FC = () => {
     const handleColorChange = async (courseId: string, color: string) => {
         try {
             setCourseColors(prev => ({ ...prev, [courseId]: color }));
-            await saveColor({ student_id: studentId, course_id: courseId, color });
+            await saveColor({ student_id: userId, course_id: courseId, color });
         } catch (err) {
             console.error('Failed to save color', err);
             loadData();
@@ -107,7 +108,7 @@ const Calendar: React.FC = () => {
                 : (newTodoDate ? new Date(newTodoDate + 'T12:00:00').toISOString() : undefined);
 
             const todoData = {
-                student_id: studentId,
+                student_id: userId,
                 title: newTodoTitle,
                 due_date: combinedDateTime,
                 course_id: newTodoCourse || undefined
@@ -217,7 +218,7 @@ const Calendar: React.FC = () => {
                             </div>
                         )}
                         <button
-                            className="create-btn"
+                            className="calendar-create-btn"
                             onClick={() => openTodoModal()}
                         >
                             <Plus size={20} />

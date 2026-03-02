@@ -32,7 +32,7 @@
 }
 
 .breadcrumb a:hover {
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
 
 .page-title {
@@ -58,33 +58,50 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: white;
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    padding: 0.625rem 1rem;
+    background-color: var(--bg-surface);
+    border: 2px solid var(--primary-light);
+    color: var(--primary-text);
+    padding: 0.625rem 1.25rem;
     border-radius: var(--radius-md);
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.2s;
     box-shadow: var(--shadow-sm);
 }
 
 .btn-report:hover {
-    background: var(--light-grey);
-    transform: translateY(-1px);
+    background-color: var(--border-color);
+    border-color: var(--text-primary);
 }
 
 .btn-report.premium {
-    background-color: white;
+    background-color: var(--bg-surface);
     border: 2px solid var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     box-shadow: var(--shadow-sm);
 }
 
 .btn-report.premium:hover {
-    background-color: var(--primary-light);
-    border-color: var(--primary-color);
-    color: var(--primary-hover);
-    box-shadow: var(--shadow-md);
+    background-color: var(--border-color);
+    border-color: var(--text-primary);
+}
+
+/* Maroon action button used in modal footers */
+.btn-report-action {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border: none;
+    color: white;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-report-action:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     transform: translateY(-1px);
 }
 
@@ -98,19 +115,19 @@
     border-radius: var(--radius-md);
     font-weight: 500;
     transition: all 0.2s;
-    box-shadow: 0 4px 6px -1px rgba(132, 0, 41, 0.2);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     border: none;
 }
 
 .btn-download:hover {
     background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
-    box-shadow: 0 10px 15px -3px rgba(132, 0, 41, 0.3);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     transform: translateY(-2px);
 }
 
 /* Table */
 .gradebook-table-container {
-    background: white;
+    background-color: var(--bg-surface);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
@@ -183,8 +200,8 @@
 }
 
 .grade-F {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: var(--light-grey);
+    color: var(--text-secondary);
 }
 
 .grade-missing {
@@ -220,7 +237,7 @@
 }
 
 .modal-content {
-    background: white;
+    background-color: var(--bg-surface);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     width: 100%;
@@ -303,7 +320,7 @@
     padding: 1.25rem;
     border: 2px solid var(--border-color);
     border-radius: var(--radius-lg);
-    background: white;
+    background-color: var(--bg-surface);
     transition: all 0.2s;
     position: relative;
     overflow: hidden;
@@ -316,7 +333,7 @@
 }
 
 .report-card-btn.selected {
-    border-color: var(--primary-color);
+    border-color: var(--primary-text);
     background: var(--primary-light);
 }
 
@@ -375,22 +392,25 @@
 }
 
 .stat-card.blue {
-    background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
-    border-color: #dbeafe;
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-left: 4px solid var(--primary-border);
 }
 
 .stat-card.green {
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    border-color: #d1fae5;
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-left: 4px solid var(--primary-border);
 }
 
 .stat-card.purple {
-    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-    border-color: #ede9fe;
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-left: 4px solid var(--primary-border);
 }
 
 .stat-card.white {
-    background: white;
+    background-color: var(--bg-surface);
     border-color: var(--border-color);
 }
 
@@ -403,15 +423,15 @@
 }
 
 .stat-card.blue .stat-label {
-    color: #2563eb;
+    color: var(--primary-text);
 }
 
 .stat-card.green .stat-label {
-    color: #059669;
+    color: var(--primary-text);
 }
 
 .stat-card.purple .stat-label {
-    color: #7c3aed;
+    color: var(--primary-text);
 }
 
 .stat-card.white .stat-label {

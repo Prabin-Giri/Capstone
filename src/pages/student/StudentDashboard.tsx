@@ -87,13 +87,13 @@ const StudentDashboard: React.FC = () => {
                 <div className="analytics-card glass">
                     <span className="analytics-label">Pending Assignments</span>
                     <span className="analytics-value">
-                        {myAssignments.filter(a => a.status === 'active').length}
+                        {myAssignments.filter(a => a.status === 'active' && new Date(a.due_date) >= new Date()).length}
                     </span>
                     <span className="analytics-desc">Across your courses</span>
                 </div>
                 <div className="analytics-card glass">
                     <span className="analytics-label">Next Deadline</span>
-                    <span className="analytics-value" style={{ color: 'var(--primary-color)' }}>
+                    <span className="analytics-value" style={{ color: 'var(--primary-text)' }}>
                         {(() => {
                             const upcoming = myAssignments
                                 .filter(a => a.status === 'active' && new Date(a.due_date) >= new Date())
@@ -113,7 +113,10 @@ const StudentDashboard: React.FC = () => {
                         (assignment) => assignment.course_id === course.id
                     );
                     const activeAssignments = courseAssignments
-                        .filter((assignment) => assignment.status === 'active')
+                        .filter((assignment) => {
+                            const isOpen = new Date(assignment.due_date) >= new Date();
+                            return assignment.status === 'active' && isOpen;
+                        })
                         .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
                     const openAssignments = activeAssignments.filter(a => new Date(a.due_date) >= new Date());
@@ -129,28 +132,26 @@ const StudentDashboard: React.FC = () => {
                             onClick={() => navigate(`/student/courses/${course.id}`)}
                         >
                             <div className="course-card-header">
-                                <div className="course-id-display">{course.id}</div>
-                                <h3 className="course-title-display">{course.name}</h3>
-                                <p className="course-term" style={{ marginTop: '4px' }}>{course.term}</p>
+                                <div>
+                                    <h3 className="course-title-display">{course.name}</h3>
+                                    <p className="course-term">{course.term}</p>
+                                </div>
+                                <div className="course-id-tag">
+                                    <span className="tag-pill">{course.id}</span>
+                                </div>
                             </div>
 
                             <div className="course-stats-display">
                                 <div className="stat-item">
-                                    <span className="stat-label">Active</span>
-                                    <span className="stat-v">{activeAssignments.length} Assignments</span>
+                                    <span className="stat-v">{activeAssignments.length}</span>
+                                    <span className="stat-label">Assignments</span>
                                 </div>
                                 <div className="stat-item">
-                                    <span className="stat-label">Next Due</span>
-                                    <span className="stat-v" style={{ color: openAssignments.length > 0 ? 'var(--primary-color)' : 'inherit' }}>
+                                    <span className="stat-v" style={{ color: openAssignments.length > 0 ? 'var(--primary-text)' : 'inherit' }}>
                                         {nextDue}
                                     </span>
+                                    <span className="stat-label">Next Due</span>
                                 </div>
-                            </div>
-
-                            <div style={{ marginTop: '1.5rem' }}>
-                                <Button variant="ghost" size="sm" className="w-full" style={{ justifyContent: 'center' }}>
-                                    View Course Details
-                                </Button>
                             </div>
                         </Card>
                     );

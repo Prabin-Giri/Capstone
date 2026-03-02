@@ -8,9 +8,9 @@ interface AutoGradingConfigModalProps {
     onStart: (config: { latePenalty: string; timeout: number }) => Promise<void>;
 }
 
-const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ assignmentId, onClose, onStart }) => {
+const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose, onStart }) => {
     const [latePenalty, setLatePenalty] = useState('none');
-    const [timeout, setTimeout] = useState(2000);
+    const [timeout, setTimeout] = useState('2000');
     const [isRunning, setIsRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +18,7 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ assignm
         setIsRunning(true);
         setError(null);
         try {
-            await onStart({ latePenalty, timeout });
+            await onStart({ latePenalty, timeout: timeout === '' ? 0 : Number(timeout) });
             onClose();
         } catch (err: any) {
             setError(err.message || 'Failed to start auto-grading');
@@ -63,7 +63,7 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ assignm
                         <input
                             type="number"
                             value={timeout}
-                            onChange={(e) => setTimeout(Number(e.target.value))}
+                            onChange={(e) => setTimeout(e.target.value)}
                             min="100"
                             max="10000"
                             step="100"

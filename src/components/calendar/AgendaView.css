@@ -120,7 +120,7 @@
     height: 1.1rem;
     cursor: pointer;
     border-radius: 4px;
-    accent-color: var(--primary-color);
+    accent-color: var(--primary-text);
 }
 
 .todo-title {

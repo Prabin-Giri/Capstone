@@ -7,10 +7,23 @@
 .details-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 2rem;
-    padding-bottom: 1rem;
+    padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.details-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.details-header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
 }
 
 .details-title {
@@ -22,14 +35,57 @@
 
 .details-meta {
     display: flex;
-    gap: 2rem;
+    flex-direction: column;
+    gap: 0.25rem;
     margin-top: 0.5rem;
+}
+
+.meta-row-combined {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.meta-label {
     color: var(--text-secondary);
     font-size: 0.875rem;
 }
 
+.meta-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.meta-icon {
+    color: var(--primary-text);
+}
+
+.details-grade {
+    display: flex;
+    flex-direction: column;
+}
+
+.grade-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.grade-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
 .section {
-    background-color: white;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     padding: 1.5rem;
@@ -58,8 +114,8 @@
 .rubric-table th {
     text-align: left;
     padding: 0.75rem;
-    background-color: var(--primary-light);
-    color: var(--primary-color);
+    background-color: var(--border-color);
+    color: var(--primary-text);
     font-weight: 600;
     font-size: 0.875rem;
 }
@@ -78,7 +134,7 @@
 }
 
 .materials-box {
-    background: rgba(132, 0, 41, 0.02);
+    background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 1.25rem;
@@ -122,11 +178,11 @@
 }
 
 .tc-card-header {
-    background: rgba(132, 0, 41, 0.03);
+    background: var(--bg-surface);
     padding: 0.75rem 1rem;
     font-weight: 700;
     font-size: 0.85rem;
-    color: var(--primary-color);
+    color: var(--primary-text);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -162,7 +218,7 @@
 
 /* Grading Report Styles */
 .grading-report {
-    background: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     overflow: hidden;
@@ -191,7 +247,7 @@
 .total-score-value {
     font-size: 2.5rem;
     font-weight: 800;
-    color: var(--primary-color);
+    color: var(--primary-text);
     line-height: 1;
 }
 
@@ -220,7 +276,7 @@
 
 .criteria-item:hover {
     border-color: var(--border-color);
-    background-color: #fff;
+    background-color: var(--bg-surface);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -232,7 +288,7 @@
     height: 40px;
     border-radius: 50%;
     background: #e0e7ff;
-    color: var(--primary-color);
+    color: var(--primary-text);
     margin-right: 1rem;
     flex-shrink: 0;
 }
@@ -279,14 +335,31 @@
 
 @media (max-width: 768px) {
     .details-header {
+        position: relative;
         flex-direction: column;
         align-items: flex-start;
-        gap: 1rem;
         margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+    }
+
+    .details-header-right {
+        position: absolute;
+        bottom: 1rem;
+        /* aligns safely with bottom padding */
+        right: 0;
+        text-align: right;
     }
 
     .details-meta {
         flex-direction: column;
+        gap: 0.5rem;
+        padding-right: 120px;
+        /* leaves breathing room for absolute grade text */
+    }
+
+    .meta-row-combined {
+        flex-direction: row;
+        align-items: center;
         gap: 0.5rem;
     }
 

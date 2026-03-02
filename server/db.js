@@ -125,96 +125,97 @@ async function initializeSchema() {
             email VARCHAR(255) UNIQUE,
             password VARCHAR(255),
             role ENUM('student', 'faculty', 'admin', 'ta') NOT NULL,
+            profile_picture VARCHAR(255) DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
-        `CREATE TABLE IF NOT EXISTS courses (
-            id VARCHAR(255) PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            term VARCHAR(255) NOT NULL,
-            instructor_id VARCHAR(255),
-            is_archived TINYINT(1) DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (instructor_id) REFERENCES users(id) ON DELETE SET NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS course_enrollments (
-            course_id VARCHAR(255) NOT NULL,
-            student_id VARCHAR(255) NOT NULL,
-            enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (course_id, student_id),
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
-            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS assignments (
-            id VARCHAR(255) PRIMARY KEY,
-            course_id VARCHAR(255) NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            description TEXT,
-            due_date DATETIME NOT NULL,
-            status ENUM('active', 'closed', 'late') DEFAULT 'active',
-            points INTEGER DEFAULT 100,
-            language VARCHAR(50),
-            starter_code_path VARCHAR(255),
-            test_case_file_path VARCHAR(255),
-            type ENUM('individual', 'group') DEFAULT 'individual',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS submissions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            assignment_id VARCHAR(255) NOT NULL,
-            student_id VARCHAR(255) NOT NULL,
-            file_name VARCHAR(255) NOT NULL,
-            file_path TEXT NOT NULL,
-            status ENUM('pending', 'graded', 'returned') DEFAULT 'pending',
-            grade FLOAT DEFAULT NULL,
-            feedback TEXT DEFAULT NULL,
-            submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
-            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS todos (
-            id VARCHAR(255) PRIMARY KEY,
-            student_id VARCHAR(255) NOT NULL,
-            course_id VARCHAR(255),
-            title VARCHAR(255) NOT NULL,
-            due_date DATETIME,
-            completed TINYINT(1) DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS course_settings (
-            student_id VARCHAR(255) NOT NULL,
-            course_id VARCHAR(255) NOT NULL,
-            color VARCHAR(50) NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (student_id, course_id),
-            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS course_documents (
-            course_id VARCHAR(255) PRIMARY KEY,
-            syllabus_path VARCHAR(255),
-            schedule_path VARCHAR(255),
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS test_cases (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            assignment_id VARCHAR(255) NOT NULL,
-            input TEXT,
-            expected_output TEXT NOT NULL,
-            points INTEGER DEFAULT 0,
-            is_public TINYINT(1) DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
-        )`
+        `CREATE TABLE IF NOT EXISTS courses(
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        term VARCHAR(255) NOT NULL,
+        instructor_id VARCHAR(255),
+        is_archived TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(instructor_id) REFERENCES users(id) ON DELETE SET NULL
+    )`,
+        `CREATE TABLE IF NOT EXISTS course_enrollments(
+        course_id VARCHAR(255) NOT NULL,
+        student_id VARCHAR(255) NOT NULL,
+        enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(course_id, student_id),
+        FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+        FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+        `CREATE TABLE IF NOT EXISTS assignments(
+        id VARCHAR(255) PRIMARY KEY,
+        course_id VARCHAR(255) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        due_date DATETIME NOT NULL,
+        status ENUM('active', 'closed', 'late') DEFAULT 'active',
+        points INTEGER DEFAULT 100,
+        language VARCHAR(50),
+        starter_code_path VARCHAR(255),
+        test_case_file_path VARCHAR(255),
+        type ENUM('individual', 'group') DEFAULT 'individual',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )`,
+        `CREATE TABLE IF NOT EXISTS submissions(
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id VARCHAR(255) NOT NULL,
+        student_id VARCHAR(255) NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path TEXT NOT NULL,
+        status ENUM('pending', 'graded', 'returned') DEFAULT 'pending',
+        grade FLOAT DEFAULT NULL,
+        feedback TEXT DEFAULT NULL,
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+        FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+        `CREATE TABLE IF NOT EXISTS todos(
+        id VARCHAR(255) PRIMARY KEY,
+        student_id VARCHAR(255) NOT NULL,
+        course_id VARCHAR(255),
+        title VARCHAR(255) NOT NULL,
+        due_date DATETIME,
+        completed TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE SET NULL
+    )`,
+        `CREATE TABLE IF NOT EXISTS course_settings(
+        student_id VARCHAR(255) NOT NULL,
+        course_id VARCHAR(255) NOT NULL,
+        color VARCHAR(50) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY(student_id, course_id),
+        FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )`,
+        `CREATE TABLE IF NOT EXISTS course_documents(
+        course_id VARCHAR(255) PRIMARY KEY,
+        syllabus_path VARCHAR(255),
+        schedule_path VARCHAR(255),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )`,
+        `CREATE TABLE IF NOT EXISTS test_cases(
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id VARCHAR(255) NOT NULL,
+        input TEXT,
+        expected_output TEXT NOT NULL,
+        points INTEGER DEFAULT 0,
+        is_public TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+    )`
     ];
 
     for (const sql of schema) {

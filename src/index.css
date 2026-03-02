@@ -1,22 +1,28 @@
 :root {
   /* University Brand Colors */
   --primary-color: #840029;
+  --primary-text: #840029;
+  --primary-border: #840029;
   /* Warhawk Maroon */
   --primary-hover: #6a0021;
+  --primary-hover-text: #6a0021;
   --primary-light: #f5e6ea;
+
+  --btn-primary-bg: #840029;
+  --btn-primary-hover: #6a0021;
 
   --secondary-color: #FDB913;
   /* Heritage Gold */
   --secondary-hover: #e5a711;
 
-  --dark-grey: #646469;
-  --mid-grey: #C8C9C7;
+  --dark-grey: #4b5563;
+  --mid-grey: #9ca3af;
   --light-grey: #f3f4f6;
 
   /* Text & Surface */
   --text-primary: #111827;
   --text-secondary: #4b5563;
-  --text-tertiary: #9ca3af;
+  --text-tertiary: #6b7280;
   --bg-body: #f8f9fb;
   --bg-surface: #ffffff;
   --border-color: #e5e7eb;
@@ -37,9 +43,47 @@
   --radius-md: 12px;
   --radius-lg: 16px;
 
-  --global-sidebar-width: 120px;
   --course-sidebar-width: 220px;
   --header-height: 72px;
+
+  /* Sidebar Liquid Glass */
+  --sidebar-active-bg: rgba(255, 255, 255, 0.15);
+  --sidebar-active-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark Theme Overrides */
+.dark-theme {
+  --bg-body: #0f1115;
+  --bg-surface: #1a1d23;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --border-color: #2e333d;
+
+  --primary-text: #ffffff;
+  --primary-hover-text: rgba(255, 255, 255, 0.8);
+  --primary-border: rgba(255, 255, 255, 0.4);
+
+  --btn-primary-bg: #2d3748;
+  --btn-primary-hover: #4a5568;
+
+  --light-grey: #242830;
+  --mid-grey: #4b5563;
+  --dark-grey: #1f2937;
+
+  --glass-bg: rgba(26, 29, 35, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+
+  --primary-light: #2d3748;
+  --danger-bg: #450a0a;
+  --success-bg: #064e3b;
+
+  /* Sidebar Liquid Glass - Dark Mode Tints */
+  --sidebar-active-bg: rgba(0, 0, 0, 0.4);
+  --sidebar-active-border: rgba(255, 255, 255, 0.05);
 }
 
 html {
@@ -100,7 +144,7 @@ button {
 .brand-text-cursive {
   font-family: 'Pacifico', cursive;
   font-size: 1.5rem;
-  color: var(--primary-color);
+  color: var(--primary-text);
 }
 
 .brand-text-modern {
@@ -144,4 +188,16 @@ button {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Global Dark Mode Overrides for Course Cards */
+.dark-theme .course-id-tag .tag-pill,
+.dark-theme .course-card-header .tag-pill,
+.dark-theme .course-card-premium .tag-pill,
+.dark-theme .dashboard-grid .card .tag-pill {
+  background-color: rgba(132, 0, 41, 0.3) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(132, 0, 41, 0.6) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }

@@ -5,7 +5,7 @@
 }
 
 .submit-card {
-    background-color: white;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     padding: 2rem;
@@ -23,11 +23,11 @@
 }
 
 .upload-area:hover {
-    border-color: var(--primary-color);
-    background-color: var(--primary-light);
+    border-color: var(--primary-text);
+    background-color: var(--border-color);
 }
 
 .file-input-label {
     font-weight: 500;
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
