@@ -4,6 +4,7 @@ import { getUser, logout, updateUser, type UserSession } from '../../lib/auth';
 import Cropper, { type Area } from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImage';
 import './AccountDrawer.css';
+import { showDialog } from '../ui/Dialog';
 
 interface AccountDrawerProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ interface AccountDrawerProps {
 }
 
 type ViewType = 'main' | 'edit' | 'settings' | 'notifications' | 'security';
+type ThemeType = 'system' | 'light' | 'dark';
 type PhotoStep = 'options' | 'camera' | 'crop';
 
 const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
@@ -21,11 +23,11 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
     const [isDragging, setIsDragging] = useState(false);
 
     // Editing States
-    const [editingFields, setEditingFields] = useState<{ name: boolean; email: boolean; avatar: boolean }>({ name: false, email: false, avatar: false });
-    const [editValues, setEditValues] = useState<{ name: string; email: string }>({ name: '', email: '' });
+    const [editingFields, setEditingFields] = useState<{ avatar: boolean }>({ avatar: false });
     const [pendingAvatar, setPendingAvatar] = useState<{ blob: Blob; url: string } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+    const [theme, setTheme] = useState<ThemeType>(() => (localStorage.getItem('app-theme') as ThemeType) || 'system');
+    const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
 
     // Photo Overlay States
     const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -44,15 +46,30 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         const handleUpdate = () => setUserData(getUser());
         window.addEventListener('user-profile-updated', handleUpdate);
 
-        // Apply theme on mount
-        if (isDarkMode) {
-            document.body.classList.add('dark-theme');
-        } else {
-            document.body.classList.remove('dark-theme');
-        }
+        // Apply theme
+        const applyTheme = (currentTheme: ThemeType) => {
+            const isDark = currentTheme === 'dark' || (currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+            }
+        };
 
-        return () => window.removeEventListener('user-profile-updated', handleUpdate);
-    }, []);
+        applyTheme(theme);
+
+        // Listen for system theme changes
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = () => {
+            if (theme === 'system') applyTheme('system');
+        };
+        mediaQuery.addEventListener('change', handleChange);
+
+        return () => {
+            window.removeEventListener('user-profile-updated', handleUpdate);
+            mediaQuery.removeEventListener('change', handleChange);
+        };
+    }, [theme]);
 
     // Reset view when drawer closes
     React.useEffect(() => {
@@ -61,7 +78,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                 setCurrentView('main');
                 setDragOffset(0);
                 setIsDragging(false);
-                setEditingFields({ name: false, email: false, avatar: false });
+                setEditingFields({ avatar: false });
                 if (pendingAvatar) {
                     URL.revokeObjectURL(pendingAvatar.url);
                     setPendingAvatar(null);
@@ -101,7 +118,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
             setPhotoStep('camera');
         } catch (err) {
             console.error("Camera error:", err);
-            alert("Could not access camera. Please check permissions.");
+            await showDialog({ title: 'Camera Error', message: 'Could not access camera. Please check permissions.', confirmText: 'OK' });
         }
     };
 
@@ -137,24 +154,16 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         setCroppedAreaPixels(croppedAreaPixels);
     };
 
-    const handleEditField = (field: 'name' | 'email') => {
-        setEditingFields(prev => ({ ...prev, [field]: true }));
-        setEditValues(prev => ({ ...prev, [field]: userData?.[field] || '' }));
-    };
 
-    const toggleDarkMode = () => {
-        const newMode = !isDarkMode;
-        setIsDarkMode(newMode);
-        localStorage.setItem('theme', newMode ? 'dark' : 'light');
-        if (newMode) {
-            document.body.classList.add('dark-theme');
-        } else {
-            document.body.classList.remove('dark-theme');
-        }
+    const handleThemeChange = (newTheme: ThemeType) => {
+        setTheme(newTheme);
+        localStorage.setItem('app-theme', newTheme);
+        // Dispatch a custom event so same-tab components (e.g. Monaco editor) react immediately
+        window.dispatchEvent(new CustomEvent('theme-change', { detail: newTheme }));
     };
 
     const handleSaveInfo = async () => {
-        if (!userData || (!editingFields.name && !editingFields.email && !editingFields.avatar)) return;
+        if (!userData || !editingFields.avatar) return;
         setIsSaving(true);
         try {
             const updates: Partial<UserSession> = {};
@@ -178,33 +187,12 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                 setPendingAvatar(null);
             }
 
-            // 2. Update profile name/email if pending
-            if (editingFields.name || editingFields.email) {
-                const payload = {
-                    id: userData.id,
-                    name: editingFields.name ? editValues.name : userData.name,
-                    email: editingFields.email ? editValues.email : userData.email
-                };
-
-                const response = await fetch('http://localhost:3001/api/users/profile', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to update profile');
-                }
-
-                if (editingFields.name) updates.name = editValues.name;
-                if (editingFields.email) updates.email = editValues.email;
-            }
+            // Name and Email editing removed per requirement
 
             updateUser(updates);
-            setEditingFields({ name: false, email: false, avatar: false });
+            setEditingFields({ avatar: false });
         } catch (err: any) {
-            alert(err.message);
+            await showDialog({ title: 'Error', message: err.message, confirmText: 'OK' });
         } finally {
             setIsSaving(false);
         }
@@ -226,7 +214,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
             }
         } catch (e: any) {
             console.error(e);
-            alert("Failed to create preview: " + e.message);
+            await showDialog({ title: 'Error', message: 'Failed to create preview: ' + e.message, confirmText: 'OK' });
         }
     };
 
@@ -284,7 +272,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                 <button className="drawer-nav-btn" onClick={() => setCurrentView('edit')}>
                     <div className="nav-btn-left">
                         <User size={18} />
-                        <span>Edit Profile</span>
+                        <span>Profile</span>
                     </div>
                     <ChevronRight size={16} />
                 </button>
@@ -323,7 +311,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                     <button className="back-btn" onClick={() => setCurrentView('main')}>
                         <ChevronLeft size={20} />
                     </button>
-                    <h3>Edit Profile</h3>
+                    <h3>Profile</h3>
                 </div>
             </header>
 
@@ -348,52 +336,24 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="info-grid">
-                    <div className="info-item">
+                    <div className="info-item no-edit">
                         <div className="info-icon">
                             <User size={18} />
                         </div>
                         <div className="info-content">
                             <label>Full Name</label>
-                            {editingFields.name ? (
-                                <input
-                                    autoFocus
-                                    className="edit-field-input"
-                                    value={editValues.name}
-                                    onChange={(e) => setEditValues(prev => ({ ...prev, name: e.target.value }))}
-                                    placeholder="Enter full name"
-                                    disabled={isSaving}
-                                />
-                            ) : (
-                                <span>{userData?.name}</span>
-                            )}
+                            <span>{userData?.name}</span>
                         </div>
-                        {!editingFields.name && (
-                            <button className="info-field-edit-btn" onClick={() => handleEditField('name')}>Edit</button>
-                        )}
                     </div>
 
-                    <div className="info-item">
+                    <div className="info-item no-edit">
                         <div className="info-icon">
                             <Mail size={18} />
                         </div>
                         <div className="info-content">
                             <label>Email Address</label>
-                            {editingFields.email ? (
-                                <input
-                                    autoFocus
-                                    className="edit-field-input"
-                                    value={editValues.email}
-                                    onChange={(e) => setEditValues(prev => ({ ...prev, email: e.target.value }))}
-                                    placeholder="Enter email address"
-                                    disabled={isSaving}
-                                />
-                            ) : (
-                                <span>{userData?.email}</span>
-                            )}
+                            <span>{userData?.email}</span>
                         </div>
-                        {!editingFields.email && (
-                            <button className="info-field-edit-btn" onClick={() => handleEditField('email')}>Edit</button>
-                        )}
                     </div>
 
                     <div className="info-item no-edit">
@@ -409,9 +369,9 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
 
                 <div className="edit-actions" style={{ width: '100%', marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
                     <button
-                        className={`save-btn ${(!editingFields.name && !editingFields.email && !editingFields.avatar) ? 'disabled' : ''}`}
+                        className={`save-btn ${!editingFields.avatar ? 'disabled' : ''}`}
                         onClick={handleSaveInfo}
-                        disabled={isSaving || (!editingFields.name && !editingFields.email && !editingFields.avatar)}
+                        disabled={isSaving || !editingFields.avatar}
                     >
                         {isSaving ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -437,20 +397,40 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                     <div className="settings-item">
                         <div className="settings-item-left">
                             <div className="settings-icon">
-                                {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+                                {theme === 'dark' ? <Moon size={18} /> : (theme === 'light' ? <Sun size={18} /> : <Settings size={18} />)}
                             </div>
                             <div className="settings-label">
-                                <h4>Dark Mode</h4>
-                                <p>{isDarkMode ? 'Enable light theme' : 'Switch to dark theme'}</p>
+                                <h4>Appearance</h4>
+                                <p>Choose your preferred theme</p>
                             </div>
                         </div>
-                        <button
-                            className={`toggle-switch ${isDarkMode ? 'active' : ''}`}
-                            onClick={toggleDarkMode}
-                            aria-label="Toggle Dark Mode"
-                        >
-                            <div className="toggle-thumb" />
-                        </button>
+                        <div className="theme-dropdown-wrapper">
+                            <button
+                                className="theme-select-btn"
+                                onClick={() => setIsThemeDropdownOpen(prev => !prev)}
+                            >
+                                <span>
+                                    {theme === 'system' ? 'System Default' : theme === 'light' ? 'Light' : 'Dark'}
+                                </span>
+                                <ChevronRight size={14} style={{ transform: isThemeDropdownOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                            </button>
+                            {isThemeDropdownOpen && (
+                                <div className="theme-dropdown-menu">
+                                    {(['system', 'light', 'dark'] as ThemeType[]).map(opt => (
+                                        <button
+                                            key={opt}
+                                            className={`theme-dropdown-item ${theme === opt ? 'active' : ''}`}
+                                            onClick={() => {
+                                                handleThemeChange(opt);
+                                                setIsThemeDropdownOpen(false);
+                                            }}
+                                        >
+                                            {opt === 'system' ? 'System Default' : opt === 'light' ? 'Light' : 'Dark'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -106,14 +106,48 @@ async function initDb() {
     ];
     tables.forEach(sql => db.run(sql));
 
+    // Add columns that may be missing (MySQL schema additions not in original SQLite schema)
+    const migrations = [
+        'ALTER TABLE users ADD COLUMN password TEXT',
+        'ALTER TABLE users ADD COLUMN profile_picture TEXT DEFAULT NULL',
+        'ALTER TABLE courses ADD COLUMN instructor_id TEXT',
+        'ALTER TABLE assignments ADD COLUMN test_case_file_path TEXT',
+        'ALTER TABLE assignments ADD COLUMN type TEXT DEFAULT "individual"',
+        'ALTER TABLE submissions ADD COLUMN feedback TEXT DEFAULT NULL',
+        `CREATE TABLE IF NOT EXISTS course_enrollments (
+            course_id TEXT NOT NULL,
+            student_id TEXT NOT NULL,
+            enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (course_id, student_id),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS course_tas (
+            course_id TEXT NOT NULL,
+            ta_id TEXT NOT NULL,
+            permissions TEXT,
+            enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (course_id, ta_id),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+            FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
+    ];
+    for (const sql of migrations) {
+        try { db.run(sql); } catch (e) {
+            if (!e.message || (!e.message.includes('duplicate') && !e.message.includes('already exists'))) {
+                // ignore "already exists" / "duplicate column" errors, rethrow others
+            }
+        }
+    }
+
     const result = db.exec('SELECT COUNT(*) as count FROM users');
     const count = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : 0;
     if (count === 0) {
-        db.run("INSERT INTO users (id, name, email, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'student')");
-        db.run("INSERT INTO users (id, name, email, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'faculty')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026')");
-        db.run("INSERT INTO courses (id, name, term) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
+        db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026', 'faculty-001')");
+        db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026', 'faculty-001')");
+        db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026', 'faculty-001')");
         db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
         db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
         db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
@@ -126,8 +160,36 @@ async function initDb() {
     return db;
 }
 
+// MySQL-compatible wrapper so routes calling getDb().execute() work unchanged
+function getDbWrapper() {
+    return {
+        execute(sql, params = []) {
+            if (!db) return Promise.reject(new Error('Database not initialized'));
+            const trimmed = sql.trim().toUpperCase();
+            const isSelect = trimmed.startsWith('SELECT') || trimmed.startsWith('WITH') || trimmed.startsWith('PRAGMA');
+            if (isSelect) {
+                return Promise.resolve([query(sql, params), []]).then(async ([p]) => {
+                    const rows = await p;
+                    return [rows, []];
+                });
+            } else {
+                return run(sql, params).then(() => {
+                    saveDbSync();
+                    return [{ affectedRows: db.getRowsModified() }, []];
+                });
+            }
+        },
+        end() { return Promise.resolve(); },
+    };
+}
+
+function queryOne(result) {
+    const rows = queryToObjects(result);
+    return rows.length > 0 ? rows[0] : null;
+}
+
 function getDb() {
-    return db;
+    return getDbWrapper();
 }
 
 function saveDbSync() {
@@ -153,6 +215,11 @@ function query(sql, params = []) {
     return Promise.resolve(rows);
 }
 
+async function fetchOne(sql, params = []) {
+    const rows = await query(sql, params);
+    return rows.length > 0 ? rows[0] : null;
+}
+
 function run(sql, params = []) {
     if (!db) return Promise.reject(new Error('Database not initialized'));
     try {
@@ -169,13 +236,21 @@ async function queryOne(sql, params = []) {
 }
 
 function queryToObjects(result) {
-    if (!result || result.length === 0) return [];
-    const columns = result[0].columns;
-    return result[0].values.map(row => {
-        const obj = {};
-        columns.forEach((col, i) => { obj[col] = row[i]; });
-        return obj;
-    });
+    if (!result) return [];
+    // If it's a raw array (from our wrapper's execute)
+    if (Array.isArray(result)) {
+        return Array.isArray(result[0]) ? result[0] : result;
+    }
+    // If it's the sql.js result object { columns, values }
+    if (result.columns && result.values) {
+        const columns = result.columns;
+        return result.values.map(row => {
+            const obj = {};
+            columns.forEach((col, i) => { obj[col] = row[i]; });
+            return obj;
+        });
+    }
+    return [];
 }
 
-module.exports = { initDb, getDb, saveDb, saveDbSync, query, run, queryOne, queryToObjects, isMySQL: false };
+module.exports = { initDb, getDb, saveDb, saveDbSync, query, run, queryOne, fetchOne, queryToObjects, isMySQL: false };

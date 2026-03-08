@@ -27,6 +27,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
+import { showDialog } from '../../components/ui/Dialog';
 
 const FacultyCourseView: React.FC = () => {
     const { courseId } = useParams();
@@ -110,7 +111,7 @@ const FacultyCourseView: React.FC = () => {
             setAssignmentToDelete(null);
         } catch (err) {
             console.error('Failed to delete', err);
-            alert('Failed to delete assignment');
+            await showDialog({ title: 'Error', message: 'Failed to delete assignment', confirmText: 'OK' });
         }
     }
 
@@ -124,7 +125,7 @@ const FacultyCourseView: React.FC = () => {
             setStudentToUnenroll(null);
         } catch (err) {
             console.error('Failed to unenroll student', err);
-            alert('Failed to unenroll student');
+            await showDialog({ title: 'Error', message: 'Failed to unenroll student', confirmText: 'OK' });
         }
     };
 
@@ -138,7 +139,7 @@ const FacultyCourseView: React.FC = () => {
             setTaToRemove(null);
         } catch (err) {
             console.error('Failed to remove TA', err);
-            alert('Failed to remove Teaching Assistant');
+            await showDialog({ title: 'Error', message: 'Failed to remove Teaching Assistant', confirmText: 'OK' });
         }
     };
 
@@ -157,7 +158,7 @@ const FacultyCourseView: React.FC = () => {
             setShowDropdown(false);
         } catch (err) {
             console.error('Upload failed', err);
-            alert('Upload failed');
+            await showDialog({ title: 'Error', message: 'Upload failed', confirmText: 'OK' });
         } finally {
             setLoading(false);
         }
@@ -210,7 +211,7 @@ const FacultyCourseView: React.FC = () => {
             setShowEnrollModal(false);
         } catch (err) {
             console.error('Enrollment failed', err);
-            alert('Failed to enroll student');
+            await showDialog({ title: 'Error', message: 'Failed to enroll student', confirmText: 'OK' });
         }
     };
 
@@ -224,7 +225,7 @@ const FacultyCourseView: React.FC = () => {
             setShowInviteTAModal(false);
         } catch (err) {
             console.error('Invite TA failed', err);
-            alert('Failed to invite Teaching Assistant');
+            await showDialog({ title: 'Error', message: 'Failed to invite Teaching Assistant', confirmText: 'OK' });
         }
     };
 
@@ -281,7 +282,7 @@ const FacultyCourseView: React.FC = () => {
                 }).filter(Boolean) as { id: string, name: string, email: string }[];
                 setCsvData(students);
             } else {
-                alert('Invalid CSV format. Please ensure the CSV contains "ID", "Student", and "SIS Login ID" headers.');
+                showDialog({ title: 'Invalid CSV', message: 'Invalid CSV format. Please ensure the CSV contains "ID", "Student", and "SIS Login ID" headers.', confirmText: 'OK' });
                 setCsvData([]);
             }
         };
@@ -299,7 +300,7 @@ const FacultyCourseView: React.FC = () => {
             setEnrolledStudents(students);
         } catch (err) {
             console.error('CSV enroll failed', err);
-            alert('Failed to enroll students from CSV');
+            await showDialog({ title: 'Error', message: 'Failed to enroll students from CSV', confirmText: 'OK' });
         } finally {
             setCsvLoading(false);
         }
@@ -573,7 +574,7 @@ const FacultyCourseView: React.FC = () => {
 
                 <div className="students-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h2 className="section-title" style={{ margin: 0 }}>Enrolled Roster</h2>
+                        <h2 className="section-title" style={{ margin: 0 }}>Enrolled</h2>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button className="enroll-btn-small" style={{ background: 'var(--card-glass)', color: 'var(--text-secondary)' }} onClick={() => setShowInviteTAModal(true)}>
                                 <Key size={14} />
@@ -624,43 +625,45 @@ const FacultyCourseView: React.FC = () => {
                         {enrolledStudents.length === 0 ? (
                             <p className="empty-text">No students enrolled yet.</p>
                         ) : (
-                            enrolledStudents.map(student => (
-                                <div key={student.id} className="student-item">
-                                    <div className="student-info">
-                                        <div className="student-avatar" style={{ padding: student.profile_picture ? 0 : undefined, overflow: 'hidden' }}>
-                                            {student.profile_picture ? (
-                                                <img
-                                                    src={getFileUrl(student.profile_picture)}
-                                                    alt={`${student.name} profile`}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                    onError={(e) => {
-                                                        const target = e.target as HTMLImageElement;
-                                                        target.style.display = 'none';
-                                                        target.parentElement!.style.padding = '';
-                                                        target.parentElement!.textContent = student.name.charAt(0);
-                                                    }}
-                                                />
-                                            ) : (
-                                                student.name.charAt(0)
-                                            )}
-                                        </div>
-                                        <div>
-                                            <div className="student-name-row">
-                                                <p className="student-name">{student.name}</p>
-                                                <span className="student-id-tag">{student.id}</span>
+                            [...enrolledStudents]
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map(student => (
+                                    <div key={student.id} className="student-item">
+                                        <div className="student-info">
+                                            <div className="student-avatar" style={{ padding: student.profile_picture ? 0 : undefined, overflow: 'hidden' }}>
+                                                {student.profile_picture ? (
+                                                    <img
+                                                        src={getFileUrl(student.profile_picture)}
+                                                        alt={`${student.name} profile`}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.style.display = 'none';
+                                                            target.parentElement!.style.padding = '';
+                                                            target.parentElement!.textContent = student.name.charAt(0);
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    student.name.charAt(0)
+                                                )}
                                             </div>
-                                            <p className="student-email">{student.email}</p>
+                                            <div>
+                                                <div className="student-name-row">
+                                                    <p className="student-name">{student.name}</p>
+                                                    <span className="student-id-tag">{student.id}</span>
+                                                </div>
+                                                <p className="student-email">{student.email}</p>
+                                            </div>
                                         </div>
+                                        <button
+                                            onClick={() => setStudentToUnenroll(student)}
+                                            className="trash-btn-red"
+                                            title="Unenroll Student"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => setStudentToUnenroll(student)}
-                                        className="trash-btn-red"
-                                        title="Unenroll Student"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ))
+                                ))
                         )}
                     </div>
                 </div>
@@ -903,7 +906,7 @@ const FacultyCourseView: React.FC = () => {
                         </div>
 
                         <div className="modal-footer">
-                            <Button variant="secondary" onClick={() => setShowInviteTAModal(false)}>
+                            <Button variant="primary" onClick={() => setShowInviteTAModal(false)}>
                                 Close
                             </Button>
                         </div>

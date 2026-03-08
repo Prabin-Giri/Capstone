@@ -53,6 +53,15 @@ body.no-scroll {
     pointer-events: auto !important;
 }
 
+/* Dialog open: blur only the main content area (sidebar is unaffected) */
+body.dialog-open .app-body {
+    filter: blur(3px);
+    transition: filter 0.15s ease;
+    pointer-events: none !important;
+    user-select: none;
+}
+
+
 @media (max-width: 768px) {
     .app-body {
         display: block;
@@ -155,12 +164,80 @@ body.no-scroll {
     flex-direction: column;
     height: 100%;
     flex-shrink: 0;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
 }
 
+.course-sidebar-collapsed {
+    width: 56px;
+}
+
+/* Toggle button */
+.course-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--light-grey);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+    width: 30px;
+    height: 30px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.course-sidebar-toggle:hover {
+    background: rgba(132, 0, 41, 0.08);
+    border-color: rgba(132, 0, 41, 0.25);
+    color: var(--primary-color);
+}
+
+/* Collapsed state: centre the toggle */
+.course-sidebar-collapsed .course-context {
+    padding: 1.25rem 0.75rem;
+}
+
+.course-sidebar-collapsed .course-context-header {
+    justify-content: center;
+}
+
+/* Nav icon always visible */
+.course-nav-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Collapsed nav links: center icon */
+.course-sidebar-collapsed .course-nav {
+    padding: 0 0.5rem;
+    align-items: center;
+}
+
+.course-sidebar-collapsed .course-nav-link {
+    justify-content: center;
+    padding: 0.75rem;
+}
+
+
+/* Course Sidebar context header */
 .course-context {
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1rem 1rem;
     border-bottom: 1px solid var(--border-color);
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.course-context-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+}
+
+.course-context-info {
+    min-width: 0;
 }
 
 .course-context-name {
@@ -168,6 +245,9 @@ body.no-scroll {
     font-weight: 700;
     color: var(--primary-text);
     margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .course-context-id {
@@ -451,8 +531,8 @@ body.no-scroll {
 
     .course-context {
         display: none;
-        /* Hide course name/id on horizontal mobile view */
     }
+
 
     .course-nav {
         display: flex;

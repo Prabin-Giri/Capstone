@@ -7,6 +7,7 @@ import { getAssignments, getCourses, getTodos, createTodo, deleteTodo, updateTod
 import type { Assignment, Course, Todo } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import './Calendar.css';
+import { showDialog } from '../../components/ui/Dialog';
 
 type ViewMode = 'agenda' | 'month';
 
@@ -125,7 +126,7 @@ const Calendar: React.FC = () => {
             closeTodoModal();
         } catch (err: any) {
             console.error('Failed to save todo', err);
-            alert('Failed to save todo: ' + (err.message || 'Unknown error'));
+            await showDialog({ title: 'Error', message: 'Failed to save todo: ' + (err.message || 'Unknown error'), confirmText: 'OK' });
         }
     };
 
@@ -167,7 +168,14 @@ const Calendar: React.FC = () => {
     };
 
     const handleDeleteTodo = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this todo?')) return;
+        const confirmed = await showDialog({
+            title: 'Delete Event',
+            message: 'Are you sure you want to delete this todo?',
+            type: 'danger',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+        });
+        if (!confirmed) return;
         try {
             setTodos(prev => prev.filter(t => t.id !== id));
             await deleteTodo(id);

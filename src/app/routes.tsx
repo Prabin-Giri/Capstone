@@ -9,7 +9,6 @@ import Calendar from '../pages/student/Calendar';
 import ClassOverview from '../pages/student/ClassOverview';
 import ClassAssignments from '../pages/student/ClassAssignments';
 import AssignmentDetails from '../pages/student/AssignmentDetails';
-import SubmitAssignment from '../pages/student/SubmitAssignment';
 import SubmissionResults from '../pages/student/SubmissionResults';
 import CourseGrades from '../pages/student/CourseGrades';
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
@@ -54,7 +53,6 @@ export const router = createBrowserRouter([
                     { path: 'courses/:courseId', element: <ClassOverview /> },
                     { path: 'courses/:courseId/assignments', element: <ClassAssignments /> },
                     { path: 'courses/:courseId/assignments/:assignmentId', element: <AssignmentDetails /> },
-                    { path: 'courses/:courseId/assignments/:assignmentId/submit', element: <SubmitAssignment /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/submissions/:submissionId', element: <SubmissionResults /> },
                     { path: 'courses/:courseId/grades', element: <CourseGrades /> },
                 ]

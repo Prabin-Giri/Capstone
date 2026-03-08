@@ -8,6 +8,7 @@ import { Play } from 'lucide-react';
 import AlertModal from '../../components/ui/AlertModal';
 
 import './SubmissionGrader.css';
+import { showDialog } from '../../components/ui/Dialog';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -113,7 +114,7 @@ const SubmissionGrader: React.FC = () => {
         const enteredGrade = grade ? parseFloat(grade) : undefined;
 
         if (enteredGrade !== undefined && enteredGrade > maxPoints) {
-            alert(`Grade cannot exceed the maximum points for this assignment (${maxPoints}).`);
+            await showDialog({ title: 'Invalid Grade', message: `Grade cannot exceed the maximum points for this assignment (${maxPoints}).`, confirmText: 'OK' });
             return;
         }
 
