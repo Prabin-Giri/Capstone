@@ -232,7 +232,13 @@ export async function getSubmissions(params?: {
     const res = await apiFetch<Submission[]>(`/submissions${query ? `?${query}` : ''}`);
     return res.map(sub => {
         try {
-            sub.files = JSON.parse(sub.file_path);
+            let parsed = JSON.parse(sub.file_path);
+            if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Handle double-stringified JSON
+            if (Array.isArray(parsed)) {
+                sub.files = parsed;
+            } else {
+                sub.files = [{ name: sub.file_name, path: sub.file_path }];
+            }
         } catch (e) {
             sub.files = [{ name: sub.file_name, path: sub.file_path }];
         }
@@ -243,7 +249,13 @@ export async function getSubmissions(params?: {
 export async function getSubmission(id: number): Promise<Submission> {
     const sub = await apiFetch<Submission>(`/submissions/${id}`);
     try {
-        sub.files = JSON.parse(sub.file_path);
+        let parsed = JSON.parse(sub.file_path);
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Handle double-stringified JSON
+        if (Array.isArray(parsed)) {
+            sub.files = parsed;
+        } else {
+            sub.files = [{ name: sub.file_name, path: sub.file_path }];
+        }
     } catch (e) {
         sub.files = [{ name: sub.file_name, path: sub.file_path }];
     }

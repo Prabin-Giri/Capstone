@@ -7,6 +7,7 @@ import { getRole } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
 import { Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import './AssignmentWizard.css';
+import { showDialog } from '../../components/ui/Dialog';
 
 const AssignmentWizard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
@@ -80,7 +81,14 @@ const AssignmentWizard: React.FC = () => {
     const handleRemoveTestCase = async (index: number) => {
         const tc = testCases[index];
         if (tc.id) {
-            if (!confirm('Are you sure you want to delete this test case?')) return;
+            const confirmed = await showDialog({
+                title: 'Delete Test Case',
+                message: 'Are you sure you want to delete this test case?',
+                type: 'danger',
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+            });
+            if (!confirmed) return;
             try {
                 await deleteTestCase(tc.id);
             } catch (err) {
@@ -158,7 +166,7 @@ const AssignmentWizard: React.FC = () => {
         } catch (err: any) {
             console.error('Failed to save', err);
             const message = err.message || 'Unknown error';
-            alert(`Failed to save assignment and test cases: ${message}`);
+            await showDialog({ title: 'Save Failed', message: `Failed to save assignment and test cases: ${message}`, confirmText: 'OK' });
         } finally {
             setSaving(false);
         }

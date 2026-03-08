@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { courses } from '../../lib/mockData';
+import { PanelLeft, LayoutDashboard, BookOpen, BarChart2 } from 'lucide-react';
 import './Layout.css';
 
 interface CourseSidebarProps {
@@ -10,18 +11,62 @@ interface CourseSidebarProps {
 const CourseSidebar: React.FC<CourseSidebarProps> = ({ courseId }) => {
     const course = courses.find((item) => item.id === courseId);
     const basePath = `/student/courses/${courseId}`;
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     const navItems = [
-        { label: 'Home', to: basePath, end: true },
-        { label: 'Assignments', to: `${basePath}/assignments` },
-        { label: 'Grades', to: `${basePath}/grades` },
+        { label: 'Home', to: basePath, end: true, icon: <LayoutDashboard size={18} /> },
+        { label: 'Assignments', to: `${basePath}/assignments`, icon: <BookOpen size={18} /> },
+        { label: 'Grades', to: `${basePath}/grades`, icon: <BarChart2 size={18} /> },
     ];
 
+    // Mobile: just render plain pill text nav, no collapse logic
+    if (isMobile) {
+        return (
+            <aside className="course-sidebar">
+                <nav className="course-nav">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.label}
+                            to={item.to}
+                            end={item.end}
+                            className={({ isActive }) =>
+                                `course-nav-link ${isActive ? 'active' : ''}`
+                            }
+                        >
+                            {item.label}
+                        </NavLink>
+                    ))}
+                </nav>
+            </aside>
+        );
+    }
+
+    // Desktop: full collapsible sidebar with icons
     return (
-        <aside className="course-sidebar">
+        <aside className={`course-sidebar ${isCollapsed ? 'course-sidebar-collapsed' : ''}`}>
             <div className="course-context">
-                <div className="course-context-name">{course?.name ?? 'Course'}</div>
-                <div className="course-context-id">{course?.id ?? ''}</div>
+                <div className="course-context-header">
+                    <button
+                        className="course-sidebar-toggle"
+                        onClick={() => setIsCollapsed(c => !c)}
+                        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        <PanelLeft size={16} />
+                    </button>
+                    {!isCollapsed && (
+                        <div className="course-context-info">
+                            <div className="course-context-name">{course?.name ?? 'Course'}</div>
+                            <div className="course-context-id">{course?.id ?? ''}</div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <nav className="course-nav">
@@ -33,8 +78,10 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({ courseId }) => {
                         className={({ isActive }) =>
                             `course-nav-link ${isActive ? 'active' : ''}`
                         }
+                        title={isCollapsed ? item.label : undefined}
                     >
-                        <span className="course-label">{item.label}</span>
+                        <span className="course-nav-icon">{item.icon}</span>
+                        {!isCollapsed && <span className="course-label">{item.label}</span>}
                     </NavLink>
                 ))}
             </nav>

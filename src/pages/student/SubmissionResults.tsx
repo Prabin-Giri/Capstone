@@ -151,13 +151,14 @@ const SubmissionResults: React.FC = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn btn-outline btn-pill"
+                                style={{ display: 'inline-flex', alignItems: 'center' }}
                             >
-                                Download {f.name}
+                                {f.name}
                             </a>
                         ))}
                     </div>
                     <Link
-                        to={`/student/courses/${courseId}/assignments/${assignmentId}/submit`}
+                        to={`/student/courses/${courseId}/assignments/${assignmentId}`}
                         className="btn btn-primary btn-pill"
                     >
                         Resubmit Assignment

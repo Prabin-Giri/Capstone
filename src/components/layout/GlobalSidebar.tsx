@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Mail, HelpCircle, User } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
+import { cancelDialog } from '../ui/Dialog';
 import './Layout.css';
 
 interface GlobalSidebarProps {
@@ -30,7 +31,14 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
     const isCalendarActive = location.pathname.startsWith('/calendar');
 
     return (
-        <aside className={`global-sidebar ${isOpen ? 'mobile-open' : ''}`}>
+        <aside
+            className={`global-sidebar ${isOpen ? 'mobile-open' : ''}`}
+            onClick={() => {
+                if (document.body.classList.contains('dialog-open')) {
+                    cancelDialog();
+                }
+            }}
+        >
             <div className="global-sidebar-header">
                 <NavLink to={dashboardPath} onClick={onNavigate} style={{ display: 'flex', justifyContent: 'center' }}>
                     <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />

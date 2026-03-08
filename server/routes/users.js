@@ -78,7 +78,10 @@ router.get('/search', async (req, res, next) => {
         let query = "SELECT id, name, email, role FROM users WHERE 1=1";
         const params = [];
 
-        if (role) {
+        if (role === 'ta') {
+            // Include students as potential TAs
+            query += " AND (role = 'ta' OR role = 'student')";
+        } else if (role) {
             query += " AND role = ?";
             params.push(role);
         }
@@ -96,34 +99,9 @@ router.get('/search', async (req, res, next) => {
     }
 });
 
-// PUT /api/users/profile - Update user profile
+// PUT /api/users/profile - Update user profile (RESTRICTED: Name and Email editing disabled)
 router.put('/profile', async (req, res, next) => {
-    try {
-        const { id, name, email } = req.body;
-        if (!id || !name || !email) {
-            return res.status(400).json({ error: 'ID, name, and email are required' });
-        }
-
-        const db = getDb();
-
-        // Check if new email is taken by another user
-        if (email !== id) {
-            const [existing] = await db.execute('SELECT id FROM users WHERE email = ? AND id != ?', [email, id]);
-            if (existing.length > 0) {
-                return res.status(400).json({ error: 'Email is already in use by another account' });
-            }
-        }
-
-        await db.execute(
-            'UPDATE users SET name = ?, email = ? WHERE id = ?',
-            [name, email, id]
-        );
-
-        const [updatedUser] = await db.execute('SELECT id, name, email, role, profile_picture FROM users WHERE id = ?', [id]);
-        res.json({ ...updatedUser[0], message: 'Profile updated successfully' });
-    } catch (err) {
-        next(err);
-    }
+    return res.status(403).json({ error: 'Name and email editing is restricted for all accounts.' });
 });
 
 module.exports = router;

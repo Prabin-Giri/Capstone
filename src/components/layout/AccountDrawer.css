@@ -432,36 +432,82 @@
     color: var(--text-secondary);
 }
 
-.toggle-switch {
-    width: 48px;
-    height: 24px;
-    background: var(--light-grey);
-    border-radius: 20px;
-    padding: 2px;
-    transition: all 0.3s;
+.theme-dropdown-wrapper {
     position: relative;
+    flex-shrink: 0;
+}
+
+.theme-select-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 12px;
+    background: var(--light-grey);
     border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+    white-space: nowrap;
 }
 
-.toggle-switch.active {
-    background: var(--btn-primary-bg);
-    color: var(--bg-surface);
-    /* Automatically invert text to layout bg for better readability */
-    ;
+.theme-select-btn:hover {
+    background-color: var(--border-color);
 }
 
-.toggle-thumb {
-    width: 18px;
-    height: 18px;
-    background-color: var(--bg-surface);
-    border-radius: 50%;
-    transition: all 0.3s cubic-bezier(0.18, 0.89, 0.35, 1.15);
-    transform: translateX(0);
+.theme-dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    z-index: 100;
+    min-width: 140px;
+    animation: dropdown-in 0.15s ease-out;
 }
 
-.toggle-switch.active .toggle-thumb {
-    transform: translateX(24px);
+@keyframes dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
+
+.theme-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.theme-dropdown-item:hover {
+    background: var(--light-grey);
+}
+
+.theme-dropdown-item.active {
+    font-weight: 700;
+    color: var(--primary-color);
+    background: var(--light-grey);
+}
+
 
 .drawer-nav-btn {
     display: flex;
@@ -758,8 +804,8 @@
         top: auto;
         bottom: 0;
         width: 100%;
-        height: auto;
-        max-height: 85vh;
+        height: 80vh;
+        max-height: 80vh;
         transform: translateY(100%);
         border-radius: 24px 24px 0 0;
         border-right: none;

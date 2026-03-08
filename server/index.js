@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDb } = require('./db');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const { initDb, isMySQL } = require('./db');
 
 const coursesRouter = require('./routes/courses');
 const assignmentsRouter = require('./routes/assignments');
@@ -51,7 +52,7 @@ initDb().then(async () => {
     await initGraderSchema();
     const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log(`Database: MySQL (${process.env.MYSQL_DATABASE || process.env.DB_NAME || 'intelligrade'})`);
+        console.log(`Database: ${isMySQL ? 'MySQL' : 'SQLite'} (${isMySQL ? (process.env.MYSQL_DATABASE || 'autograde') : 'autograde.db'})`);
     });
 
     // Handle server errors (like EADDRINUSE)

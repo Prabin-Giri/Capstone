@@ -23,6 +23,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import './TACourseView.css';
+import { showDialog } from '../../components/ui/Dialog';
 
 const TACourseView: React.FC = () => {
     const { courseId } = useParams();
@@ -100,7 +101,7 @@ const TACourseView: React.FC = () => {
             setAssignmentToDelete(null);
         } catch (err) {
             console.error('Failed to delete', err);
-            alert('Failed to delete assignment');
+            await showDialog({ title: 'Error', message: 'Failed to delete assignment', confirmText: 'OK' });
         }
     }
 
@@ -114,7 +115,7 @@ const TACourseView: React.FC = () => {
             setStudentToUnenroll(null);
         } catch (err) {
             console.error('Failed to unenroll student', err);
-            alert('Failed to unenroll student');
+            await showDialog({ title: 'Error', message: 'Failed to unenroll student', confirmText: 'OK' });
         }
     };
 
@@ -133,7 +134,7 @@ const TACourseView: React.FC = () => {
             setShowDropdown(false);
         } catch (err) {
             console.error('Upload failed', err);
-            alert('Upload failed');
+            await showDialog({ title: 'Error', message: 'Upload failed', confirmText: 'OK' });
         } finally {
             setLoading(false);
         }
@@ -186,7 +187,7 @@ const TACourseView: React.FC = () => {
             setShowEnrollModal(false);
         } catch (err) {
             console.error('Enrollment failed', err);
-            alert('Failed to enroll student');
+            await showDialog({ title: 'Error', message: 'Failed to enroll student', confirmText: 'OK' });
         }
     };
 
@@ -229,7 +230,7 @@ const TACourseView: React.FC = () => {
             setEnrolledStudents(students);
         } catch (err) {
             console.error('CSV enroll failed', err);
-            alert('Failed to enroll students from CSV');
+            await showDialog({ title: 'Error', message: 'Failed to enroll students from CSV', confirmText: 'OK' });
         } finally {
             setCsvLoading(false);
         }

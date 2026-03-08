@@ -33,6 +33,8 @@ const CREATE_TABLES = [
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE,
+        password VARCHAR(255),
+        profile_picture VARCHAR(500) DEFAULT NULL,
         role VARCHAR(50) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -41,6 +43,7 @@ const CREATE_TABLES = [
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         term VARCHAR(255) NOT NULL,
+        instructor_id VARCHAR(255),
         is_archived TINYINT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -55,6 +58,7 @@ const CREATE_TABLES = [
         points INT DEFAULT 100,
         language VARCHAR(50),
         starter_code_path VARCHAR(500),
+        test_case_file_path VARCHAR(500),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         late_penalty_enabled INT DEFAULT 0,
@@ -138,6 +142,23 @@ const CREATE_TABLES = [
         stdin TEXT,
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS course_enrollments (
+        course_id VARCHAR(255) NOT NULL,
+        student_id VARCHAR(255) NOT NULL,
+        enrolled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (course_id, student_id),
+        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS course_tas (
+        course_id VARCHAR(255) NOT NULL,
+        ta_id VARCHAR(255) NOT NULL,
+        permissions JSON,
+        enrolled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (course_id, ta_id),
+        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+        FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
 ];
 
 async function initDb() {
@@ -165,17 +186,20 @@ async function initDb() {
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;
     if (count === 0) {
-        await pool.execute("INSERT INTO users (id, name, email, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'student')");
-        await pool.execute("INSERT INTO users (id, name, email, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'faculty')");
-        await pool.execute("INSERT INTO courses (id, name, term) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026')");
-        await pool.execute("INSERT INTO courses (id, name, term) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026')");
-        await pool.execute("INSERT INTO courses (id, name, term) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026')");
+        await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
+        await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
+        await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026', 'faculty-001')");
+        await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026', 'faculty-001')");
+        await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026', 'faculty-001')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
         await pool.execute("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
+        await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'student-001')");
+        await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI2100', 'student-001')");
+        await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI1100', 'student-001')");
         console.log('Database initialized with sample data (MySQL)');
     }
 
@@ -201,13 +225,24 @@ async function saveDb() {
     return Promise.resolve();
 }
 
-async function queryOne(sql, params = []) {
+async function fetchOne(sql, params = []) {
     const rows = await query(sql, params);
     return rows.length > 0 ? rows[0] : null;
 }
 
-function queryToObjects(rows) {
-    return Array.isArray(rows) ? rows : [];
+function queryOne(result) {
+    const rows = queryToObjects(result);
+    return rows.length > 0 ? rows[0] : null;
 }
 
-module.exports = { initDb, getDb, query, run, saveDb, queryOne, queryToObjects, isMySQL: true };
+function queryToObjects(result) {
+    if (!result) return [];
+    // If it's the [rows, fields] array from mysql2
+    if (Array.isArray(result) && Array.isArray(result[0])) {
+        return result[0];
+    }
+    // If it's just the rows array
+    return Array.isArray(result) ? result : [];
+}
+
+module.exports = { initDb, getDb, query, run, saveDb, queryOne, fetchOne, queryToObjects, isMySQL: true };
