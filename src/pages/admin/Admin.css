@@ -1,0 +1,294 @@
+/* Admin Control Center - White background, maroon bubbles */
+
+.admin-page {
+    min-height: 100%;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+    padding: 2rem 1.5rem 3rem;
+}
+
+/* Subtle maroon tint orbs on white */
+.admin-bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.08;
+    animation: admin-orb-float 18s ease-in-out infinite;
+    pointer-events: none;
+}
+.admin-bg-orb-1 {
+    width: 320px;
+    height: 320px;
+    background: linear-gradient(135deg, #6b2d3c 0%, #9c4d56 100%);
+    top: -80px;
+    right: -60px;
+    animation-delay: 0s;
+}
+.admin-bg-orb-2 {
+    width: 240px;
+    height: 240px;
+    background: linear-gradient(135deg, #82202d 0%, #6b2d3c 100%);
+    bottom: 20%;
+    left: -40px;
+    animation-delay: -6s;
+}
+.admin-bg-orb-3 {
+    width: 180px;
+    height: 180px;
+    background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%);
+    bottom: -40px;
+    right: 25%;
+    animation-delay: -12s;
+}
+
+@keyframes admin-orb-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(20px, -15px) scale(1.05); }
+    66% { transform: translate(-10px, 10px) scale(0.98); }
+}
+
+/* Header */
+.admin-header {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 2.5rem;
+}
+.admin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: rgba(107, 45, 60, 0.12);
+    color: #6b2d3c;
+    border: 1px solid rgba(107, 45, 60, 0.35);
+    animation: admin-badge-pulse 3s ease-in-out infinite;
+}
+@keyframes admin-badge-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(107, 45, 60, 0.15); }
+    50% { box-shadow: 0 0 0 6px rgba(107, 45, 60, 0); }
+}
+.admin-title {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #1e293b;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+    animation: admin-fade-in 0.6s ease-out;
+}
+.admin-title span {
+    color: #6b2d3c;
+}
+.admin-subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    max-width: 32rem;
+    line-height: 1.5;
+    animation: admin-fade-in 0.6s ease-out 0.1s both;
+}
+
+/* Pending faculty card */
+.admin-pending-wrap {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 2rem;
+    animation: admin-fade-in 0.5s ease-out 0.2s both;
+}
+.admin-pending-card {
+    background: #ffffff;
+    border: 1px solid rgba(107, 45, 60, 0.25);
+    border-radius: 1.25rem;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 2px 12px rgba(107, 45, 60, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.admin-pending-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(107, 45, 60, 0.12);
+}
+.admin-pending-card h2 {
+    color: #1e293b;
+}
+.admin-pending-card p {
+    color: #64748b;
+}
+.admin-pending-card table th {
+    color: #475569;
+}
+.admin-pending-card table td {
+    color: #334155;
+}
+.admin-verify-btn {
+    background: linear-gradient(135deg, #82202d 0%, #6b2d3c 100%);
+    color: #fff;
+}
+.admin-verify-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #9c4d56 0%, #82202d 100%);
+}
+
+/* Function bubbles grid */
+.admin-bubbles {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    max-width: 72rem;
+    margin: 0 auto;
+}
+
+.admin-bubble {
+    position: relative;
+    border-radius: 1.75rem;
+    padding: 1.75rem;
+    cursor: pointer;
+    overflow: hidden;
+    background: linear-gradient(145deg, #82202d 0%, #6b2d3c 50%, #5c0a0a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 20px rgba(107, 45, 60, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.4s ease;
+    animation: admin-bubble-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.admin-bubble:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(107, 45, 60, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.admin-bubble:active {
+    transform: translateY(-4px) scale(0.99);
+}
+
+/* Stagger animation for each bubble */
+.admin-bubble:nth-child(1) { animation-delay: 0.1s; }
+.admin-bubble:nth-child(2) { animation-delay: 0.18s; }
+.admin-bubble:nth-child(3) { animation-delay: 0.26s; }
+.admin-bubble:nth-child(4) { animation-delay: 0.34s; }
+.admin-bubble:nth-child(5) { animation-delay: 0.42s; }
+
+@keyframes admin-bubble-in {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Inner highlight blob on maroon bubble */
+.admin-bubble-blob {
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.2;
+    top: -50px;
+    right: -50px;
+    background: rgba(255, 255, 255, 0.25);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.admin-bubble:hover .admin-bubble-blob {
+    opacity: 0.3;
+    transform: scale(1.2);
+}
+
+/* Icon circle - light on maroon */
+.admin-bubble-icon-wrap {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.2);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.admin-bubble:hover .admin-bubble-icon-wrap {
+    transform: scale(1.1) rotate(-3deg);
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.admin-bubble-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 0.35rem;
+    position: relative;
+    z-index: 1;
+    letter-spacing: -0.01em;
+}
+.admin-bubble-desc {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+.admin-bubble-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b2d3c;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    position: relative;
+    z-index: 1;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.admin-bubble:hover .admin-bubble-cta {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translateX(4px);
+}
+
+@keyframes admin-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-bg-orb,
+    .admin-badge,
+    .admin-bubble,
+    .admin-bubble-blob,
+    .admin-bubble-icon-wrap,
+    .admin-bubble-cta,
+    .admin-pending-card {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+    .admin-bubble {
+        animation: admin-fade-in 0.3s ease-out both;
+    }
+    .admin-bubble:nth-child(1),
+    .admin-bubble:nth-child(2),
+    .admin-bubble:nth-child(3),
+    .admin-bubble:nth-child(4),
+    .admin-bubble:nth-child(5) {
+        animation-delay: 0s;
+    }
+}
+
+/* Maroon bubble variants - slightly different gradients */
+.admin-bubble[data-accent="db"] { background: linear-gradient(145deg, #9c4d56 0%, #6b2d3c 50%, #5c0a0a 100%); }
+.admin-bubble[data-accent="users"] { background: linear-gradient(145deg, #82202d 0%, #6b2d3c 45%, #4a0e0e 100%); }
+.admin-bubble[data-accent="students"] { background: linear-gradient(145deg, #991b1b 0%, #7f1d1d 50%, #6b2d3c 100%); }
+.admin-bubble[data-accent="faculty"] { background: linear-gradient(145deg, #b91c1c 0%, #82202d 50%, #6b2d3c 100%); }
+.admin-bubble[data-accent="analytics"] { background: linear-gradient(145deg, #7f1d1d 0%, #6b2d3c 50%, #5c0a0a 100%); }

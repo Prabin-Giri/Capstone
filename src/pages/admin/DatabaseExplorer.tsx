@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getDbTables, getTableData } from '../../lib/api';
 import type { TableData } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
+import { ChevronLeft } from 'lucide-react';
 import './DatabaseExplorer.css';
 
 const DatabaseExplorer: React.FC = () => {
@@ -46,6 +48,12 @@ const DatabaseExplorer: React.FC = () => {
     return (
         <div className="db-explorer">
             <div className="db-sidebar">
+                <Link
+                    to="/admin"
+                    className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200 mb-3"
+                >
+                    <ChevronLeft size={18} /> Back
+                </Link>
                 <h2 className="sidebar-title">Tables</h2>
                 <div className="table-list">
                     {tables.map(table => (

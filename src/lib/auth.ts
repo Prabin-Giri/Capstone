@@ -15,6 +15,7 @@ export interface UserSession {
     email: string;
     role: AuthRole;
     profilePicture?: string;
+    verified?: boolean;
 }
 
 export const updateUser = (updates: Partial<UserSession>) => {
@@ -45,12 +46,17 @@ export const login = (user: UserSession) => {
     if (user.role === AUTH_ROLES.ADMIN) {
         window.location.href = '/admin';
     } else if (user.role === AUTH_ROLES.FACULTY) {
-        window.location.href = '/faculty';
+        window.location.href = user.verified ? '/faculty' : '/faculty/pending';
     } else if (user.role === AUTH_ROLES.TA) {
         window.location.href = '/ta';
     } else {
         window.location.href = '/student';
     }
+};
+
+export const isFacultyVerified = (): boolean => {
+    const s = getSession();
+    return !!(s && s.role === AUTH_ROLES.FACULTY && s.verified);
 };
 
 export const logout = () => {

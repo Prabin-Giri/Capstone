@@ -188,10 +188,13 @@ async function initDb() {
     try {
         await pool.execute('ALTER TABLE assignments ADD COLUMN rubric_config TEXT');
     } catch (e) {
-        // Ignore "duplicate column" errors if it already exists
-        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) {
-            throw e;
-        }
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.verified exists (faculty pending admin approval)
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN verified TINYINT DEFAULT 1');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
 
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');

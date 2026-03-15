@@ -48,6 +48,72 @@
     margin-top: 0.25rem;
 }
 
+.filter-active-hint {
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+/* Filters */
+.gradebook-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.gradebook-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-icon {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.gradebook-filter-input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    min-width: 220px;
+}
+
+.gradebook-filter-input:focus {
+    outline: none;
+    border-color: var(--primary-light);
+}
+
+.gradebook-filter-select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    min-width: 180px;
+    background: var(--bg-body);
+}
+
+.gradebook-filter-overall {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color);
+    background: var(--bg-body);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.gradebook-filter-overall:hover {
+    background: var(--border-color);
+}
+
 /* Actions */
 .gradebook-actions {
     display: flex;
@@ -521,6 +587,19 @@
     border-radius: 4px;
     font-size: 0.75rem;
     font-weight: 600;
+}
+
+.status-badge-ungraded {
+    background: rgba(245, 158, 11, 0.2);
+    color: #b45309;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.gradebook-report-table .grade-badge {
+    display: inline-block;
 }
 
 /* --- Additional Responsive Adjustments --- */

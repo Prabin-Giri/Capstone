@@ -1,3 +1,128 @@
+/* ========== TA Course View (grading only, no edit/enroll) ========== */
+.ta-course-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.ta-course-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ta-course-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ta-course-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  margin-bottom: 0.25rem;
+}
+.ta-course-back:hover {
+  color: var(--primary-color);
+}
+
+.ta-course-header .header-title h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  margin: 0;
+}
+.ta-course-header .header-metadata {
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.ta-course-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ta-course-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid var(--primary-light);
+  background: var(--bg-surface);
+  color: var(--primary-text);
+}
+.ta-course-btn:hover {
+  background: var(--border-color);
+  border-color: var(--text-primary);
+}
+.ta-course-btn-primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+.ta-course-btn-primary:hover {
+  background: var(--primary-hover, var(--primary-color));
+  border-color: var(--primary-hover, var(--primary-color));
+  color: white;
+}
+
+.ta-course-docs {
+  margin-bottom: 1.5rem;
+}
+
+.ta-course-main {
+  margin-top: 0.5rem;
+}
+.ta-course-section-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  margin: 0 0 0.25rem 0;
+}
+.ta-course-section-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0 0 1rem 0;
+}
+
+.ta-course-assignments .assignment-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+.ta-course-assignments .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ta-grade-btn {
+  background: var(--primary-color) !important;
+  color: white !important;
+  border-color: var(--primary-color) !important;
+}
+.ta-grade-btn:hover {
+  background: var(--primary-hover, var(--primary-color)) !important;
+  border-color: var(--primary-hover, var(--primary-color)) !important;
+  color: white !important;
+}
+
 /* Page Container to match Student view (max-width + spacing) */
 .faculty-course-container {
   max-width: 1400px;

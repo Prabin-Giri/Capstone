@@ -392,6 +392,35 @@ body.dialog-open .app-body {
     gap: 1.25rem;
 }
 
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.dark-theme .theme-toggle {
+    background: rgba(17, 24, 39, 0.85);
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.theme-toggle:hover {
+    background: var(--light-grey);
+}
+
+.theme-toggle-label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
 .avatar-circle {
     height: 2.5rem;
     width: 2.5rem;

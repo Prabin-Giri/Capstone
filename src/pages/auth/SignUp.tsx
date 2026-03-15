@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { AUTH_ROLES, login } from '../../lib/auth';
+import { Link } from 'react-router-dom';
+import { login } from '../../lib/auth';
 import { signupRequest } from '../../lib/api';
 import './Login.css';
 
+type SignupRole = 'student' | 'faculty';
+
 const SignUp: React.FC = () => {
-    const { role } = useParams<{ role: string }>();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [role, setRole] = useState<SignupRole>('student');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-
-    const targetRole = role === 'faculty' ? AUTH_ROLES.FACULTY : (role === 'ta' ? AUTH_ROLES.TA : AUTH_ROLES.STUDENT);
-    const title = role === 'faculty' ? 'Faculty Sign Up' : (role === 'ta' ? 'TA Sign Up' : 'Student Sign Up');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -32,16 +31,16 @@ const SignUp: React.FC = () => {
                 name,
                 email,
                 password,
-                role: targetRole
+                role,
             });
-
-            // Automatically log in after successful signup
+            const verified = user.verified !== false;
             login({
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role as any,
-                profilePicture: user.profile_picture
+                profilePicture: user.profile_picture,
+                verified,
             });
         } catch (err: any) {
             setError(err.message || 'Sign up failed. Please try again.');
@@ -52,85 +51,131 @@ const SignUp: React.FC = () => {
 
     return (
         <div className="login-container">
-            <div className="login-card">
-                <div className="login-header" style={{ textAlign: 'center' }}>
-                    <div className="brand-container" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
-                        <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+            <div className="auth-shell auth-shell-signup">
+                {/* Left: maroon branding (exact layout from image) */}
+                <div className="auth-brand-side">
+                    <div className="auth-logo-circle-signup">
+                        <img src="/ulm-logo.png" alt="ULM Logo" className="auth-logo-img" />
                     </div>
-                    <h2 className="login-title">{title}</h2>
+                    <h1 className="auth-brand-title">Automated Grading tool</h1>
+                    <p className="auth-brand-subtitle">
+                        Submit code, run test cases, and manage grades for every class in one place.
+                    </p>
+                    <div className="auth-pill-list">
+                        <span className="auth-pill-btn">Auto-graded assignments</span>
+                        <span className="auth-pill-btn">Python / Java code runner</span>
+                        <span className="auth-pill-btn">Faculty & TA dashboards</span>
+                        <span className="auth-pill-btn">Student gradebook</span>
+                    </div>
                 </div>
 
-                <form className="login-form" onSubmit={handleSubmit}>
-                    {error && (
-                        <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem', textAlign: 'center' }}>
-                            {error}
+                {/* Right: white form */}
+                <div className="auth-form-side">
+                    <div className="auth-form-header auth-form-header-row">
+                        <h2 className="auth-form-title">Create new Account</h2>
+                        <p className="auth-form-subtitle auth-form-subtitle-right">
+                            Already registered? <Link to="/login" className="auth-switch-link">Login</Link>
+                        </p>
+                    </div>
+
+                    <form className="login-form" onSubmit={handleSubmit}>
+                        {error && (
+                            <div className="login-error">{error}</div>
+                        )}
+
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="name">Please enter your name</label>
+                            <input
+                                id="name"
+                                type="text"
+                                className="form-input"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="John Doe"
+                                required
+                            />
                         </div>
-                    )}
 
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="name">Full Name</label>
-                        <input
-                            id="name"
-                            type="text"
-                            className="form-input"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="John Doe"
-                            required
-                        />
-                    </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="email">Please enter Email</label>
+                            <input
+                                id="email"
+                                type="email"
+                                className="form-input"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="name@university.edu"
+                                required
+                            />
+                        </div>
 
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="email">Email</label>
-                        <input
-                            id="email"
-                            type="email"
-                            className="form-input"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@university.edu"
-                            required
-                        />
-                    </div>
+                        <div className="form-group form-group-role">
+                            <span className="form-label">Role</span>
+                            <div className="role-ticks">
+                                <label className="role-tick">
+                                    <input
+                                        type="radio"
+                                        name="role"
+                                        value="student"
+                                        checked={role === 'student'}
+                                        onChange={() => setRole('student')}
+                                    />
+                                    <span className="role-tick-label">Student</span>
+                                </label>
+                                <label className="role-tick">
+                                    <input
+                                        type="radio"
+                                        name="role"
+                                        value="faculty"
+                                        checked={role === 'faculty'}
+                                        onChange={() => setRole('faculty')}
+                                    />
+                                    <span className="role-tick-label">Faculty</span>
+                                </label>
+                            </div>
+                            {role === 'faculty' && (
+                                <span className="form-hint">
+                                    Sign up as Faculty to create courses and enroll students. An admin must verify your account before you can access the dashboard.
+                                </span>
+                            )}
+                            {role === 'student' && (
+                                <span className="form-hint">
+                                    Students are added to classes by faculty. After signup, you will see only courses you are enrolled in.
+                                </span>
+                            )}
+                        </div>
 
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            className="form-input"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="password">Please enter password</label>
+                            <input
+                                id="password"
+                                type="password"
+                                className="form-input"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                            />
+                        </div>
 
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="confirmPassword">Confirm Password</label>
-                        <input
-                            id="confirmPassword"
-                            type="password"
-                            className="form-input"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
+                            <input
+                                id="confirmPassword"
+                                type="password"
+                                className="form-input"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                            />
+                        </div>
 
-                    <button type="submit" className="submit-btn" disabled={loading}>
-                        {loading ? 'Creating account...' : 'Create Account'}
-                    </button>
-
-                    <div className="auth-footer">
-                        Already have an account? <Link to={`/login/${role}`}>Sign In</Link>
-                    </div>
-                </form>
-
-                <Link to="/" className="back-link">
-                    &larr; Back to Role Selection
-                </Link>
+                        <button type="submit" className="submit-btn submit-btn-primary submit-btn-signup" disabled={loading}>
+                            {loading ? 'Creating account...' : 'SIGN UP'}
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     );

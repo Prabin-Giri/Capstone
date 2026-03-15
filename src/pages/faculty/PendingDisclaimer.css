@@ -1,0 +1,85 @@
+.pending-disclaimer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem;
+}
+
+.pending-card {
+    max-width: 480px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.pending-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+.pending-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    margin-bottom: 1rem;
+}
+
+.pending-message {
+    font-size: 0.95rem;
+    color: var(--text-secondary, #4b5563);
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+.pending-note {
+    font-size: 0.85rem;
+    color: var(--text-tertiary, #6b7280);
+    line-height: 1.4;
+    margin-bottom: 1.5rem;
+}
+
+.pending-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.pending-check-btn {
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #82202d 0%, #6b2d3c 100%);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
+}
+.pending-check-btn:hover:not(:disabled) {
+    opacity: 0.95;
+}
+.pending-check-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.pending-logout-btn {
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #d1d5db);
+    background: var(--bg-secondary, #f9fafb);
+    color: var(--text-primary, #374151);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.pending-logout-btn:hover {
+    background: var(--light-grey, #f3f4f6);
+    border-color: #9ca3af;
+}
