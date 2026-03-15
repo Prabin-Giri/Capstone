@@ -573,7 +573,7 @@ const FacultyCourseView: React.FC = () => {
                 </div>
 
                 <div className="students-section">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                         <h2 className="section-title" style={{ margin: 0 }}>Enrolled</h2>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button className="enroll-btn-small" style={{ background: 'var(--card-glass)', color: 'var(--text-secondary)' }} onClick={() => setShowInviteTAModal(true)}>
@@ -582,10 +582,13 @@ const FacultyCourseView: React.FC = () => {
                             </button>
                             <button className="enroll-btn-small" onClick={() => setShowEnrollModal(true)}>
                                 <UserPlus size={14} />
-                                Enroll Student
+                                Enroll students to class
                             </button>
                         </div>
                     </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', margin: '0 0 1rem' }}>
+                        Add students to this class so they can see assignments and submit work. Only enrolled students appear in the gradebook.
+                    </p>
 
                     {/* TAs List */}
                     {enrolledTAs.length > 0 && (

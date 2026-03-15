@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, updateCourse, type Course } from '../../lib/api';
-import { getUser } from '../../lib/auth';
+import { getUser, getSession } from '../../lib/auth';
 import { Archive, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import './FacultyDashboard.css';
 
@@ -36,8 +36,13 @@ const FacultyDashboard: React.FC = () => {
     };
 
     useEffect(() => {
+        const session = getSession();
+        if (session?.role === 'faculty' && !session.verified) {
+            navigate('/faculty/pending', { replace: true });
+            return;
+        }
         loadCourses();
-    }, []);
+    }, [navigate]);
 
     const openArchiveModal = (e: React.MouseEvent, course: Course) => {
         e.stopPropagation();

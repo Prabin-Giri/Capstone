@@ -114,6 +114,7 @@ async function initDb() {
         'ALTER TABLE courses ADD COLUMN instructor_id TEXT',
         'ALTER TABLE assignments ADD COLUMN test_case_file_path TEXT',
         'ALTER TABLE assignments ADD COLUMN type TEXT DEFAULT "individual"',
+        'ALTER TABLE users ADD COLUMN verified INTEGER DEFAULT 1',
         'ALTER TABLE submissions ADD COLUMN feedback TEXT DEFAULT NULL',
         `CREATE TABLE IF NOT EXISTS course_enrollments (
             course_id TEXT NOT NULL,

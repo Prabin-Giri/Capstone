@@ -25,11 +25,80 @@ export interface TableData {
 }
 
 export async function getDbTables(): Promise<string[]> {
-    return apiFetch<string[]>('/admin/db/tables');
+    return apiFetch<string[]>('/admin/tables');
 }
 
 export async function getTableData(table: string): Promise<TableData> {
-    return apiFetch<TableData>(`/admin/db/tables/${encodeURIComponent(table)}`);
+    return apiFetch<TableData>(`/admin/tables/${encodeURIComponent(table)}`);
+}
+
+export interface PendingFaculty {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    created_at?: string;
+}
+
+export async function getPendingFaculty(): Promise<PendingFaculty[]> {
+    return apiFetch<PendingFaculty[]>('/admin/pending-faculty');
+}
+
+export async function verifyFaculty(userId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/admin/verify-faculty/${encodeURIComponent(userId)}`, { method: 'POST' });
+}
+
+export interface AdminUser {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    verified?: number;
+    created_at?: string;
+}
+
+export async function getAdminUsers(): Promise<AdminUser[]> {
+    return apiFetch<AdminUser[]>('/admin/users');
+}
+
+export interface StudentInsight {
+    id: string;
+    name: string;
+    email: string;
+    created_at?: string;
+    courses_enrolled: number;
+    submissions_count: number;
+    graded_count: number;
+}
+
+export async function getStudentInsights(): Promise<StudentInsight[]> {
+    return apiFetch<StudentInsight[]>('/admin/students/insights');
+}
+
+export interface AdminFaculty {
+    id: string;
+    name: string;
+    email: string;
+    verified?: number;
+    created_at?: string;
+    course_count: number;
+}
+
+export async function getAdminFaculty(): Promise<AdminFaculty[]> {
+    return apiFetch<AdminFaculty[]>('/admin/faculty');
+}
+
+export interface AdminAnalytics {
+    users: Record<string, number>;
+    totalUsers: number;
+    totalCourses: number;
+    totalAssignments: number;
+    totalSubmissions: number;
+    totalEnrollments: number;
+}
+
+export async function getAdminAnalytics(): Promise<AdminAnalytics> {
+    return apiFetch<AdminAnalytics>('/admin/analytics');
 }
 
 // ============ Courses ============
@@ -43,6 +112,8 @@ export interface Course {
     student_count?: number;
     active_assignment_count?: number;
     created_at?: string;
+    /** Present when fetching with both studentId and taId: 'student' | 'ta' | 'both' */
+    my_role?: 'student' | 'ta' | 'both';
 }
 
 export async function getCourses(filters?: { instructorId?: string; studentId?: string; taId?: string }): Promise<Course[]> {
@@ -72,8 +143,19 @@ export async function createCourse(course: Course): Promise<Course> {
     });
 }
 
-export function getCourseGradesExportUrl(id: string, format: 'csv' | 'excel' = 'csv'): string {
-    return `${API_BASE}/courses/${id}/grades/export?format=${format}`;
+export type CourseGradesExportType = 'assignments' | 'final' | 'student';
+
+export function getCourseGradesExportUrl(
+    courseId: string,
+    format: 'csv' | 'excel' = 'csv',
+    options?: { type?: CourseGradesExportType; studentId?: string; assignmentIds?: string[] }
+): string {
+    const params = new URLSearchParams();
+    params.set('format', format);
+    params.set('type', options?.type || 'assignments');
+    if (options?.type === 'student' && options?.studentId) params.set('studentId', options.studentId);
+    if (options?.assignmentIds && options.assignmentIds.length > 0) params.set('assignmentIds', options.assignmentIds.join(','));
+    return `${API_BASE}/courses/${courseId}/grades/export?${params.toString()}`;
 }
 
 export interface GradebookData {
@@ -84,6 +166,8 @@ export interface GradebookData {
         name: string;
         email: string;
         grades: Record<string, number | null>;
+        /** true if student has a submission for that assignment (may be ungraded) */
+        submitted?: Record<string, boolean>;
     }[];
 }
 
@@ -556,8 +640,9 @@ export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'student' | 'faculty';
+    role: 'student' | 'faculty' | 'ta' | 'admin';
     profile_picture?: string;
+    verified?: boolean;
 }
 
 export async function loginRequest(email: string, password: string): Promise<User> {
@@ -578,6 +663,10 @@ export async function signupRequest(data: { name: string; email: string; passwor
         },
         body: JSON.stringify(data),
     });
+}
+
+export async function checkUserVerified(userId: string): Promise<{ verified: boolean }> {
+    return apiFetch<{ verified: boolean }>(`/users/${encodeURIComponent(userId)}/verified`);
 }
 
 export interface PlagiarismResult {
