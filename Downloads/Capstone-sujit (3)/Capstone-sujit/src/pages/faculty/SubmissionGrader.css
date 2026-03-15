@@ -1,0 +1,539 @@
+/* Page Container - Full Height for Split Layout */
+.grader-container {
+    display: flex;
+    height: calc(100vh - var(--header-height));
+    overflow: hidden;
+    background-color: var(--bg-body);
+}
+
+/* Left Panel: Submission Info & File */
+.grader-panel-left {
+    width: 60%;
+    padding: 2.5rem;
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    background-color: var(--bg-surface);
+}
+
+/* Right Panel: Grading Form */
+.grader-panel-right {
+    width: 40%;
+    padding: 2.5rem;
+    overflow-y: auto;
+    background-color: var(--bg-body);
+}
+
+.grader-form-title {
+    font-size: 1.5rem;
+    margin-bottom: 24px;
+}
+
+/* Typography & Headers */
+.grader-header {
+    margin-bottom: 2rem;
+}
+
+.grader-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-text);
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.04em;
+}
+
+.meta-group {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+
+.grader-meta {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin: 0;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.meta-value {
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-left: 0.25rem;
+}
+
+/* Cards & Sections */
+.info-card {
+    background-color: var(--bg-surface);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+}
+
+/* File Download Box */
+.file-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background-color: var(--light-grey);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.file-name {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.file-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.preview-placeholder {
+    margin-top: 1.5rem;
+    padding: 4rem 2rem;
+    background-color: var(--bg-body);
+    border-radius: var(--radius-md);
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.9rem;
+    border: 2px dashed var(--border-color);
+}
+
+/* Form Styles */
+.grading-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.inline-runner-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.inline-editor-section,
+.inline-terminal-section {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-surface);
+}
+
+.inline-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg-body);
+}
+
+.inline-editor-body {
+    max-height: 260px;
+    overflow: auto;
+}
+
+.inline-terminal-body {
+    max-height: 220px;
+    overflow: auto;
+    padding: 0.5rem 0.75rem;
+    background: #0d1117;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: #c9d1d9;
+}
+
+.inline-terminal-line {
+    margin-bottom: 0.25rem;
+}
+
+.inline-terminal-output {
+    margin-bottom: 0.15rem;
+}
+
+.inline-terminal-prompt {
+    color: #3fb950;
+    font-weight: 500;
+}
+
+.inline-terminal-placeholder {
+    color: #6e7681;
+}
+
+.inline-terminal-text {
+    color: #c9d1d9;
+}
+
+.inline-terminal-cursor {
+    color: #3fb950;
+    animation: student-runner-blink 1s step-end infinite;
+}
+
+.inline-fullscreen-btn {
+    margin-left: auto;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.inline-fullscreen-btn:hover {
+    background: var(--light-grey);
+    color: var(--text-primary);
+}
+
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.autograde-action-group {
+    margin-bottom: 16px;
+}
+
+.autograde-hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.grader-form-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 8px 0 24px 0;
+}
+
+.form-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    transition: all 0.2s;
+    background-color: var(--bg-surface);
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-text);
+    box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 250px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* File Preview */
+.preview-frame {
+    width: 100%;
+    height: 700px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    margin-top: 1.5rem;
+    box-shadow: var(--shadow-md);
+}
+
+/* Code Preview */
+.preview-hint {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Preview section: same look as Run test cases (editor | terminal) */
+.preview-runner-layout {
+    margin-top: 0.75rem;
+    min-height: 420px;
+    max-height: 75vh;
+}
+.preview-runner-layout .faculty-runner-monaco-wrap {
+    min-height: 280px;
+}
+.preview-runner-layout .terminal-section {
+    min-height: 320px;
+}
+.preview-runner-layout .faculty-runner-output {
+    min-height: 200px;
+}
+
+.preview-actions-row {
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.preview-test-results {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+}
+
+.preview-test-results strong {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.preview-test-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style: none;
+}
+
+.preview-test-list li {
+    margin-bottom: 0.25rem;
+}
+
+.preview-test-list .test-pass {
+    color: #16a34a;
+}
+
+.preview-test-list .test-fail {
+    color: #dc2626;
+}
+
+.preview-test-list .test-error {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.preview-test-list .test-detail {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-left: 0.5rem;
+}
+
+.code-preview-container {
+    width: 100%;
+    height: 700px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: #f8fafc;
+    margin-top: 0.5rem;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.code-block {
+    margin: 0;
+    padding: 1.5rem;
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #1e293b;
+    white-space: pre;
+    tab-size: 4;
+}
+
+.code-block code {
+    display: block;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid var(--light-grey);
+    border-top: 3px solid var(--primary-border);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Attempt Selector Modal */
+.attempt-selector-modal {
+    max-width: 500px !important;
+}
+
+.attempt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.attempt-selection-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--light-grey);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.attempt-selection-item:hover {
+    border-color: var(--primary-text);
+    background-color: var(--bg-surface);
+}
+
+.attempt-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.attempt-number {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.attempt-date {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.btn-autograde-single {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    font-weight: 600;
+    transition: all 0.2s;
+    border: none;
+}
+
+.btn-autograde-single:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* --- Mobile Adjustments --- */
+@media (max-width: 1024px) {
+    .grader-container {
+        display: block;
+        height: auto;
+        overflow: visible;
+    }
+
+    .grader-panel-left,
+    .grader-panel-right {
+        width: 100%;
+        padding: 1.5rem;
+        overflow: visible;
+    }
+
+    .grader-panel-left {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .grader-title {
+        font-size: 1.5rem;
+    }
+
+    .meta-group {
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .preview-frame,
+    .code-preview-container {
+        height: 400px;
+    }
+
+    .file-box {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .file-actions {
+        width: 100%;
+        flex-direction: row;
+        gap: 0.75rem;
+    }
+
+    .file-actions .btn {
+        flex: 1;
+        width: auto;
+    }
+
+    .btn-autograde-single {
+        width: auto !important;
+        align-self: flex-start !important;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    .form-actions {
+        flex-direction: row;
+        gap: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .form-actions .btn {
+        width: auto !important;
+        flex: unset !important;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+}

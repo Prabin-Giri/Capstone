@@ -1,0 +1,76 @@
+.user-dashboard {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.user-dashboard-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.user-dashboard-avatar {
+    color: var(--text-tertiary, #6b7280);
+    margin-bottom: 1rem;
+}
+
+.user-dashboard-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary-text, #111827);
+    margin: 0 0 0.5rem 0;
+}
+
+.user-dashboard-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary, #4b5563);
+    margin: 0;
+}
+
+.user-dashboard-card {
+    background: var(--bg-surface, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-lg, 12px);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+}
+
+.user-dashboard-card-icon {
+    color: var(--primary-text, #374151);
+    margin-bottom: 0.75rem;
+}
+
+.user-dashboard-card-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--primary-text, #111827);
+    margin: 0 0 0.5rem 0;
+}
+
+.user-dashboard-card-text {
+    font-size: 0.9375rem;
+    color: var(--text-secondary, #4b5563);
+    margin: 0 0 0.75rem 0;
+    line-height: 1.5;
+}
+
+.user-dashboard-card-text.muted {
+    color: var(--text-tertiary, #6b7280);
+    font-size: 0.875rem;
+    margin-bottom: 0;
+}
+
+.user-dashboard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.user-dashboard-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}

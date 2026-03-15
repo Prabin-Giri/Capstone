@@ -1,0 +1,33 @@
+.submit-page {
+    padding: 1.5rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.submit-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 2rem;
+}
+
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 0.5rem;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    background-color: var(--bg-body);
+    margin-bottom: 2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.upload-area:hover {
+    border-color: var(--primary-text);
+    background-color: var(--border-color);
+}
+
+.file-input-label {
+    font-weight: 500;
+    color: var(--primary-text);
+}

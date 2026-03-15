@@ -1,0 +1,344 @@
+/* Page Container */
+.grading-dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px;
+}
+
+/* Header Section */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.breadcrumb a {
+    color: var(--text-tertiary);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.breadcrumb a:hover {
+    color: var(--primary-text);
+}
+
+.dashboard-title {
+    font-size: 1.875rem;
+    /* 30px */
+    font-weight: 700;
+    color: var(--text-primary);
+    /* gray-900 */
+    margin: 0;
+}
+
+/* Card & Table */
+.grading-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    /* gray-200 */
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    /* For rounded corners on table */
+}
+
+.grading-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.grading-table th {
+    background-color: var(--light-grey);
+    /* gray-50 */
+    padding: 12px 24px;
+    font-size: 0.875rem;
+    /* 14px */
+    font-weight: 600;
+    color: var(--text-tertiary);
+    /* gray-500 */
+    border-bottom: 1px solid var(--border-color);
+    /* gray-200 */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.grading-table td {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+    /* gray-200 */
+    color: var(--text-primary);
+    /* gray-900 */
+    font-size: 0.875rem;
+    /* 14px */
+    vertical-align: middle;
+}
+
+.grading-table tbody tr {
+    transition: background-color 0.15s;
+}
+
+.grading-table tbody tr:hover {
+    background-color: var(--light-grey);
+    /* gray-50 */
+}
+
+.grading-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Text Styles */
+.text-secondary {
+    color: var(--text-tertiary);
+    /* gray-500 */
+}
+
+.text-medium {
+    font-weight: 500;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 1rem;
+}
+
+.modal-content {
+    background-color: var(--bg-surface);
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    width: 100%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.modal-close:hover {
+    background-color: var(--light-grey);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.submission-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.submission-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--light-grey);
+}
+
+.submission-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.file-name {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #374151;
+}
+
+.submission-date {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* --- New Premium Action Buttons --- */
+
+.btn-dashboard-action {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    border: none;
+    line-height: 1.4;
+}
+
+.btn-dashboard-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-dashboard-action:active {
+    transform: translateY(0);
+}
+
+/* Auto-Grade Button (Premium Glass/Gold) */
+.btn-autograde {
+    background-color: var(--bg-surface);
+    border: 2px solid var(--primary-light);
+    color: var(--primary-text);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-autograde:hover {
+    background-color: var(--border-color);
+    border-color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+}
+
+/* Plagiarism Button (Glass/Maroon) */
+.btn-plagiarism {
+    background-color: var(--bg-surface);
+    border: 2px solid var(--primary-light);
+    color: var(--primary-text);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-plagiarism:hover {
+    background-color: var(--border-color);
+    border-color: var(--text-primary);
+    color: var(--primary-hover-text);
+    box-shadow: var(--shadow-md);
+}
+
+/* Gradebook/Reports Button (Maroon Gradient) */
+.btn-gradebook {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.btn-gradebook:hover {
+    background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    color: white;
+}
+
+.btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1024px) {
+    .grading-dashboard-container {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 768px) {
+    .grading-dashboard-container {
+        padding: 16px;
+    }
+
+    .dashboard-header {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.25rem;
+        margin-bottom: 24px;
+        text-align: left;
+    }
+
+    .dashboard-title {
+        font-size: 1.5rem;
+        text-align: left;
+        margin: 0;
+    }
+
+    .grading-card {
+        overflow-x: auto;
+    }
+
+    .grading-table th,
+    .grading-table td {
+        padding: 12px 16px;
+        white-space: nowrap;
+    }
+
+    .action-group {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .btn-dashboard-action {
+        flex: 1;
+        min-width: calc(50% - 0.75rem);
+        justify-content: center;
+        padding: 0.625rem 0.5rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .btn-dashboard-action:last-child {
+        flex: 1 1 100%;
+        width: 100%;
+        margin-top: 0.25rem;
+    }
+}

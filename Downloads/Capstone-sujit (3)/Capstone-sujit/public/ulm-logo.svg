@@ -1,0 +1,31 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Outer ring background -->
+  <circle cx="100" cy="100" r="98" fill="#6B1232"/>
+  <!-- Gold outer border -->
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#C5A028" stroke-width="3"/>
+  <!-- Inner gold ring -->
+  <circle cx="100" cy="100" r="83" fill="none" stroke="#C5A028" stroke-width="2"/>
+  <!-- White inner circle -->
+  <circle cx="100" cy="100" r="78" fill="white"/>
+  <!-- Maroon inner fill -->
+  <circle cx="100" cy="100" r="74" fill="#6B1232"/>
+
+  <!-- Top arc text: UNIVERSITY OF LOUISIANA -->
+  <path id="topArc" d="M 18,100 A 82,82 0 0,1 182,100" fill="none"/>
+  <text font-family="Georgia, serif" font-size="9.5" fill="#C5A028" font-weight="bold" letter-spacing="1.5">
+    <textPath href="#topArc" startOffset="5%">UNIVERSITY OF LOUISIANA MONROE</textPath>
+  </text>
+
+  <!-- Bottom arc text: EST. 1931 -->
+  <path id="bottomArc" d="M 30,130 A 72,72 0 0,0 170,130" fill="none"/>
+  <text font-family="Georgia, serif" font-size="10" fill="#C5A028" font-weight="bold" letter-spacing="3">
+    <textPath href="#bottomArc" startOffset="20%">EST. 1931</textPath>
+  </text>
+
+  <!-- ULM letters -->
+  <text x="100" y="115" font-family="Georgia, serif" font-size="44" fill="white" text-anchor="middle" font-weight="bold">ULM</text>
+
+  <!-- Decorative line -->
+  <line x1="45" y1="125" x2="155" y2="125" stroke="#C5A028" stroke-width="1.5"/>
+  <line x1="45" y1="72" x2="155" y2="72" stroke="#C5A028" stroke-width="1.5"/>
+</svg>
