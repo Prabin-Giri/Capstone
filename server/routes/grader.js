@@ -12,7 +12,15 @@ router.post('/submissions/:id/run', async (req, res, next) => {
         const id = parseInt(req.params.id, 10);
         if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid submission ID' });
         const publicOnly = req.query.publicOnly === '1' || req.query.publicOnly === 'true';
-        const result = await gradeSubmission(id, { publicOnly });
+        const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
+        const result = await gradeSubmission(id, { publicOnly, dryRun });
+
+        if (dryRun) {
+            return res.json({
+                ...result,
+                id // Include ID for frontend consistency
+            });
+        }
 
         // Return the full updated submission object to satisfy frontend expectation
         const { getDb, queryOne } = require('../db');

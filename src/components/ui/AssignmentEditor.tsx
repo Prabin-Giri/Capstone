@@ -17,10 +17,12 @@ interface AssignmentEditorProps {
     initialFiles: EditorFile[];
     language: string;
     theme: 'dark' | 'light' | 'system';
-    onRunTests: (files: EditorFile[]) => Promise<{ results: TestResult[], log?: string }>;
+    onRunTests?: (files: EditorFile[]) => Promise<{ results: TestResult[], log?: string }>;
+    onRunCustomInput?: (files: EditorFile[], stdin: string) => Promise<{ stdout: string, stderr: string | null, exitCode: number, timedOut: boolean }>;
     isRunning: boolean;
     points: number;
     onChange?: (files: EditorFile[]) => void;
+    readOnly?: boolean;
 }
 
 const getLanguageFromFilename = (filename: string, defaultLang: string) => {
@@ -45,9 +47,11 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     language,
     theme,
     onRunTests,
+    onRunCustomInput,
     isRunning,
     points,
-    onChange
+    onChange,
+    readOnly = false
 }) => {
     const [files, setFiles] = useState<EditorFile[]>(initialFiles.length ? initialFiles : [
         { id: '1', name: `main.${language === 'python' ? 'py' : language === 'java' ? 'java' : 'js'}`, content: '// Write your code here\n', language: language }
@@ -61,6 +65,11 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     const [testResults, setTestResults] = useState<TestResult[] | null>(null);
     const [testLog, setTestLog] = useState<string | null>(null);
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+    const [terminalTab, setTerminalTab] = useState<'tests' | 'custom'>('tests');
+
+    // Custom Run State
+    const [customStdin, setCustomStdin] = useState('');
+    const [customRunResult, setCustomRunResult] = useState<{ stdout: string, stderr: string | null, exitCode: number, timedOut: boolean } | null>(null);
 
     // Inline file creation state
     const [isCreatingFile, setIsCreatingFile] = useState(false);
@@ -274,7 +283,9 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     }, [isResizing]);
 
     const handleRunClick = async () => {
+        if (!onRunTests) return;
         try {
+            setTerminalTab('tests');
             setIsTerminalOpen(true);
             setTestLog('Running tests...\n');
             const response = await onRunTests(files);
@@ -287,6 +298,20 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
         }
     };
 
+    const handleCustomRunClick = async () => {
+        if (!onRunCustomInput) return;
+        try {
+            setTerminalTab('custom');
+            setIsTerminalOpen(true);
+            setCustomRunResult(null);
+            const response = await onRunCustomInput(files, customStdin);
+            setCustomRunResult(response);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setCustomRunResult({ stdout: '', stderr: msg, exitCode: 1, timedOut: false });
+        }
+    };
+
     return (
         <div className="assignment-editor-container">
             {/* Top Toolbar */}
@@ -295,15 +320,28 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
 
                     <span className="editor-title" style={{ fontSize: '1rem', fontWeight: 600 }}>Project Workspace</span>
                 </div>
-                <div className="toolbar-right">
-                    <button
-                        className="btn-run-tests"
-                        onClick={handleRunClick}
-                        disabled={isRunning}
-                    >
-                        <Play size={16} className={isRunning ? 'spin-icon' : ''} />
-                        {isRunning ? 'Running...' : 'Run Tests'}
-                    </button>
+                <div className="toolbar-right" style={{ display: 'flex', gap: '8px' }}>
+                    {onRunCustomInput && (
+                        <button
+                            className="btn-run-tests"
+                            style={{ backgroundColor: 'var(--light-grey)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                            onClick={handleCustomRunClick}
+                            disabled={isRunning}
+                        >
+                            <Terminal size={16} className={isRunning && terminalTab === 'custom' ? 'spin-icon' : ''} />
+                            {isRunning && terminalTab === 'custom' ? 'Running...' : 'Run with Input'}
+                        </button>
+                    )}
+                    {onRunTests && (
+                        <button
+                            className="btn-run-tests"
+                            onClick={handleRunClick}
+                            disabled={isRunning}
+                        >
+                            <Play size={16} className={isRunning && terminalTab === 'tests' ? 'spin-icon' : ''} />
+                            {isRunning && terminalTab === 'tests' ? 'Running...' : 'Run Tests'}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -460,7 +498,8 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                 padding: { top: 16 },
                                 scrollBeyondLastLine: false,
                                 smoothScrolling: true,
-                                fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace"
+                                fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                                readOnly: readOnly
                             }}
                         />
                     ) : (
@@ -475,9 +514,17 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             {isTerminalOpen && (
                 <div className="editor-terminal">
                     <div className="terminal-header">
-                        <div className="terminal-title">
-                            <Terminal size={16} />
-                            <span>Test Results</span>
+                        <div className="terminal-title" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', opacity: terminalTab === 'tests' ? 1 : 0.5 }} onClick={() => setTerminalTab('tests')}>
+                                <Terminal size={16} />
+                                <span>Test Results</span>
+                            </div>
+                            {onRunCustomInput && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', opacity: terminalTab === 'custom' ? 1 : 0.5 }} onClick={() => setTerminalTab('custom')}>
+                                    <Play size={16} />
+                                    <span>Custom Run</span>
+                                </div>
+                            )}
                         </div>
                         <button className="terminal-close" onClick={() => setIsTerminalOpen(false)}>
                             <X size={16} />
@@ -485,50 +532,111 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                     </div>
 
                     <div className="terminal-content">
-                        {testResults ? (
-                            <div className="terminal-results-grid">
-                                {(() => {
-                                    const totalPoints = testResults.reduce((s, r) => s + (r.points ?? 0), 0) || points;
-                                    const earnedPoints = testResults.reduce((s, r) => s + (r.passed ? (r.points ?? 0) : 0), 0);
+                        {terminalTab === 'tests' ? (
+                            testResults ? (
+                                <div className="terminal-results-grid">
+                                    {(() => {
+                                        const totalPoints = testResults.reduce((s, r) => s + (r.points ?? 0), 0) || points;
+                                        const earnedPoints = testResults.reduce((s, r) => s + (r.passed ? (r.points ?? 0) : 0), 0);
 
-                                    return (
-                                        <div className="terminal-summary">
-                                            <h3>Execution Summary</h3>
-                                            <p>Passed: {testResults.filter(r => r.passed).length} / {testResults.length}</p>
-                                            {totalPoints > 0 && <p>Points: {earnedPoints} / {totalPoints}</p>}
-                                        </div>
-                                    )
-                                })()}
-
-                                <div className="terminal-test-cases">
-                                    {testResults.map((result, idx) => (
-                                        <div key={idx} className={`terminal-test-case ${result.passed ? 'passed' : 'failed'}`}>
-                                            <div className="test-case-header">
-                                                {result.passed ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                                                <span>Test Case {idx + 1} {result.is_public === 0 ? '(Hidden)' : ''}</span>
+                                        return (
+                                            <div className="terminal-summary">
+                                                <h3>Execution Summary</h3>
+                                                <p>Passed: {testResults.filter(r => r.passed).length} / {testResults.length}</p>
+                                                {totalPoints > 0 && <p>Points: {earnedPoints} / {totalPoints}</p>}
                                             </div>
-                                            {result.is_public === 1 && !result.passed && (
-                                                <div className="test-case-details">
-                                                    <div><strong>Expected:</strong> <code>{result.expected}</code></div>
-                                                    <div><strong>Actual:</strong> <code>{result.actual}</code></div>
-                                                    {result.error && <div className="test-error">{result.error}</div>}
+                                        )
+                                    })()}
+
+                                    <div className="terminal-test-cases">
+                                        {testResults.map((result, idx) => (
+                                            <div key={idx} className={`terminal-test-case ${result.passed ? 'passed' : 'failed'}`}>
+                                                <div className="test-case-header">
+                                                    {result.passed ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                                                    <span>Test Case {idx + 1} {result.is_public === 0 ? '(Hidden)' : ''}</span>
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                {testLog && (
-                                    <div className="terminal-log-output">
-                                        <h4>Console Log</h4>
-                                        <pre>{testLog}</pre>
+                                                {result.is_public === 1 && !result.passed && (
+                                                    <div className="test-case-details">
+                                                        <div><strong>Expected:</strong> <code>{result.expected}</code></div>
+                                                        <div><strong>Actual:</strong> <code>{result.actual}</code></div>
+                                                        {result.error && <div className="test-error">{result.error}</div>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
-                            </div>
+                                    {testLog && (
+                                        <div className="terminal-log-output">
+                                            <h4>Console Log</h4>
+                                            <pre>{testLog}</pre>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="terminal-loading">
+                                    <span className={isRunning && terminalTab === 'tests' ? 'blinking-cursor' : ''}>
+                                        {isRunning && terminalTab === 'tests' ? (testLog || 'Executing tests...') : (testLog || 'Ready. Click "Run Tests" to see results.')}
+                                    </span>
+                                </div>
+                            )
                         ) : (
-                            <div className="terminal-loading">
-                                <span className={isRunning ? 'blinking-cursor' : ''}>
-                                    {testLog || 'Ready.'}
-                                </span>
+                            <div className="terminal-custom-run" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', padding: '1rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Standard Input (stdin)</label>
+                                    <textarea
+                                        value={customStdin}
+                                        onChange={e => setCustomStdin(e.target.value)}
+                                        placeholder="Enter dataset or manual input here..."
+                                        style={{ 
+                                            flex: 1, 
+                                            background: 'var(--bg-body)', 
+                                            border: '1px solid var(--border-color)', 
+                                            borderRadius: '6px', 
+                                            padding: '8px', 
+                                            color: 'var(--text-primary)', 
+                                            fontFamily: 'monospace',
+                                            resize: 'none'
+                                        }}
+                                    />
+                                    <div style={{ textAlign: 'right' }}>
+                                        <button 
+                                            className="btn btn-primary btn-sm" 
+                                            onClick={handleCustomRunClick} 
+                                            disabled={isRunning}
+                                            style={{ marginTop: '0.5rem' }}
+                                        >
+                                            {isRunning && terminalTab === 'custom' ? 'Executing...' : 'Run Code'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Execution Output</label>
+                                    <div style={{ 
+                                        flex: 1, 
+                                        background: '#1e1e1e', 
+                                        color: '#d4d4d4', 
+                                        borderRadius: '6px', 
+                                        padding: '12px', 
+                                        fontFamily: 'monospace', 
+                                        overflowY: 'auto',
+                                        fontSize: '13px',
+                                        whiteSpace: 'pre-wrap'
+                                    }}>
+                                        {isRunning && terminalTab === 'custom' ? (
+                                            <span className="blinking-cursor">Executing your code in sandbox...</span>
+                                        ) : customRunResult ? (
+                                            <>
+                                                {customRunResult.stdout && <div>{customRunResult.stdout}</div>}
+                                                {customRunResult.stderr && <div style={{ color: '#f87171', marginTop: customRunResult.stdout ? '8px' : '0' }}>{customRunResult.stderr}</div>}
+                                                {customRunResult.timedOut && <div style={{ color: '#f87171', marginTop: '8px' }}>Process timed out after 10 seconds.</div>}
+                                                {customRunResult.exitCode !== 0 && !customRunResult.timedOut && <div style={{ color: '#f87171', marginTop: '8px' }}>Program exited with code {customRunResult.exitCode}</div>}
+                                                {!customRunResult.stdout && !customRunResult.stderr && !customRunResult.timedOut && customRunResult.exitCode === 0 && <div style={{ opacity: 0.5 }}>(Program finished with no output)</div>}
+                                            </>
+                                        ) : (
+                                            <span style={{ opacity: 0.5 }}>Output will appear here.</span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

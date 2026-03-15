@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde } from '../../lib/api';
+import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests } from '../../lib/api';
 import type { Submission, Assignment, RubricConfig } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
-import { Play } from 'lucide-react';
 import AlertModal from '../../components/ui/AlertModal';
+import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 
 import './SubmissionGrader.css';
 import { showDialog } from '../../components/ui/Dialog';
+import { getCommentChar } from '../../lib/utils';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -22,9 +23,11 @@ const SubmissionGrader: React.FC = () => {
     const [codeContent, setCodeContent] = useState<string | null>(null);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [previewFileName, setPreviewFileName] = useState<string | null>(null);
-    const [isAutograding, setIsAutograding] = useState(false);
+    const [, setIsAutograding] = useState(false);
     const [showAttemptSelector, setShowAttemptSelector] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
+
+    const [isRunningCustom, setIsRunningCustom] = useState(false);
 
     const [rubric, setRubric] = useState<RubricConfig | null>(null);
     const [rubricScores, setRubricScores] = useState<Record<string, number | ''>>({});
@@ -67,7 +70,7 @@ const SubmissionGrader: React.FC = () => {
             setAllSubmissions(historyData);
 
             const initialGrade = subData.grade !== undefined && subData.grade !== null
-                ? subData.grade.toFixed(2)
+                ? Number(subData.grade).toFixed(2)
                 : '';
             setGrade(initialGrade);
             setFeedback(subData.feedback || '');
@@ -105,32 +108,75 @@ const SubmissionGrader: React.FC = () => {
             setIsPreviewLoading(false);
         }
     }
-    async function handleAutograde(id?: number) {
+    async function handleAutograde(id?: number, dryRun = false) {
         const targetId = id || (submission?.id);
         if (!targetId) return;
 
         setIsAutograding(true);
-        setShowAttemptSelector(false);
+        if (!dryRun) setShowAttemptSelector(false);
         try {
-            const updatedSub = await runAutograde(targetId);
+            const updatedSub = await runAutograde(targetId, dryRun);
             const newGrade = updatedSub.grade !== undefined && updatedSub.grade !== null
-                ? updatedSub.grade.toFixed(2)
+                ? Number(updatedSub.grade).toFixed(2)
                 : '';
             setGrade(newGrade);
             setFeedback(updatedSub.feedback || '');
-            // Update the main submission if it's the one we are looking at
-            if (submission?.id === updatedSub.id) {
-                setSubmission(updatedSub);
+            
+            if (!dryRun) {
+                // Update the main submission if it's the one we are looking at
+                if (submission?.id === updatedSub.id) {
+                    setSubmission(updatedSub);
+                }
+                // Update the attempt list to reflect the new grade
+                setAllSubmissions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s));
+                setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed and saved successfully.' });
+            } else {
+                setAlertConfig({ show: true, type: 'info', title: 'Autograde Preview', message: 'Calculated grade & feedback from test cases. Click "Save" to persist.' });
             }
-            // Update the attempt list to reflect the new grade
-            setAllSubmissions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s));
-
-            setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed successfully.' });
         } catch (err) {
             console.error(err);
             setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Autograding failed. Please check test cases and system logs.' });
         } finally {
             setIsAutograding(false);
+        }
+    }
+
+    async function handleRunCustomInput(files: EditorFile[], stdin: string) {
+        if (!assignment || !submissionId) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
+        setIsRunningCustom(true);
+        try {
+            const comment = getCommentChar(assignment.language || 'python');
+            const codeToRun = files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const data = await runCustomCode(assignment.id, codeToRun, assignment.language || 'python', stdin);
+            setIsRunningCustom(false);
+            return data;
+        } catch (err) {
+            setIsRunningCustom(false);
+            const msg = err instanceof Error ? err.message : String(err);
+            throw new Error(`Failed to execute code: ${msg}`);
+        }
+    }
+
+    async function handleRunTests(files: EditorFile[]) {
+        if (!assignment) throw new Error("No assignment loaded");
+        setIsRunningCustom(true);
+        try {
+            const comment = getCommentChar(assignment.language || 'python');
+            let codeToRun = files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            if (files.length === 1) {
+                codeToRun = files[0].content;
+            }
+
+            const data = await runTests(assignment.id, codeToRun, assignment.language || 'python');
+            setIsRunningCustom(false);
+            return {
+                results: data.results,
+                log: `Sent ${files.length} file(s) to execution engine.\nLanguage: ${assignment.language || 'python'}\nTotal length: ${codeToRun.length} bytes.`
+            };
+        } catch (err) {
+            setIsRunningCustom(false);
+            const msg = err instanceof Error ? err.message : String(err);
+            throw new Error(`Failed to run tests: ${msg}`);
         }
     }
 
@@ -275,11 +321,18 @@ const SubmissionGrader: React.FC = () => {
                             <div className="loading-spinner"></div>
                             Loading preview...
                         </div>
-                    ) : codeContent !== null ? (
-                        <div className="code-preview-container">
-                            <pre className="code-block">
-                                <code>{codeContent}</code>
-                            </pre>
+                    ) : codeContent !== null && previewFileName ? (
+                        <div className="code-preview-container" style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+                            <AssignmentEditor
+                                initialFiles={[{ id: 'preview', name: previewFileName, content: codeContent, language: assignment.language || 'python' }]}
+                                language={assignment.language || 'python'}
+                                theme="light"
+                                isRunning={isRunningCustom}
+                                points={0}
+                                onRunTests={handleRunTests}
+                                onRunCustomInput={handleRunCustomInput}
+                                readOnly={true}
+                            />
                         </div>
                     ) : previewFileUrl ? (
                         <iframe
@@ -440,6 +493,20 @@ const SubmissionGrader: React.FC = () => {
                 )}
 
                 <div className="grading-form">
+                    <div style={{ marginBottom: '20px' }}>
+                        <Button 
+                            variant="primary" 
+                            size="lg" 
+                            style={{ width: '100%', marginBottom: '10px' }}
+                            onClick={() => handleAutograde(undefined, true)}
+                        >
+                            Autograde
+                        </Button>
+                        <p style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+                            Automatically calculate grade based on test cases.
+                        </p>
+                    </div>
+
                     <div className="form-group">
                         <label className="form-label">Final Grade</label>
                         <input

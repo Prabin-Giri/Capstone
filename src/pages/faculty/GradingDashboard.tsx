@@ -116,7 +116,7 @@ const GradingDashboard: React.FC = () => {
                 <table className="grading-table">
                     <thead>
                         <tr>
-                            <th>Student ID</th>
+                            <th>Student Name</th>
                             <th>Latest Submission</th>
                             <th>Submitted Assignments</th>
                             <th>Status</th>
@@ -136,7 +136,11 @@ const GradingDashboard: React.FC = () => {
                                 const latestSubmission = group[0]; // First one is latest due to sort
                                 return (
                                     <tr key={latestSubmission.student_id}>
-                                        <td className="text-medium">{latestSubmission.student_id}</td>
+                                        <td className="text-medium">
+                                            {latestSubmission.student_name 
+                                                ? `${latestSubmission.student_name} (${latestSubmission.student_id})` 
+                                                : latestSubmission.student_id}
+                                        </td>
                                         <td className="text-secondary">
                                             {new Date(latestSubmission.submitted_at).toLocaleString()}
                                         </td>
@@ -155,7 +159,7 @@ const GradingDashboard: React.FC = () => {
                                         </td>
                                         <td className="text-medium">
                                             {latestSubmission.grade !== undefined && latestSubmission.grade !== null
-                                                ? latestSubmission.grade.toFixed(2)
+                                                ? Number(latestSubmission.grade).toFixed(2)
                                                 : '-'}
                                         </td>
                                         <td>
@@ -181,7 +185,9 @@ const GradingDashboard: React.FC = () => {
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3 className="modal-title">
-                                Submissions for {selectedStudentSubmissions[0].student_id}
+                                {selectedStudentSubmissions[0].student_name 
+                                    ? `Submissions for ${selectedStudentSubmissions[0].student_name} (${selectedStudentSubmissions[0].student_id})` 
+                                    : `Submissions for ${selectedStudentSubmissions[0].student_id}`}
                             </h3>
                             <button
                                 className="modal-close"

@@ -50,25 +50,66 @@ async function gradeSubmission(submissionId, opts = {}) {
 
     const uploadsDir = path.join(__dirname, '../uploads');
 
-    // --- Custom Grader File Logic ---
+    // --- Custom Grader / JSON Test Case File Logic ---
+    let testCases = [];
+    let usingCustomGrader = false;
+
     if (assignment.test_case_file_path) {
         const graderPath = path.join(uploadsDir, assignment.test_case_file_path);
         if (fs.existsSync(graderPath)) {
-            const result = await gradeWithCustomFile(submission, assignment, graderPath, opts);
-            await updateSubmissionGrade(submissionId, {
-                grade: result.grade,
-                feedback: result.feedback,
-                status: 'graded'
-            });
-            await saveDb();
-            return result;
+            if (graderPath.toLowerCase().endsWith('.json')) {
+                try {
+                    const content = fs.readFileSync(graderPath, 'utf8');
+                    const jsonCases = JSON.parse(content);
+                    testCases = jsonCases.map((tc, idx) => ({
+                        id: tc.id || `file-${idx}`,
+                        input: tc.input || '',
+                        expected_output: tc.expectedOutput || tc.expected_output || '',
+                        points: Number(tc.points) || 0,
+                        is_public: tc.isHidden === true ? 0 : 1,
+                        input_type: tc.inputType || tc.input_type || 'stdin',
+                        input_filename: tc.inputFilename || tc.input_filename,
+                        output_filename: tc.outputFilename || tc.output_filename,
+                        run_args: tc.runArgs || tc.run_args,
+                        compare_mode: tc.compareMode || tc.compare_mode || 'exact'
+                    }));
+                    console.log(`[gradeSubmission] Loaded ${testCases.length} test cases from JSON file: ${assignment.test_case_file_path}`);
+                } catch (e) {
+                    console.error('Failed to parse JSON test cases:', e);
+                }
+            } else {
+                usingCustomGrader = true;
+                try {
+                    const result = await gradeWithCustomFile(submission, assignment, graderPath, opts);
+                    if (!opts.dryRun) {
+                        await updateSubmissionGrade(submissionId, {
+                            grade: result.grade,
+                            feedback: result.feedback,
+                            status: 'graded'
+                        });
+                        await saveDb();
+                    }
+                    return result;
+                } catch (err) {
+                    console.error('Custom grader failed:', err);
+                    const feedback = `Custom grader execution failed: ${err.message}`;
+                    if (!opts.dryRun) {
+                        await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'failed' });
+                        await saveDb();
+                    }
+                    return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
+                }
+            }
         }
     }
 
-    let testCases = await query('SELECT * FROM test_cases WHERE assignment_id = ? ORDER BY id', [assignment.id]);
+    if (!usingCustomGrader && testCases.length === 0) {
+        testCases = await query('SELECT * FROM test_cases WHERE assignment_id = ? ORDER BY id', [assignment.id]);
+    }
+
     if (opts.publicOnly) testCases = testCases.filter(tc => tc.is_public === 1 || tc.is_public === true);
 
-    if (testCases.length === 0) {
+    if (!usingCustomGrader && testCases.length === 0) {
         const feedback = 'No test cases defined for this assignment.';
         await updateSubmissionGrade(submissionId, { grade: null, feedback, status: 'graded' });
         return { grade: null, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
@@ -221,7 +262,7 @@ async function gradeSubmission(submissionId, opts = {}) {
     ];
     const feedback = feedbackLines.join('\n');
 
-        if (!opts.publicOnly) {
+    if (!opts.publicOnly && !opts.dryRun) {
         await updateSubmissionGrade(submissionId, {
             grade: Math.round(finalGrade * 100) / 100,
             feedback,
