@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase } from '../../lib/api';
-import type { TestCase } from '../../lib/api';
+import type { TestCase, RubricConfig, RubricCriterion } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
@@ -36,6 +36,13 @@ const AssignmentWizard: React.FC = () => {
     const [testCases, setTestCases] = useState<(Omit<Partial<TestCase>, 'points'> & { points?: number | string })[]>([]);
     const [loading, setLoading] = useState(isEditing);
     const [saving, setSaving] = useState(false);
+    const [rubric, setRubric] = useState<RubricConfig>({
+        title: '',
+        weighted: false,
+        sections: [
+            { id: 'sec-1', title: '', items: [{ id: 'crit-1', name: '', weight: null, maxPoints: null, comment: '' }] }
+        ]
+    });
 
     useEffect(() => {
         if (isEditing && assignmentId) {
@@ -61,6 +68,28 @@ const AssignmentWizard: React.FC = () => {
                     late_penalty_cap: data.late_penalty_cap != null ? data.late_penalty_cap : 50
                 });
                 setTestCases(cases.map(tc => ({ ...tc, points: tc.points })));
+
+                // Load rubric configuration if present
+                if (data.rubric_config) {
+                    try {
+                        const parsed = typeof data.rubric_config === 'string'
+                            ? JSON.parse(data.rubric_config)
+                            : data.rubric_config;
+                        if (parsed) {
+                            if (parsed.sections && Array.isArray(parsed.sections)) {
+                                setRubric(parsed as RubricConfig);
+                            } else if (parsed.criteria && Array.isArray(parsed.criteria)) {
+                                setRubric({
+                                    title: parsed.title || '',
+                                    weighted: !!parsed.weighted,
+                                    sections: [{ id: 'sec-1', title: '', items: parsed.criteria }]
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse rubric_config; using default', e);
+                    }
+                }
                 setLoading(false);
             }).catch(err => {
                 console.error(err);
@@ -124,6 +153,13 @@ const AssignmentWizard: React.FC = () => {
 
             const combinedDateTime = new Date(`${formData.due_date}T${formData.due_time}:00`).toISOString();
 
+            const sections = rubric.sections ?? (rubric.criteria ? [{ id: 'sec-1', title: '', items: rubric.criteria }] : []);
+            const hasRubricContent =
+                rubric.title.trim().length > 0 ||
+                sections.some(sec => (sec.title && sec.title.trim().length > 0) || sec.items.some(c => c.name && c.name.trim().length > 0));
+            const rubricToSave = { ...rubric, sections };
+            const rubricConfigPayload = hasRubricContent ? JSON.stringify(rubricToSave) : null;
+
             const payload = {
                 ...formData,
                 points: formData.points === '' ? 0 : Number(formData.points),
@@ -131,7 +167,8 @@ const AssignmentWizard: React.FC = () => {
                 late_penalty_cap: formData.late_penalty_cap === '' ? 0 : Number(formData.late_penalty_cap),
                 due_date: combinedDateTime,
                 starter_code_path: starterCodePath,
-                test_case_file_path: testCaseFilePath
+                test_case_file_path: testCaseFilePath,
+                rubric_config: rubricConfigPayload
             };
             const { due_time, ...finalPayload } = payload;
 
@@ -257,6 +294,200 @@ const AssignmentWizard: React.FC = () => {
                             <option value="group">Group</option>
                         </select>
                     </div>
+                </div>
+
+                {/* Rubric configuration */}
+                <div className="form-group">
+                    <label className="form-label">Grading Rubric</label>
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Rubric title (e.g. Project 1 Rubric)"
+                        value={rubric.title}
+                        onChange={e => setRubric({ ...rubric, title: e.target.value })}
+                    />
+                </div>
+
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Rubric Type</label>
+                        <select
+                            className="form-select"
+                            value={rubric.weighted ? 'weighted' : 'unweighted'}
+                            onChange={e => setRubric({ ...rubric, weighted: e.target.value === 'weighted' })}
+                        >
+                            <option value="unweighted">Unweighted (all criteria equal)</option>
+                            <option value="weighted">Weighted (specify weights)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="form-group">
+                    <label className="form-label">Criteria</label>
+                    {(rubric.sections ?? []).map((section, secIndex) => (
+                        <div key={section.id} className="rubric-section-block" style={{ marginBottom: '1.5rem', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
+                            <div style={{ background: '#e5e7eb', padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', gap: 8, color: '#000' }}>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Section (e.g. Correctness)"
+                                    value={section.title}
+                                    onChange={e => {
+                                        const next = [...(rubric.sections ?? [])];
+                                        next[secIndex] = { ...next[secIndex], title: e.target.value };
+                                        setRubric({ ...rubric, sections: next });
+                                    }}
+                                    style={{ flex: 1, maxWidth: 320, fontWeight: 600, border: 'none', background: 'transparent', color: '#000' }}
+                                />
+                                <button
+                                    type="button"
+                                    className="icon-button"
+                                    onClick={() => {
+                                        const next = (rubric.sections ?? []).filter((_, i) => i !== secIndex);
+                                        if (next.length === 0) return;
+                                        setRubric({ ...rubric, sections: next });
+                                    }}
+                                    title="Remove section"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                            <div className="rubric-table-wrapper">
+                                <table className="rubric-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Criterion</th>
+                                            {rubric.weighted && <th style={{ width: '90px' }}>Weight %</th>}
+                                            <th style={{ width: '110px' }}>Max Points</th>
+                                            <th>Comments / Notes</th>
+                                            <th style={{ width: '40px' }} />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {section.items.map((crit, index) => (
+                                            <tr key={crit.id}>
+                                                <td>
+                                                    <input
+                                                        type="text"
+                                                        className="form-input"
+                                                        placeholder="e.g. Correct Output"
+                                                        value={crit.name || ''}
+                                                        onChange={e => {
+                                                            const next = [...(rubric.sections ?? [])];
+                                                            const items = [...next[secIndex].items];
+                                                            items[index] = { ...items[index], name: e.target.value };
+                                                            next[secIndex] = { ...next[secIndex], items };
+                                                            setRubric({ ...rubric, sections: next });
+                                                        }}
+                                                    />
+                                                </td>
+                                                {rubric.weighted && (
+                                                    <td>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            min={0}
+                                                            max={100}
+                                                            value={crit.weight ?? ''}
+                                                            onChange={e => {
+                                                                const value = e.target.value === '' ? null : Number(e.target.value);
+                                                                const next = [...(rubric.sections ?? [])];
+                                                                const items = [...next[secIndex].items];
+                                                                items[index] = { ...items[index], weight: value };
+                                                                next[secIndex] = { ...next[secIndex], items };
+                                                                setRubric({ ...rubric, sections: next });
+                                                            }}
+                                                        />
+                                                    </td>
+                                                )}
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        className="form-input"
+                                                        min={0}
+                                                        value={crit.maxPoints ?? ''}
+                                                        onChange={e => {
+                                                            const value = e.target.value === '' ? null : Number(e.target.value);
+                                                            const next = [...(rubric.sections ?? [])];
+                                                            const items = [...next[secIndex].items];
+                                                            items[index] = { ...items[index], maxPoints: value };
+                                                            next[secIndex] = { ...next[secIndex], items };
+                                                            setRubric({ ...rubric, sections: next });
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        type="text"
+                                                        className="form-input"
+                                                        placeholder="Instructor comments or guidelines"
+                                                        value={crit.comment ?? ''}
+                                                        onChange={e => {
+                                                            const next = [...(rubric.sections ?? [])];
+                                                            const items = [...next[secIndex].items];
+                                                            items[index] = { ...items[index], comment: e.target.value };
+                                                            next[secIndex] = { ...next[secIndex], items };
+                                                            setRubric({ ...rubric, sections: next });
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        className="icon-button"
+                                                        onClick={() => {
+                                                            const next = [...(rubric.sections ?? [])];
+                                                            const items = next[secIndex].items.filter((_, i) => i !== index);
+                                                            if (items.length === 0) return;
+                                                            next[secIndex] = { ...next[secIndex], items };
+                                                            setRubric({ ...rubric, sections: next });
+                                                        }}
+                                                        title="Remove criterion"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style={{ padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const next = [...(rubric.sections ?? [])];
+                                        const items = [...next[secIndex].items];
+                                        items.push({ id: `crit-${section.id}-${Date.now()}`, name: '', weight: null, maxPoints: null, comment: '' });
+                                        next[secIndex] = { ...next[secIndex], items };
+                                        setRubric({ ...rubric, sections: next });
+                                    }}
+                                >
+                                    <Plus className="icon-left" size={16} />
+                                    Add Criterion
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                            const sections = rubric.sections ?? [];
+                            setRubric({
+                                ...rubric,
+                                sections: [
+                                    ...sections,
+                                    { id: `sec-${Date.now()}`, title: 'New Section', items: [{ id: `crit-${Date.now()}`, name: '', weight: null, maxPoints: null, comment: '' }] }
+                                ]
+                            });
+                        }}
+                    >
+                        <Plus className="icon-left" size={16} />
+                        Add Section
+                    </Button>
                 </div>
 
                 <div className="late-penalty-card">

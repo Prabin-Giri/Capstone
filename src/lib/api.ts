@@ -10,6 +10,28 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
     return response.json();
 }
 
+// ============ Admin / Database Explorer ============
+
+export interface TableColumn {
+    name: string;
+    type: string;
+    pk?: number;
+}
+
+export interface TableData {
+    tableName: string;
+    columns: TableColumn[];
+    rows: Record<string, unknown>[];
+}
+
+export async function getDbTables(): Promise<string[]> {
+    return apiFetch<string[]>('/admin/db/tables');
+}
+
+export async function getTableData(table: string): Promise<TableData> {
+    return apiFetch<TableData>(`/admin/db/tables/${encodeURIComponent(table)}`);
+}
+
 // ============ Courses ============
 
 export interface Course {
@@ -85,6 +107,29 @@ export async function updateCourse(id: string, updates: Partial<Course>): Promis
 
 // ============ Assignments ============
 
+export interface RubricCriterion {
+    id: string;
+    name: string;
+    weight?: number | null;
+    maxPoints?: number | null;
+    comment?: string;
+}
+
+export interface RubricSection {
+    id: string;
+    title: string;
+    items: RubricCriterion[];
+}
+
+export interface RubricConfig {
+    title: string;
+    weighted: boolean;
+    /** New format: sections, each with its own criterion table */
+    sections?: RubricSection[];
+    /** Legacy format: flat criteria (converted to one section when loading) */
+    criteria?: RubricCriterion[];
+}
+
 export interface Assignment {
     id: string;
     course_id: string;
@@ -103,6 +148,7 @@ export interface Assignment {
     late_penalty_type?: 'per_day' | 'per_hour' | 'fixed';
     late_penalty_value?: number;
     late_penalty_cap?: number;
+    rubric_config?: RubricConfig | string | null;
 }
 
 export async function getAssignments(): Promise<Assignment[]> {

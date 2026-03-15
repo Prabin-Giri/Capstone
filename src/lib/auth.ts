@@ -2,6 +2,7 @@ export const AUTH_ROLES = {
     STUDENT: 'student',
     FACULTY: 'faculty',
     TA: 'ta',
+    ADMIN: 'admin',
 } as const;
 
 export type AuthRole = typeof AUTH_ROLES[keyof typeof AUTH_ROLES];
@@ -41,7 +42,9 @@ export const getUser = (): UserSession | null => {
 };
 export const login = (user: UserSession) => {
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    if (user.role === AUTH_ROLES.FACULTY) {
+    if (user.role === AUTH_ROLES.ADMIN) {
+        window.location.href = '/admin';
+    } else if (user.role === AUTH_ROLES.FACULTY) {
         window.location.href = '/faculty';
     } else if (user.role === AUTH_ROLES.TA) {
         window.location.href = '/ta';

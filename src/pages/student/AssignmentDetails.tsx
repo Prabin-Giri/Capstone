@@ -242,8 +242,8 @@ const AssignmentDetails: React.FC = () => {
                         <div className="grade-label">Current Grade</div>
                         <div className="grade-value">
                             {submission && submission.grade !== undefined && submission.grade !== null && (submission.status === 'graded' || submission.status === 'returned')
-                                ? `${submission.grade}/${points}`
-                                : `-/${points}`}
+                                ? `${submission.grade.toFixed(2)}/${points.toFixed(2)}`
+                                : `-/${points.toFixed(2)}`}
                         </div>
                     </div>
                 </div>

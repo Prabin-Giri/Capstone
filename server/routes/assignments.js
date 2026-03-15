@@ -32,8 +32,23 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', async (req, res, next) => {
     try {
-        const { course_id, title, description, due_date, status = 'active', points = 100, language, starter_code_path, test_case_file_path = null, type = 'individual',
-            late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap } = req.body;
+        const {
+            course_id,
+            title,
+            description,
+            due_date,
+            status = 'active',
+            points = 100,
+            language,
+            starter_code_path,
+            test_case_file_path = null,
+            type = 'individual',
+            late_penalty_enabled,
+            late_penalty_type,
+            late_penalty_value,
+            late_penalty_cap,
+            rubric_config,
+        } = req.body;
 
         if (!course_id || !title || !due_date) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -51,11 +66,28 @@ router.post('/', async (req, res, next) => {
         const lateCap = late_penalty_cap != null ? Number(late_penalty_cap) : 50;
 
         await db.execute(
-            'INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type, lateEnabled ? 1 : 0, lateType, lateValue, lateCap]
+            'INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap, rubric_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type, lateEnabled ? 1 : 0, lateType, lateValue, lateCap, rubric_config || null]
         );
 
-        res.status(201).json({ id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, late_penalty_enabled: lateEnabled, late_penalty_type: lateType, late_penalty_value: lateValue, late_penalty_cap: lateCap });
+        res.status(201).json({
+            id,
+            course_id,
+            title,
+            description,
+            due_date,
+            status,
+            points,
+            language,
+            starter_code_path,
+            test_case_file_path,
+            type,
+            late_penalty_enabled: lateEnabled,
+            late_penalty_type: lateType,
+            late_penalty_value: lateValue,
+            late_penalty_cap: lateCap,
+            rubric_config: rubric_config || null,
+        });
     } catch (err) {
         next(err);
     }
@@ -64,8 +96,22 @@ router.post('/', async (req, res, next) => {
 // PUT /api/assignments/:id - Update assignment
 router.put('/:id', async (req, res, next) => {
     try {
-        const { title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type,
-            late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap } = req.body;
+        const {
+            title,
+            description,
+            due_date,
+            status,
+            points,
+            language,
+            starter_code_path,
+            test_case_file_path,
+            type,
+            late_penalty_enabled,
+            late_penalty_type,
+            late_penalty_value,
+            late_penalty_cap,
+            rubric_config,
+        } = req.body;
         const id = req.params.id;
 
         const db = getDb();
@@ -89,6 +135,7 @@ router.put('/:id', async (req, res, next) => {
         if (late_penalty_type !== undefined) { updates.push('late_penalty_type = ?'); values.push(late_penalty_type); }
         if (late_penalty_value !== undefined) { updates.push('late_penalty_value = ?'); values.push(Number(late_penalty_value)); }
         if (late_penalty_cap !== undefined) { updates.push('late_penalty_cap = ?'); values.push(Number(late_penalty_cap)); }
+        if (rubric_config !== undefined) { updates.push('rubric_config = ?'); values.push(rubric_config); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });

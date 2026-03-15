@@ -152,8 +152,8 @@ const ClassAssignments: React.FC = () => {
                                 isGraded &&
                                     submission.grade !== undefined &&
                                     submission.grade !== null
-                                    ? `${submission.grade}/${assignment.points || 100}`
-                                    : `-/${assignment.points || 100}`;
+                                    ? `${submission.grade.toFixed(2)}/${(assignment.points || 100).toFixed(2)}`
+                                    : `-/${(assignment.points || 100).toFixed(2)}`;
 
                             return (
                                 <tr

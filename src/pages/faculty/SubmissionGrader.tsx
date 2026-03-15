@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde } from '../../lib/api';
-import type { Submission, Assignment } from '../../lib/api';
+import type { Submission, Assignment, RubricConfig } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
 import { Play } from 'lucide-react';
@@ -26,6 +26,9 @@ const SubmissionGrader: React.FC = () => {
     const [showAttemptSelector, setShowAttemptSelector] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
 
+    const [rubric, setRubric] = useState<RubricConfig | null>(null);
+    const [rubricScores, setRubricScores] = useState<Record<string, number | ''>>({});
+
     // Form State
     const [grade, setGrade] = useState('');
     const [feedback, setFeedback] = useState('');
@@ -44,9 +47,29 @@ const SubmissionGrader: React.FC = () => {
             ]);
             setSubmission(subData);
             setAssignment(assignData);
+            if (assignData.rubric_config) {
+                try {
+                    const parsed = typeof assignData.rubric_config === 'string'
+                        ? JSON.parse(assignData.rubric_config)
+                        : assignData.rubric_config;
+                    if (parsed && (parsed.sections || parsed.criteria)) {
+                        const cfg = parsed as RubricConfig;
+                        setRubric(cfg);
+                        const initialScores: Record<string, number | ''> = {};
+                        const items = cfg.sections ? cfg.sections.flatMap(s => s.items) : (cfg.criteria ?? []);
+                        items.forEach(c => { if (c.id) initialScores[c.id] = ''; });
+                        setRubricScores(initialScores);
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse rubric_config; ignoring in grader', e);
+                }
+            }
             setAllSubmissions(historyData);
 
-            setGrade(subData.grade?.toString() || '');
+            const initialGrade = subData.grade !== undefined && subData.grade !== null
+                ? subData.grade.toFixed(2)
+                : '';
+            setGrade(initialGrade);
             setFeedback(subData.feedback || '');
         } catch (err) {
             console.error(err);
@@ -90,7 +113,10 @@ const SubmissionGrader: React.FC = () => {
         setShowAttemptSelector(false);
         try {
             const updatedSub = await runAutograde(targetId);
-            setGrade(updatedSub.grade?.toString() || '');
+            const newGrade = updatedSub.grade !== undefined && updatedSub.grade !== null
+                ? updatedSub.grade.toFixed(2)
+                : '';
+            setGrade(newGrade);
             setFeedback(updatedSub.feedback || '');
             // Update the main submission if it's the one we are looking at
             if (submission?.id === updatedSub.id) {
@@ -108,10 +134,59 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
+    function computeRubricTotal(): number | null {
+        if (!rubric) return null;
+        const maxPoints = assignment?.points || 100;
+        const criteria = rubric.sections ? rubric.sections.flatMap(s => s.items) : (rubric.criteria ?? []);
+
+        const scores = criteria.map(c => {
+            const raw = c.id ? rubricScores[c.id] : undefined;
+            const val = typeof raw === 'number' ? raw : raw === '' || raw === undefined ? 0 : Number(raw);
+            const capped = c.maxPoints != null ? Math.min(val, c.maxPoints) : val;
+            return { crit: c, val: capped };
+        });
+
+        // Weighted mode: use weight % per criterion
+        if (rubric.weighted) {
+            let totalWeight = 0;
+            let weightedSum = 0;
+            scores.forEach(({ crit, val }) => {
+                const w = crit.weight ?? 0;
+                if (!isNaN(w) && w > 0) {
+                    totalWeight += w;
+                    const pctOfMax = crit.maxPoints && crit.maxPoints > 0 ? (val / crit.maxPoints) : 0;
+                    weightedSum += pctOfMax * w;
+                }
+            });
+            if (totalWeight > 0) {
+                const ratio = weightedSum / totalWeight; // 0–1
+                return Math.round(ratio * maxPoints * 100) / 100;
+            }
+        } else {
+            // Unweighted: sum of points normalized by total maxPoints
+            const totalEarned = scores.reduce((sum, s) => sum + (isNaN(s.val) ? 0 : s.val), 0);
+            const totalPossible = scores.reduce((sum, s) => sum + (s.crit.maxPoints ?? 0), 0);
+            if (totalPossible > 0) {
+                const ratio = totalEarned / totalPossible;
+                return Math.round(ratio * maxPoints * 100) / 100;
+            }
+        }
+        return null;
+    }
+
     async function handleSave() {
         if (!submissionId) return;
         const maxPoints = assignment?.points || 100;
-        const enteredGrade = grade ? parseFloat(grade) : undefined;
+        let enteredGrade = grade ? parseFloat(grade) : undefined;
+
+        // If no manual grade but rubric is filled, derive grade from rubric
+        if ((enteredGrade === undefined || isNaN(enteredGrade)) && rubric) {
+            const rubricTotal = computeRubricTotal();
+            if (rubricTotal !== null) {
+                enteredGrade = rubricTotal;
+                setGrade(rubricTotal.toFixed(2));
+            }
+        }
 
         if (enteredGrade !== undefined && enteredGrade > maxPoints) {
             await showDialog({ title: 'Invalid Grade', message: `Grade cannot exceed the maximum points for this assignment (${maxPoints}).`, confirmText: 'OK' });
@@ -220,37 +295,153 @@ const SubmissionGrader: React.FC = () => {
                 </div>
             </div>
 
-            {/* Right Panel: Grading Form */}
+            {/* Right Panel: Rubric + Grading Form */}
             <div className="grader-panel-right">
                 <h2 className="section-title grader-form-title">Grading</h2>
 
-                <div className="grading-form">
-                    <div className="form-group autograde-action-group">
-                        <Button
-                            variant="primary"
-                            type="button"
-                            className="btn-autograde-single"
-                            onClick={() => {
-                                if (allSubmissions.length > 1) {
-                                    setShowAttemptSelector(true);
-                                } else {
-                                    handleAutograde();
-                                }
-                            }}
-                            isLoading={isAutograding}
-                        >
-                            <Play size={16} />
-                            Autograde Submission
-                        </Button>
-                        <p className="autograde-hint">
-                            Runs all test cases against the submission and updates grade/feedback.
-                        </p>
+                {rubric && (
+                    <div className="rubric-card">
+                        <div className="rubric-header">
+                            <h3 className="rubric-title">{rubric.title || 'Rubric'}</h3>
+                            <p className="rubric-subtitle">
+                                {rubric.weighted ? 'Weighted rubric (weights in %)' : 'Unweighted rubric'}
+                            </p>
+                        </div>
+                        {(rubric.sections ?? []).length > 0 ? (
+                            rubric.sections!.map(section => (
+                                <div key={section.id} style={{ marginBottom: '1rem' }}>
+                                    {section.title && (
+                                        <div style={{ background: '#e5e7eb', padding: '0.4rem 0.6rem', fontWeight: 600, marginBottom: 0, color: '#000' }}>
+                                            {section.title}
+                                        </div>
+                                    )}
+                                    <div className="rubric-table-wrapper">
+                                        <table className="rubric-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Criterion</th>
+                                                    {rubric.weighted && <th style={{ width: '80px' }}>Weight %</th>}
+                                                    <th style={{ width: '100px' }}>Max Pts</th>
+                                                    <th style={{ width: '110px' }}>Score</th>
+                                                    <th>Comments / Expectations</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {section.items.map(crit => (
+                                                    <tr key={crit.id}>
+                                                        <td>{crit.name}</td>
+                                                        {rubric.weighted && <td>{crit.weight ?? '-'}</td>}
+                                                        <td>{crit.maxPoints ?? '-'}</td>
+                                                        <td>
+                                                            <input
+                                                                type="number"
+                                                                className="form-input"
+                                                                style={{ padding: '4px 6px' }}
+                                                                min={0}
+                                                                max={crit.maxPoints ?? undefined}
+                                                                value={crit.id ? (rubricScores[crit.id] ?? '') : ''}
+                                                                onChange={e => {
+                                                                    if (!crit.id) return;
+                                                                    const raw = e.target.value;
+                                                                    if (raw === '') {
+                                                                        setRubricScores(prev => ({ ...prev, [crit.id!]: '' }));
+                                                                        return;
+                                                                    }
+                                                                    const num = Number(raw);
+                                                                    const capped = crit.maxPoints != null ? Math.min(num, crit.maxPoints) : num;
+                                                                    setRubricScores(prev => ({ ...prev, [crit.id!]: capped }));
+                                                                }}
+                                                            />
+                                                        </td>
+                                                        <td>{crit.comment || '-'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="rubric-table-wrapper">
+                                <table className="rubric-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Criterion</th>
+                                            {rubric.weighted && <th style={{ width: '80px' }}>Weight %</th>}
+                                            <th style={{ width: '100px' }}>Max Pts</th>
+                                            <th style={{ width: '110px' }}>Score</th>
+                                            <th>Comments / Expectations</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(rubric.criteria ?? []).map((crit, idx) => (
+                                            <tr key={crit.id || idx}>
+                                                <td>{crit.name}</td>
+                                                {rubric.weighted && <td>{crit.weight ?? '-'}</td>}
+                                                <td>{crit.maxPoints ?? '-'}</td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        className="form-input"
+                                                        style={{ padding: '4px 6px' }}
+                                                        min={0}
+                                                        max={crit.maxPoints ?? undefined}
+                                                        value={crit.id ? (rubricScores[crit.id] ?? '') : ''}
+                                                        onChange={e => {
+                                                            if (!crit.id) return;
+                                                            const raw = e.target.value;
+                                                            if (raw === '') {
+                                                                setRubricScores(prev => ({ ...prev, [crit.id!]: '' }));
+                                                                return;
+                                                            }
+                                                            const num = Number(raw);
+                                                            const capped = crit.maxPoints != null ? Math.min(num, crit.maxPoints) : num;
+                                                            setRubricScores(prev => ({ ...prev, [crit.id!]: capped }));
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td>{crit.comment || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        <div className="rubric-summary">
+                            {(() => {
+                                const total = computeRubricTotal();
+                                const maxPts = assignment.points || 100;
+                                return (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <span>
+                                            Rubric total (scaled):{' '}
+                                            <strong>
+                                                {total !== null ? `${total.toFixed(2)}/${maxPts.toFixed(2)}` : `- / ${maxPts.toFixed(2)}`}
+                                            </strong>
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                const nextTotal = computeRubricTotal();
+                                                if (nextTotal !== null) {
+                                                    setGrade(nextTotal.toString());
+                                                }
+                                            }}
+                                        >
+                                            Use as final grade
+                                        </Button>
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
+                )}
 
-                    <div className="grader-form-divider"></div>
-
+                <div className="grading-form">
                     <div className="form-group">
-                        <label className="form-label">Grade (0-{assignment.points || 100})</label>
+                        <label className="form-label">Final Grade</label>
                         <input
                             type="number"
                             min="0"

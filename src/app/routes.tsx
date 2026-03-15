@@ -22,6 +22,8 @@ import NotFound from '../pages/NotFound';
 import TADashboard from '../pages/ta/TADashboard';
 import TACourseView from '../pages/ta/TACourseView';
 import { AUTH_ROLES } from '../lib/auth';
+import Admin from '../pages/admin/Admin';
+import DatabaseExplorer from '../pages/admin/DatabaseExplorer';
 
 export const router = createBrowserRouter([
     {
@@ -82,6 +84,14 @@ export const router = createBrowserRouter([
                     { path: 'courses/:courseId/assignments/:assignmentId/grading', element: <GradingDashboard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading/:submissionId', element: <SubmissionGrader /> },
                     { path: 'courses/:courseId/gradebook', element: <CourseGradebook /> },
+                ]
+            },
+            {
+                path: 'admin',
+                element: <ProtectedRoute requiredRole={AUTH_ROLES.ADMIN} />,
+                children: [
+                    { index: true, element: <Admin /> },
+                    { path: 'database', element: <DatabaseExplorer /> },
                 ]
             }
         ]

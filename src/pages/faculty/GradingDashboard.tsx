@@ -154,7 +154,9 @@ const GradingDashboard: React.FC = () => {
                                             <StatusBadge status={latestSubmission.status} />
                                         </td>
                                         <td className="text-medium">
-                                            {latestSubmission.grade !== undefined && latestSubmission.grade !== null ? latestSubmission.grade : '-'}
+                                            {latestSubmission.grade !== undefined && latestSubmission.grade !== null
+                                                ? latestSubmission.grade.toFixed(2)
+                                                : '-'}
                                         </td>
                                         <td>
                                             <Button

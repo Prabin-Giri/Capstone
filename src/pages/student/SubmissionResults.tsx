@@ -123,7 +123,9 @@ const SubmissionResults: React.FC = () => {
                             {submission.grade !== null && submission.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') && (
                                 <tr>
                                     <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Grade:</td>
-                                    <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>{submission.grade}/{assignment?.points || 100}</td>
+                                    <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>
+                                        {submission.grade.toFixed(2)}/{((assignment?.points || 100)).toFixed(2)}
+                                    </td>
                                 </tr>
                             )}
                         </tbody>
@@ -214,8 +216,8 @@ const SubmissionResults: React.FC = () => {
                                                 {' • '}
                                                 <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
                                                 {isSubGraded && sub.grade !== null && sub.grade !== undefined
-                                                    ? `${sub.grade}/${assignment?.points || 100}`
-                                                    : `-/${assignment?.points || 100}`}
+                                                    ? `${sub.grade.toFixed(2)}/${(assignment?.points || 100).toFixed(2)}`
+                                                    : `-/${(assignment?.points || 100).toFixed(2)}`}
                                             </div>
                                         </div>
                                         {!isCurrent && (
