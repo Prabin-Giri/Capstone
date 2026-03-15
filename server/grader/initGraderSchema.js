@@ -17,6 +17,7 @@ async function initGraderSchema() {
         ['efficiency_points_possible', 'REAL DEFAULT 0'],
         ['java_main_class', 'TEXT DEFAULT NULL'],
         ['run_mode', 'TEXT DEFAULT "program"'],
+        ['rubric_config', 'TEXT DEFAULT NULL'],
     ];
 
     for (const [col, def] of assignmentColumns) {

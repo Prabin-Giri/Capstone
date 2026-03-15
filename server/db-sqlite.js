@@ -48,6 +48,7 @@ async function initDb() {
             starter_code_path TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            rubric_config TEXT,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
         )`,
         `CREATE TABLE IF NOT EXISTS submissions (
@@ -145,6 +146,7 @@ async function initDb() {
     if (count === 0) {
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
         db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026', 'faculty-001')");
         db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026', 'faculty-001')");
         db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026', 'faculty-001')");

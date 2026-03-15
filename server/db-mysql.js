@@ -72,6 +72,7 @@ const CREATE_TABLES = [
         java_main_class VARCHAR(255),
         run_mode VARCHAR(50) DEFAULT 'program',
         type VARCHAR(50) DEFAULT 'individual',
+        rubric_config TEXT,
         FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS submissions (
@@ -183,11 +184,22 @@ async function initDb() {
         await pool.execute(sql);
     }
 
+    // Ensure rubric_config column exists even on older databases
+    try {
+        await pool.execute('ALTER TABLE assignments ADD COLUMN rubric_config TEXT');
+    } catch (e) {
+        // Ignore "duplicate column" errors if it already exists
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) {
+            throw e;
+        }
+    }
+
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;
     if (count === 0) {
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
+        await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
         await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026', 'faculty-001')");
         await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026', 'faculty-001')");
         await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026', 'faculty-001')");
