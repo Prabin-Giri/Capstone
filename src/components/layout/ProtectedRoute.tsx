@@ -3,20 +3,21 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { getRole, type AuthRole } from '../../lib/auth';
 
 interface ProtectedRouteProps {
-    requiredRole: AuthRole;
+    /** Single role or array of roles (any match allows access). Use array to allow e.g. TA + student. */
+    requiredRole: AuthRole | AuthRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
     const currentRole = getRole();
 
     if (!currentRole) {
-        // Not logged in -> Redirect to landing
         return <Navigate to="/" replace />;
     }
 
-    if (currentRole !== requiredRole) {
-        // Wrong role -> Redirect to correct dashboard or landing
-        // For simplicity V1, just clear and go to landing to force re-login
+    const allowed = Array.isArray(requiredRole)
+        ? requiredRole.includes(currentRole)
+        : currentRole === requiredRole;
+    if (!allowed) {
         return <Navigate to="/" replace />;
     }
 

@@ -229,6 +229,182 @@
     }
 }
 
+/* ---- TA Hub (new dashboard with Student | TA options) ---- */
+.ta-hub {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.ta-hub-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+.ta-hub-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: ta-hub-spin 0.8s linear infinite;
+}
+@keyframes ta-hub-spin {
+    to { transform: rotate(360deg); }
+}
+
+.ta-hub-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+.ta-hub-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-text);
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.03em;
+}
+.ta-hub-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+.ta-hub-subtitle strong {
+    color: var(--primary-text);
+}
+
+.ta-hub-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+}
+.ta-hub-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1.75rem 1.25rem;
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--bg-surface);
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    position: relative;
+    text-align: center;
+}
+.ta-hub-option:hover:not(.ta-hub-option-disabled) {
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+.ta-hub-option-active {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+.ta-hub-option-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.ta-hub-option-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.25rem;
+}
+.ta-hub-option-icon-student {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+}
+.ta-hub-option-icon-ta {
+    background: var(--primary-light);
+    color: var(--primary-color);
+}
+.ta-hub-option-active .ta-hub-option-icon-student {
+    background: rgba(59, 130, 246, 0.25);
+}
+.ta-hub-option-active .ta-hub-option-icon-ta {
+    background: var(--primary-color);
+    color: white;
+}
+.ta-hub-option-label {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--primary-text);
+}
+.ta-hub-option-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.ta-hub-option-count {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 12px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ta-hub-option-empty {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.ta-hub-courses {
+    margin-top: 0.5rem;
+}
+.ta-hub-section-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--primary-text);
+    margin: 0 0 1rem 0;
+}
+.ta-hub-grid {
+    margin-top: 0;
+}
+.ta-hub-empty {
+    padding: 2.5rem;
+    text-align: center;
+    background: var(--bg-surface);
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    color: var(--text-secondary);
+}
+.ta-hub-empty p {
+    margin: 0 0 0.5rem 0;
+}
+.ta-hub-empty-hint {
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
+@media (max-width: 640px) {
+    .ta-hub-options {
+        grid-template-columns: 1fr;
+    }
+    .ta-hub {
+        padding: 1.25rem 1rem;
+    }
+}
+
 .faculty-dashboard-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -255,6 +431,24 @@
     font-size: 1.125rem;
     font-weight: 500;
     margin-top: 0.5rem;
+}
+
+.ta-dashboard-section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-text);
+    margin: 2rem 0 1rem 0;
+}
+.ta-dashboard-section-title:first-of-type {
+    margin-top: 0;
+}
+
+.tag-pill.tag-role {
+    font-size: 0.65rem;
+}
+.tag-pill.tag-both {
+    background: var(--primary-color) !important;
+    color: white !important;
 }
 
 /* Course Card Refinements - High Specificity Overrides */
