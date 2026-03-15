@@ -69,8 +69,11 @@ const CourseGradebook: React.FC = () => {
 
         students.forEach(student => {
             assignments.forEach(assignment => {
-                const grade = student.grades[assignment.id];
-                if (grade !== null && grade !== undefined) {
+                const rawGrade = student.grades[assignment.id];
+                if (rawGrade !== null && rawGrade !== undefined) {
+                    const pointsPossible = assignment.points || 100;
+                    const grade = pointsPossible > 0 ? (rawGrade / pointsPossible) * 100 : 0;
+
                     allGrades.push(grade);
                     actualGradesCount++;
 
@@ -384,26 +387,35 @@ const CourseGradebook: React.FC = () => {
                                             <h4 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <BarChart2 size={18} /> Missing Grades ({reportStats.missingGrades.length})
                                             </h4>
-                                            <div className="missing-table-container">
-                                                <table className="missing-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Student</th>
-                                                            <th>Assignment</th>
-                                                            <th>Status</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {reportStats.missingGrades.map((item, i) => (
-                                                            <tr key={i}>
-                                                                <td><b>{item.student}</b></td>
-                                                                <td>{item.assignment}</td>
-                                                                <td><span className="status-badge-missing">Missing</span></td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                            
+                                            {Array.from(new Set(reportStats.missingGrades.map(item => item.assignment))).map(assignmentName => {
+                                                const assignmentMissing = reportStats.missingGrades.filter(m => m.assignment === assignmentName);
+                                                return (
+                                                    <details key={assignmentName} style={{ marginBottom: '1rem', background: 'var(--bg-surface, #ffffff)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px' }}>
+                                                        <summary style={{ padding: '0.8rem 1rem', cursor: 'pointer', fontWeight: 600, outline: 'none' }}>
+                                                            {assignmentName} <span style={{ fontWeight: 'normal', color: 'var(--text-secondary, #6b7280)' }}>({assignmentMissing.length} missing)</span>
+                                                        </summary>
+                                                        <div className="missing-table-container" style={{ margin: 0, borderTop: '1px solid var(--border-color, #e5e7eb)', borderRadius: '0 0 8px 8px' }}>
+                                                            <table className="missing-table" style={{ margin: 0 }}>
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Student</th>
+                                                                        <th>Status</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {assignmentMissing.map((item, i) => (
+                                                                        <tr key={i}>
+                                                                            <td><b>{item.student}</b></td>
+                                                                            <td><span className="status-badge-missing">Missing</span></td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </details>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
