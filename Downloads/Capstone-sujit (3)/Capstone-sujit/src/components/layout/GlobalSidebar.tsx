@@ -1,0 +1,108 @@
+import React from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Calendar, Mail, HelpCircle, User } from 'lucide-react';
+import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
+import { UPLOADS_BASE } from '../../lib/api';
+import './Layout.css';
+
+interface GlobalSidebarProps {
+    isOpen: boolean;
+    onNavigate: () => void;
+    onToggleAccount: () => void;
+    isAccountOpen?: boolean;
+}
+
+const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen }) => {
+    const role = getRole();
+    const dashboardPath = role === AUTH_ROLES.ADMIN ? '/admin' : role === AUTH_ROLES.FACULTY ? '/faculty' : role === AUTH_ROLES.TA ? '/ta' : role === AUTH_ROLES.USER ? '/user' : '/student';
+    const [userData, setUserData] = React.useState(getUser());
+    const location = useLocation();
+
+    React.useEffect(() => {
+        const handleUpdate = () => setUserData(getUser());
+        window.addEventListener('user-profile-updated', handleUpdate);
+        return () => window.removeEventListener('user-profile-updated', handleUpdate);
+    }, []);
+
+    const isDashboardActive = location.pathname.startsWith('/student') ||
+        location.pathname.startsWith('/faculty') ||
+        location.pathname.startsWith('/ta') ||
+        location.pathname.startsWith('/user') ||
+        location.pathname.startsWith('/admin');
+
+    const isCalendarActive = location.pathname.startsWith('/calendar');
+
+    return (
+        <aside className={`global-sidebar ${isOpen ? 'mobile-open' : ''}`}>
+            <div className="global-sidebar-header">
+                <NavLink to={dashboardPath} onClick={onNavigate} style={{ display: 'flex', justifyContent: 'center' }}>
+                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                </NavLink>
+            </div>
+
+            <nav className="global-nav">
+                <button
+                    onClick={() => {
+                        onNavigate();
+                        onToggleAccount();
+                    }}
+                    className={`global-nav-link ${isAccountOpen ? 'active' : ''}`}
+                    style={{ cursor: 'pointer' }}
+                >
+                    {userData?.profilePicture ? (
+                        <img
+                            src={`${UPLOADS_BASE}/uploads/${userData.profilePicture}`}
+                            alt="Account"
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                marginBottom: '4px'
+                            }}
+                        />
+                    ) : (
+                        <User size={32} />
+                    )}
+                    <span className="global-nav-text">Account</span>
+                </button>
+
+                <div className="global-nav-divider" />
+
+                <NavLink
+                    to={dashboardPath}
+                    onClick={onNavigate}
+                    className={() => `global-nav-link ${isDashboardActive && !isAccountOpen ? 'active' : ''}`}
+                >
+                    <LayoutDashboard size={24} />
+                    <span className="global-nav-text">Dashboard</span>
+                </NavLink>
+
+                <NavLink
+                    to="/calendar"
+                    onClick={onNavigate}
+                    className={() => `global-nav-link ${isCalendarActive && !isAccountOpen ? 'active' : ''}`}
+                >
+                    <Calendar size={24} />
+                    <span className="global-nav-text">Calendar</span>
+                </NavLink>
+
+                <div className="global-nav-divider" />
+
+                <span className="global-nav-link disabled" title="Coming Soon">
+                    <Mail size={24} />
+                    <span className="global-nav-text">Inbox</span>
+                </span>
+
+                <div style={{ flex: 1 }} />
+
+                <span className="global-nav-link disabled" title="Coming Soon">
+                    <HelpCircle size={24} />
+                    <span className="global-nav-text">Help</span>
+                </span>
+            </nav>
+        </aside>
+    );
+};
+
+export default GlobalSidebar;

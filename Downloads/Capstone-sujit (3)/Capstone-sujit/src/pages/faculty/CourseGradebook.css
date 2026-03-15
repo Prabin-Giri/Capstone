@@ -1,0 +1,651 @@
+/* Course Gradebook Styles */
+
+.course-gradebook {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header */
+.gradebook-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.breadcrumb a {
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.breadcrumb a:hover {
+    color: var(--primary-text);
+}
+
+.page-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.page-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+/* Actions */
+.gradebook-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-report {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--bg-surface);
+    border: 2px solid var(--primary-light);
+    color: var(--primary-text);
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-report:hover {
+    background-color: var(--border-color);
+    border-color: var(--text-primary);
+}
+
+.btn-report.premium {
+    background-color: var(--bg-surface);
+    border: 2px solid var(--primary-light);
+    color: var(--primary-text);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-report.premium:hover {
+    background-color: var(--border-color);
+    border-color: var(--text-primary);
+}
+
+/* Maroon action button used in modal footers */
+.btn-report-action {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border: none;
+    color: white;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-report-action:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-download {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: white;
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    border: none;
+}
+
+.btn-download:hover {
+    background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+/* View mode tabs */
+.gradebook-view-tab {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.gradebook-view-tab:hover {
+    background: var(--border-color);
+}
+.gradebook-view-tab.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+.gradebook-view-tab.active:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+/* Table */
+.gradebook-table-container {
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.gradebook-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.gradebook-table th {
+    text-align: left;
+    padding: 1rem;
+    background: var(--bg-body);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.gradebook-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.gradebook-table tr:hover td {
+    background: var(--light-grey);
+}
+
+.student-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.student-id {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.grade-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.grade-A {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.grade-B {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.grade-C {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.grade-D {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.grade-F {
+    background: var(--light-grey);
+    color: var(--text-secondary);
+}
+
+.grade-missing {
+    color: var(--text-tertiary);
+}
+
+/* Cell status: Ungraded, Missing, Not submitted */
+.grade-cell-status {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.grade-status-submitted {
+    background: rgba(234, 179, 8, 0.15);
+    color: #a16207;
+}
+.grade-status-missing {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+}
+.grade-status-not_submitted {
+    background: rgba(107, 114, 128, 0.15);
+    color: #6b7280;
+}
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--global-sidebar-width);
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    backdrop-filter: blur(12px);
+}
+
+@media (max-width: 1024px) {
+    .modal-overlay {
+        left: 80px;
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-overlay {
+        left: 0;
+    }
+}
+
+.modal-content {
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: zoomIn 0.2s ease-out;
+}
+
+.modal-content.large {
+    max-width: 900px;
+    height: 80vh;
+}
+
+@keyframes zoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    color: var(--text-tertiary);
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: var(--light-grey);
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-body);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+/* Report Selection Cards */
+.report-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.report-chip {
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.8rem;
+    font-size: 0.85rem;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.report-chip.selected {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.gradebook-select {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    background: var(--bg-surface);
+}
+
+.report-card-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 1.25rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-surface);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.report-card-btn:hover {
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.report-card-btn.selected {
+    border-color: var(--primary-text);
+    background: var(--primary-light);
+}
+
+.report-card-btn.selected .icon-box {
+    background: var(--primary-color);
+    color: white;
+}
+
+.report-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.icon-box {
+    padding: 0.5rem;
+    border-radius: 8px;
+    background: var(--light-grey);
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.report-title {
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--text-primary);
+}
+
+.report-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-left: 3.5rem;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.stat-card {
+    padding: 1.25rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card.blue {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-left: 4px solid var(--primary-border);
+}
+
+.stat-card.green {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-left: 4px solid var(--primary-border);
+}
+
+.stat-card.purple {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-left: 4px solid var(--primary-border);
+}
+
+.stat-card.white {
+    background-color: var(--bg-surface);
+    border-color: var(--border-color);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.stat-card.blue .stat-label {
+    color: var(--primary-text);
+}
+
+.stat-card.green .stat-label {
+    color: var(--primary-text);
+}
+
+.stat-card.purple .stat-label {
+    color: var(--primary-text);
+}
+
+.stat-card.white .stat-label {
+    color: var(--text-tertiary);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.stat-sub {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    opacity: 0.8;
+    font-weight: 500;
+}
+
+.stat-icon {
+    position: absolute;
+    right: -10px;
+    bottom: -10px;
+    opacity: 0.1;
+    transform: rotate(-10deg);
+}
+
+/* Distribution Logic */
+.distribution-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    height: 160px;
+    margin-top: 1rem;
+}
+
+.dist-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dist-bar {
+    width: 100%;
+    background: var(--primary-color);
+    border-radius: 4px 4px 0 0;
+    transition: height 0.3s ease;
+    min-height: 4px;
+}
+
+.dist-bar:hover {
+    background: #2563eb;
+}
+
+.dist-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Missing Grades Table */
+.missing-table {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.missing-table th {
+    background: var(--bg-body);
+    text-align: left;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.missing-table td {
+    padding: 0.75rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.875rem;
+}
+
+.status-badge-missing {
+    background: var(--danger-bg);
+    color: var(--danger-color);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* --- Additional Responsive Adjustments --- */
+@media (max-width: 1024px) {
+    .course-gradebook {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .course-gradebook {
+        padding: 1rem;
+    }
+
+    .gradebook-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+    }
+
+    .gradebook-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .gradebook-actions>* {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .gradebook-table-container {
+        overflow-x: auto;
+    }
+
+    .gradebook-table th,
+    .gradebook-table td {
+        padding: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .report-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .report-desc {
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+
+    .modal-content.large {
+        width: 95vw;
+        height: 90vh;
+    }
+}
