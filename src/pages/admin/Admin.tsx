@@ -7,20 +7,16 @@ import './Admin.css';
 const Admin: React.FC = () => {
     const navigate = useNavigate();
     const [pendingFaculty, setPendingFaculty] = useState<PendingFaculty[]>([]);
-    const [loadingPending, setLoadingPending] = useState(true);
     const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
         (async () => {
-            setLoadingPending(true);
             try {
                 const list = await getPendingFaculty();
                 if (!cancelled) setPendingFaculty(list);
             } catch {
                 if (!cancelled) setPendingFaculty([]);
-            } finally {
-                if (!cancelled) setLoadingPending(false);
             }
         })();
         return () => { cancelled = true; };
