@@ -233,8 +233,39 @@ router.post('/:id/test', async (req, res, next) => {
         }
 
         const db = getDb();
+        const [assignments] = await db.execute('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+        const assignment = assignments[0];
 
-        const [testCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+        if (!assignment) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+
+        let testCases = [];
+        const uploadsDir = path.join(__dirname, '../uploads');
+
+        if (assignment.test_case_file_path && assignment.test_case_file_path.toLowerCase().endsWith('.json')) {
+            const graderPath = path.join(uploadsDir, assignment.test_case_file_path);
+            if (fs.existsSync(graderPath)) {
+                try {
+                    const content = fs.readFileSync(graderPath, 'utf8');
+                    const jsonCases = JSON.parse(content);
+                    testCases = jsonCases.map((tc, idx) => ({
+                        id: tc.id || `file-${idx}`,
+                        input: tc.input || '',
+                        expected_output: tc.expectedOutput || tc.expected_output || '',
+                        points: Number(tc.points) || 0,
+                        is_public: tc.isHidden === true ? 0 : 1
+                    }));
+                } catch (e) {
+                    console.error('Failed to parse JSON test cases in /test:', e);
+                }
+            }
+        }
+
+        if (testCases.length === 0) {
+            const [dbCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+            testCases = dbCases;
+        }
 
         if (testCases.length === 0) {
             return res.json({ results: [], summary: 'No test cases defined.' });
@@ -320,6 +351,72 @@ router.post('/:id/test', async (req, res, next) => {
         }
     } catch (err) {
         console.error('[Run Tests] error', { assignmentId: req.params.id, message: err.message });
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/run - Run code against custom stdin (Manual Input)
+router.post('/:id/run', async (req, res, next) => {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { runCode } = require('../grader/runCode');
+    const config = require('../grader/config');
+
+    try {
+        const { code, language, stdin = '' } = req.body;
+        const assignmentId = req.params.id;
+
+        console.log('[Run Custom Code]', { assignmentId, language: language || 'python', codeLength: (code || '').length, stdinLength: stdin.length });
+
+        if (!code) {
+            return res.status(400).json({ error: 'Code is required' });
+        }
+
+        const lang = (language === 'node' ? 'javascript' : language) || 'python';
+        const supported = ['python', 'javascript', 'java', 'php'];
+        
+        if (!supported.includes(lang)) {
+            return res.status(400).json({ error: `Unsupported language for execution: ${language}. Use python, javascript, java, or php.` });
+        }
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'custom-run-'));
+        const fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : (lang === 'java' ? 'Main.java' : 'main.php'));
+        const filePath = path.join(tmpDir, fileName);
+
+        try {
+            fs.writeFileSync(filePath, code);
+            const timeoutMs = config.runTimeoutMs || 10000;
+
+            const runResult = await runCode({
+                sourceFilePath: filePath,
+                language: lang,
+                stdin: stdin,
+                timeoutMs
+            });
+
+            const actual = (runResult.stdout || '').trim();
+            const error = runResult.timedOut
+                ? 'Run timed out.'
+                : (runResult.stderr && runResult.stderr.trim()) || (runResult.exitCode !== 0 && runResult.exitCode !== null ? `Exit code ${runResult.exitCode}` : null);
+
+            res.json({
+                stdout: actual,
+                stderr: error || null,
+                exitCode: runResult.exitCode,
+                timedOut: runResult.timedOut
+            });
+
+        } catch (runErr) {
+            console.error('[Run Custom Code] execution failed', { assignmentId, error: runErr.message });
+            res.status(500).json({ error: runErr.message || 'Docker execution failed.' });
+        } finally {
+            try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            } catch (_) {}
+        }
+    } catch (err) {
+        console.error('[Run Custom Code] routing error', { assignmentId: req.params.id, message: err.message });
         next(err);
     }
 });

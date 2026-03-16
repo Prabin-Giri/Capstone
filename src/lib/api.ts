@@ -341,6 +341,7 @@ export interface Submission {
     id: number;
     assignment_id: string;
     student_id: string;
+    student_name?: string;
     file_name: string;
     file_path: string;
     submitted_at: string;
@@ -634,6 +635,16 @@ export async function runTests(assignmentId: string, code: string, language: str
     });
 }
 
+export async function runCustomCode(assignmentId: string, code: string, language: string, stdin: string): Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean }> {
+    return apiFetch<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean }>(`/assignments/${assignmentId}/run`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, language, stdin }),
+    });
+}
+
 // ============ Users ============
 
 export interface User {
@@ -710,8 +721,9 @@ export async function autoGradeAssignment(
     });
 }
 
-export async function runAutograde(submissionId: number): Promise<Submission> {
-    return apiFetch<Submission>(`/grader/submissions/${submissionId}/run`, {
+export async function runAutograde(submissionId: number, dryRun = false): Promise<Submission> {
+    const url = `/grader/submissions/${submissionId}/run${dryRun ? '?dryRun=1' : ''}`;
+    return apiFetch<Submission>(url, {
         method: 'POST',
     });
 }

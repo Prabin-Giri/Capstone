@@ -29,18 +29,18 @@ router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.query;
-        let sql = 'SELECT * FROM submissions WHERE 1=1';
+        let sql = 'SELECT submissions.*, users.name as student_name FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1';
         const params = [];
 
         if (assignment_id) {
-            sql += ' AND assignment_id = ?';
+            sql += ' AND submissions.assignment_id = ?';
             params.push(assignment_id);
         }
         if (student_id) {
-            sql += ' AND student_id = ?';
+            sql += ' AND submissions.student_id = ?';
             params.push(student_id);
         }
-        sql += ' ORDER BY submitted_at DESC';
+        sql += ' ORDER BY submissions.submitted_at DESC';
 
         const result = await db.execute(sql, params);
         res.json(queryToObjects(result));

@@ -656,3 +656,72 @@
         height: 90vh;
     }
 }
+
+/* Print Styles */
+@media print {
+    /* Hide everything except the modal content */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Force the modal to stretch full page without scroll or background */
+    .modal-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        background: transparent !important;
+        backdrop-filter: none;
+    }
+
+    /* Show the modal content and override styles for print */
+    .modal-content.large,
+    .modal-content.large * {
+        visibility: visible;
+    }
+
+    .modal-content.large {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        box-shadow: none;
+        border: none;
+        animation: none;
+    }
+
+    .modal-header,
+    .modal-footer {
+        display: none !important;
+    }
+
+    .report-view {
+        padding: 0 !important;
+    }
+
+    /* Keep background colors for charts */
+    .stat-card,
+    .dist-bar,
+    .grade-A, .grade-B, .grade-C, .grade-D, .grade-F {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Prevent page breaks inside cards or tables where possible */
+    .stat-card,
+    details {
+        page-break-inside: avoid;
+    }
+
+    details[open] {
+        border: none !important;
+    }
+
+    details summary {
+        border-bottom: 1px solid #ccc;
+    }
+}

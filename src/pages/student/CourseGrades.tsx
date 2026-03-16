@@ -142,7 +142,7 @@ const CourseGrades: React.FC = () => {
                                         </td>
                                         <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
                                             {submission?.grade !== null && submission?.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') ? (
-                                                <span>{submission.grade.toFixed(2)}/{maxPoints.toFixed(2)}</span>
+                                                <span>{Number(submission.grade).toFixed(2)}/{maxPoints.toFixed(2)}</span>
                                             ) : (
                                                 <span style={{ color: 'var(--text-tertiary)' }}>-/{maxPoints.toFixed(2)}</span>
                                             )}

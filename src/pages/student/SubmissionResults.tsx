@@ -124,7 +124,7 @@ const SubmissionResults: React.FC = () => {
                                 <tr>
                                     <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Grade:</td>
                                     <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>
-                                        {submission.grade.toFixed(2)}/{((assignment?.points || 100)).toFixed(2)}
+                                        {Number(submission.grade).toFixed(2)}/{((assignment?.points || 100)).toFixed(2)}
                                     </td>
                                 </tr>
                             )}
@@ -216,7 +216,7 @@ const SubmissionResults: React.FC = () => {
                                                 {' • '}
                                                 <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
                                                 {isSubGraded && sub.grade !== null && sub.grade !== undefined
-                                                    ? `${sub.grade.toFixed(2)}/${(assignment?.points || 100).toFixed(2)}`
+                                                    ? `${Number(sub.grade).toFixed(2)}/${(assignment?.points || 100).toFixed(2)}`
                                                     : `-/${(assignment?.points || 100).toFixed(2)}`}
                                             </div>
                                         </div>

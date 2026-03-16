@@ -122,9 +122,14 @@ const CourseGradebook: React.FC = () => {
 
         const studentRowsFull = students.map(student => {
             const cells = assignments.map(assignment => {
-                const grade = student.grades[assignment.id];
+                const rawGrade = student.grades[assignment.id];
                 const status = getCellStatus(student, assignment.id);
-                if (status === 'graded' && grade != null) {
+                
+                let grade = null;
+                if (status === 'graded' && rawGrade != null) {
+                    const pointsPossible = assignment.points || 100;
+                    grade = pointsPossible > 0 ? (rawGrade / pointsPossible) * 100 : 0;
+                    
                     allGrades.push(grade);
                     actualGradesCount++;
                     if (grade >= 90) distribution.A++;
@@ -137,6 +142,7 @@ const CourseGradebook: React.FC = () => {
                 } else {
                     missingGrades.push({ student: student.name, assignment: assignment.title, status: 'not_submitted' });
                 }
+                
                 return {
                     assignmentId: assignment.id,
                     assignmentTitle: assignment.title,
@@ -960,30 +966,38 @@ ${stats.missingGrades.length > 0 ? `
                                             <h4 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <BarChart2 size={18} /> Missing Grades ({reportStats.missingGrades.length})
                                             </h4>
-                                            <div className="missing-table-container">
-                                                <table className="missing-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Student</th>
-                                                            <th>Assignment</th>
-                                                            <th>Status</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {reportStats.missingGrades.map((item, i) => (
-                                                            <tr key={i}>
-                                                                <td><b>{item.student}</b></td>
-                                                                <td>{item.assignment}</td>
-                                                                <td>
-                                                                    <span className={item.status === 'ungraded' ? 'status-badge-ungraded' : 'status-badge-missing'}>
-                                                                        {item.status === 'ungraded' ? 'Ungraded' : 'Not submitted'}
-                                                                    </span>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                            {Array.from(new Set(reportStats.missingGrades.map(item => item.assignment))).map(assignmentName => {
+                                                const assignmentMissing = reportStats.missingGrades.filter(m => m.assignment === assignmentName);
+                                                return (
+                                                    <details key={assignmentName} style={{ marginBottom: '1rem', background: 'var(--bg-surface, #ffffff)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px' }}>
+                                                        <summary style={{ padding: '0.8rem 1rem', cursor: 'pointer', fontWeight: 600, outline: 'none' }}>
+                                                            {assignmentName} <span style={{ fontWeight: 'normal', color: 'var(--text-secondary, #6b7280)' }}>({assignmentMissing.length} missing)</span>
+                                                        </summary>
+                                                        <div className="missing-table-container" style={{ margin: 0, borderTop: '1px solid var(--border-color, #e5e7eb)', borderRadius: '0 0 8px 8px' }}>
+                                                            <table className="missing-table" style={{ margin: 0 }}>
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Student</th>
+                                                                        <th>Status</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {assignmentMissing.map((item, i) => (
+                                                                        <tr key={i}>
+                                                                            <td><b>{item.student}</b></td>
+                                                                            <td>
+                                                                                <span className={item.status === 'ungraded' ? 'status-badge-ungraded' : 'status-badge-missing'}>
+                                                                                    {item.status === 'ungraded' ? 'Ungraded' : 'Not submitted'}
+                                                                                </span>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </details>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

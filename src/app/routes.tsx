@@ -1,7 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/layout/ProtectedRoute';
-import LandingPage from '../pages/LandingPage';
 import Login from '../pages/auth/Login';
 import SignUp from '../pages/auth/SignUp';
 import StudentDashboard from '../pages/student/StudentDashboard';

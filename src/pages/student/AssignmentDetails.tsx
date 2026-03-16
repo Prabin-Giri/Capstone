@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases, runTests } from '../../lib/api';
+import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode } from '../../lib/api';
 import { Code, Download, Eye } from 'lucide-react';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
@@ -10,6 +10,7 @@ import type { EditorFile } from '../../components/ui/AssignmentEditor';
 
 import { getUser } from '../../lib/auth';
 import { showDialog } from '../../components/ui/Dialog';
+import { getCommentChar } from '../../lib/utils';
 
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
@@ -141,7 +142,8 @@ const AssignmentDetails: React.FC = () => {
             // Combine all files into a single string for now or adapt based on backend
             // Our runTests API currently accepts a single string `code`, so we will concatenate them
             // or if there's only one active code file, run that.
-            let codeToRun = editorFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
+            const comment = getCommentChar(assignment.language || 'python');
+            let codeToRun = editorFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             if (editorFiles.length === 1) {
                 codeToRun = editorFiles[0].content;
             }
@@ -158,6 +160,23 @@ const AssignmentDetails: React.FC = () => {
             throw new Error(`Failed to run tests: ${msg}`);
         }
     };
+
+    const handleRunCustomInput = async (files: EditorFile[], stdin: string) => {
+        if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
+        setIsRunningTests(true);
+        try {
+            const comment = getCommentChar(assignment.language || 'python');
+            const codeToRun = files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const data = await runCustomCode(assignment.id, codeToRun, assignment.language || 'python', stdin);
+            setIsRunningTests(false);
+            return data;
+        } catch (err) {
+            setIsRunningTests(false);
+            const msg = err instanceof Error ? err.message : String(err);
+            throw new Error(`Failed to execute code: ${msg}`);
+        }
+    };
+
     const handleEditorChange = (files: EditorFile[]) => {
         setEditorFiles(files);
     };
@@ -242,7 +261,7 @@ const AssignmentDetails: React.FC = () => {
                         <div className="grade-label">Current Grade</div>
                         <div className="grade-value">
                             {submission && submission.grade !== undefined && submission.grade !== null && (submission.status === 'graded' || submission.status === 'returned')
-                                ? `${submission.grade.toFixed(2)}/${points.toFixed(2)}`
+                                ? `${Number(submission.grade).toFixed(2)}/${points.toFixed(2)}`
                                 : `-/${points.toFixed(2)}`}
                         </div>
                     </div>
@@ -288,6 +307,7 @@ const AssignmentDetails: React.FC = () => {
                         language={assignment.language || 'python'}
                         theme={theme}
                         onRunTests={handleRunEditorTests}
+                        onRunCustomInput={handleRunCustomInput}
                         isRunning={isRunningTests}
                         points={points}
                         onChange={handleEditorChange}
