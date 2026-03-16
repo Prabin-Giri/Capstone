@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
-import { courses } from '../../lib/mockData';
+import { useLocation, NavLink } from 'react-router-dom';
+import { getCourse } from '../../lib/api';
+import type { Course } from '../../lib/api';
 import { PanelLeft, LayoutDashboard, BookOpen, BarChart2 } from 'lucide-react';
 import './Layout.css';
 
@@ -9,10 +10,21 @@ interface CourseSidebarProps {
 }
 
 const CourseSidebar: React.FC<CourseSidebarProps> = ({ courseId }) => {
-    const course = courses.find((item) => item.id === courseId);
-    const basePath = `/student/courses/${courseId}`;
+    const { pathname } = useLocation();
+    const isTaPath = pathname.startsWith('/ta');
+    const basePath = isTaPath ? `/ta/courses/${courseId}` : `/student/courses/${courseId}`;
+    
+    const [course, setCourse] = useState<Course | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        if (courseId) {
+            getCourse(courseId)
+                .then(setCourse)
+                .catch(err => console.error('Failed to load course in sidebar:', err));
+        }
+    }, [courseId]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth <= 768);

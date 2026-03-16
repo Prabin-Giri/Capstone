@@ -190,6 +190,41 @@ button {
   }
 }
 
+/* Role Badges */
+.role-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.role-badge.student {
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.role-badge.ta {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* TA Card Visual Cue */
+.ta-card {
+  border-left: 4px solid var(--secondary-color) !important;
+}
+
+.dark-theme .role-badge.student {
+  background: rgba(132, 0, 41, 0.2);
+  color: #ff9fb4;
+}
+
+.dark-theme .role-badge.ta {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+}
+
 /* Global Dark Mode Overrides for Course Cards */
 .dark-theme .course-id-tag .tag-pill,
 .dark-theme .course-card-header .tag-pill,

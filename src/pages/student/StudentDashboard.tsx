@@ -16,12 +16,28 @@ const StudentDashboard: React.FC = () => {
 
     useEffect(() => {
         async function loadData() {
+            if (!user?.id) return;
             try {
                 const [coursesData, assignmentsData] = await Promise.all([
-                    getCourses({ studentId: user?.id }),
+                    getCourses({ studentId: user.id, taId: user.id }),
                     getAssignments()
                 ]);
+
+                // Split courses that have 'both' role into two separate entries for the UI
+                const displayCourses: (Course & { displayRole: 'student' | 'ta' })[] = [];
+                coursesData.forEach(c => {
+                    const role = c.my_role || 'student';
+                    if (role === 'both') {
+                        displayCourses.push({ ...c, displayRole: 'student' });
+                        displayCourses.push({ ...c, displayRole: 'ta' });
+                    } else {
+                        displayCourses.push({ ...c, displayRole: role as 'student' | 'ta' });
+                    }
+                });
+
                 setCourses(coursesData);
+                // We'll store the split courses in a separate state or just use a derived variable
+                // For simplicity, let's keep the original courses state and derive displayCourses
                 setAssignments(assignmentsData);
             } catch (err) {
                 setError('Failed to load data. Make sure the backend server is running.');
@@ -31,10 +47,22 @@ const StudentDashboard: React.FC = () => {
             }
         }
         loadData();
-    }, []);
+    }, [user?.id]);
+
+    // Derived display list
+    const displayCourses: (Course & { displayRole: 'student' | 'ta' })[] = [];
+    courses.forEach(c => {
+        const role = c.my_role || 'student';
+        if (role === 'both') {
+            displayCourses.push({ ...c, displayRole: 'student' });
+            displayCourses.push({ ...c, displayRole: 'ta' });
+        } else {
+            displayCourses.push({ ...c, displayRole: role as 'student' | 'ta' });
+        }
+    });
 
     // Only show assignments from courses the student is enrolled in
-    const enrolledCourseIds = new Set(courses.map((c) => c.id));
+    const enrolledCourseIds = new Set(courses.filter(c => c.my_role === 'student' || c.my_role === 'both').map((c) => c.id));
     const myAssignments = assignments.filter((a) => enrolledCourseIds.has(a.course_id));
 
     if (loading) {
@@ -108,7 +136,8 @@ const StudentDashboard: React.FC = () => {
             </div>
 
             <div className="dashboard-grid">
-                {courses.map((course) => {
+                {displayCourses.map((course) => {
+                    const isTA = course.displayRole === 'ta';
                     const courseAssignments = myAssignments.filter(
                         (assignment) => assignment.course_id === course.id
                     );
@@ -127,31 +156,45 @@ const StudentDashboard: React.FC = () => {
 
                     return (
                         <Card
-                            key={course.id}
-                            className="course-card-premium cursor-pointer"
-                            onClick={() => navigate(`/student/courses/${course.id}`)}
+                            key={`${course.id}-${course.displayRole}`}
+                            className={`course-card-premium cursor-pointer ${isTA ? 'ta-card' : ''}`}
+                            onClick={() => navigate(isTA ? `/ta/courses/${course.id}` : `/student/courses/${course.id}`)}
                         >
                             <div className="course-card-header">
                                 <div>
                                     <h3 className="course-title-display">{course.name}</h3>
                                     <p className="course-term">{course.term}</p>
                                 </div>
-                                <div className="course-id-tag">
+                                <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
                                     <span className="tag-pill">{course.id}</span>
+                                    {isTA && (
+                                        <span className="role-badge ta">
+                                            TA
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="course-stats-display">
-                                <div className="stat-item">
-                                    <span className="stat-v">{activeAssignments.length}</span>
-                                    <span className="stat-label">Assignments</span>
-                                </div>
-                                <div className="stat-item">
-                                    <span className="stat-v" style={{ color: openAssignments.length > 0 ? 'var(--primary-text)' : 'inherit' }}>
-                                        {nextDue}
-                                    </span>
-                                    <span className="stat-label">Next Due</span>
-                                </div>
+                                {!isTA ? (
+                                    <>
+                                        <div className="stat-item">
+                                            <span className="stat-v">{activeAssignments.length}</span>
+                                            <span className="stat-label">Assignments</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-v" style={{ color: openAssignments.length > 0 ? 'var(--primary-text)' : 'inherit' }}>
+                                                {nextDue}
+                                            </span>
+                                            <span className="stat-label">Next Due</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="stat-item">
+                                        <span className="stat-v">{course.active_assignment_count || 0}</span>
+                                        <span className="stat-label">Active Assignments</span>
+                                    </div>
+                                )}
                             </div>
                         </Card>
                     );

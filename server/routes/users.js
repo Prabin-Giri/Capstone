@@ -5,7 +5,7 @@ const { getDb, queryToObjects, queryOne } = require('../db');
 // POST /api/users/signup - Register new user (student or faculty only)
 router.post('/signup', async (req, res, next) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password, role, student_id } = req.body;
         if (!name || !email || !password || !role) {
             return res.status(400).json({ error: 'All fields are required' });
         }
@@ -20,11 +20,11 @@ router.post('/signup', async (req, res, next) => {
             return res.status(400).json({ error: 'User with this email already exists' });
         }
 
-        const id = email;
+        const id = (role === 'student' && student_id) ? student_id : email;
         const verified = role === 'faculty' ? 0 : 1;
         await db.execute(
-            'INSERT INTO users (id, name, email, password, role, verified) VALUES (?, ?, ?, ?, ?, ?)',
-            [id, name, email, password, role, verified]
+            'INSERT INTO users (id, name, email, password, role, verified, student_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [id, name, email, password, role, verified, role === 'student' ? student_id : null]
         );
 
         res.status(201).json({ id, name, email, role, profile_picture: null, verified: verified === 1 });

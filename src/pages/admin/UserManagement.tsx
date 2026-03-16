@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { getAdminUsers, type AdminUser } from '../../lib/api';
 import { ChevronLeft, Search, Users } from 'lucide-react';
+import UserAvatar from '../../components/ui/UserAvatar';
 
 const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<AdminUser[]>([]);
@@ -94,7 +95,12 @@ const UserManagement: React.FC = () => {
                                 <tbody>
                                     {filtered.map(u => (
                                         <tr key={u.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                                            <td className="py-3 pr-4 text-slate-200">{u.name ?? '—'}</td>
+                                            <td className="py-3 pr-4 text-slate-200">
+                                                <div className="flex items-center gap-3">
+                                                    <UserAvatar user={u as any} size={28} />
+                                                    <span>{u.name ?? '—'}</span>
+                                                </div>
+                                            </td>
                                             <td className="py-3 pr-4 text-slate-300">{u.email ?? '—'}</td>
                                             <td className="py-3 pr-4 text-slate-400 font-mono text-xs">{u.id}</td>
                                             <td className="py-3 pr-4">{roleBadge(u.role)}</td>

@@ -18,7 +18,6 @@ import SubmissionGrader from '../pages/faculty/SubmissionGrader';
 import NewCourse from '../pages/faculty/NewCourse';
 import CourseGradebook from '../pages/faculty/CourseGradebook';
 import NotFound from '../pages/NotFound';
-import TADashboard from '../pages/ta/TADashboard';
 import TACourseView from '../pages/ta/TACourseView';
 import { AUTH_ROLES } from '../lib/auth';
 import Admin from '../pages/admin/Admin';
@@ -80,9 +79,8 @@ export const router = createBrowserRouter([
             },
             {
                 path: 'ta',
-                element: <ProtectedRoute requiredRole={AUTH_ROLES.TA} />,
+                element: <ProtectedRoute requiredRole={[AUTH_ROLES.STUDENT, AUTH_ROLES.TA]} />,
                 children: [
-                    { index: true, element: <TADashboard /> },
                     { path: 'courses/:courseId', element: <TACourseView /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading', element: <GradingDashboard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading/:submissionId', element: <SubmissionGrader /> },

@@ -3,6 +3,7 @@ import { User, Mail, Shield, ChevronRight, LogOut, ChevronLeft, Settings, Bell, 
 import { getUser, logout, updateUser, type UserSession } from '../../lib/auth';
 import Cropper, { type Area } from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImage';
+import UserAvatar from '../ui/UserAvatar';
 import './AccountDrawer.css';
 import { showDialog } from '../ui/Dialog';
 
@@ -252,15 +253,11 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
             <div className="mobile-swipe-area" onTouchStart={handleTouchStart} />
             <div className="mobile-drag-handle" />
             <div className="profile-hero">
-                <div className="profile-avatar-large">
-                    {pendingAvatar ? (
-                        <img src={pendingAvatar.url} alt="Profile" className="avatar-img" />
-                    ) : userData?.profilePicture ? (
-                        <img src={`http://localhost:3001/uploads/${userData.profilePicture}`} alt="Profile" className="avatar-img" />
-                    ) : (
-                        userData?.name?.charAt(0) || 'U'
-                    )}
-                </div>
+                <UserAvatar 
+                    user={pendingAvatar ? { name: userData?.name, profilePicture: pendingAvatar.url } : (userData || { name: 'U' })} 
+                    size={100} 
+                    className="profile-avatar-large"
+                />
                 <div className="profile-info-hero">
                     <h2>{userData?.name}</h2>
                     <p>{userData?.email}</p>
@@ -317,15 +314,11 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
 
             <div className="drawer-section edit-profile-section">
                 <div className="edit-avatar-container">
-                    <div className="profile-avatar-large">
-                        {pendingAvatar ? (
-                            <img src={pendingAvatar.url} alt="Profile" className="avatar-img" />
-                        ) : userData?.profilePicture ? (
-                            <img src={`http://localhost:3001/uploads/${userData.profilePicture}`} alt="Profile" className="avatar-img" />
-                        ) : (
-                            userData?.name?.charAt(0) || 'U'
-                        )}
-                    </div>
+                    <UserAvatar 
+                        user={pendingAvatar ? { name: userData?.name, profilePicture: pendingAvatar.url } : (userData || { name: 'U' })} 
+                        size={120} 
+                        className="profile-avatar-large"
+                    />
                     <button
                         className="edit-avatar-btn"
                         onClick={() => setIsPhotoModalOpen(true)}

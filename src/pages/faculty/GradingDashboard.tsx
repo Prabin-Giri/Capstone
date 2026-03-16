@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
-import { getRole } from '../../lib/auth';
 import { BarChart2, Search, Play } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import PlagiarismReportModal from './PlagiarismReportModal';
 import AutoGradingConfigModal from './AutoGradingConfigModal';
 import AlertModal from '../../components/ui/AlertModal';
+import UserAvatar from '../../components/ui/UserAvatar';
 
 import './GradingDashboard.css';
 
 const GradingDashboard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
-    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
+    const { pathname } = useLocation();
+    const basePath = pathname.startsWith('/ta') ? '/ta' : '/faculty';
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [groupedSubmissions, setGroupedSubmissions] = useState<Record<string, Submission[]>>({});
     const [selectedStudentSubmissions, setSelectedStudentSubmissions] = useState<Submission[] | null>(null);
@@ -137,9 +138,20 @@ const GradingDashboard: React.FC = () => {
                                 return (
                                     <tr key={latestSubmission.student_id}>
                                         <td className="text-medium">
-                                            {latestSubmission.student_name 
-                                                ? `${latestSubmission.student_name} (${latestSubmission.student_id})` 
-                                                : latestSubmission.student_id}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <UserAvatar 
+                                                    user={{ 
+                                                        name: latestSubmission.student_name, 
+                                                        profilePicture: latestSubmission.student_profile_picture 
+                                                    }} 
+                                                    size={32} 
+                                                />
+                                                <span>
+                                                    {latestSubmission.student_name 
+                                                        ? `${latestSubmission.student_name} (${latestSubmission.student_id})` 
+                                                        : latestSubmission.student_id}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="text-secondary">
                                             {new Date(latestSubmission.submitted_at).toLocaleString()}
@@ -184,11 +196,20 @@ const GradingDashboard: React.FC = () => {
                 <div className="modal-overlay" onClick={() => setSelectedStudentSubmissions(null)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 className="modal-title">
-                                {selectedStudentSubmissions[0].student_name 
-                                    ? `Submissions for ${selectedStudentSubmissions[0].student_name} (${selectedStudentSubmissions[0].student_id})` 
-                                    : `Submissions for ${selectedStudentSubmissions[0].student_id}`}
-                            </h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <UserAvatar 
+                                        user={{ 
+                                            name: selectedStudentSubmissions[0].student_name, 
+                                            profilePicture: selectedStudentSubmissions[0].student_profile_picture 
+                                        }} 
+                                        size={40} 
+                                    />
+                                    <h3 className="modal-title" style={{ margin: 0 }}>
+                                        {selectedStudentSubmissions[0].student_name 
+                                            ? `Submissions for ${selectedStudentSubmissions[0].student_name} (${selectedStudentSubmissions[0].student_id})` 
+                                            : `Submissions for ${selectedStudentSubmissions[0].student_id}`}
+                                    </h3>
+                                </div>
                             <button
                                 className="modal-close"
                                 onClick={() => setSelectedStudentSubmissions(null)}

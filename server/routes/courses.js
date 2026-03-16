@@ -174,6 +174,17 @@ router.patch('/:id', async (req, res, next) => {
     }
 });
 
+// DELETE /api/courses/:id - Delete a course
+router.delete('/:id', async (req, res, next) => {
+    try {
+        const db = getDb();
+        await db.execute('DELETE FROM courses WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Course deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /api/courses/:id/grades - Get course grades as JSON (for Gradebook UI)
 router.get('/:id/grades', async (req, res, next) => {
     try {
@@ -454,7 +465,7 @@ router.get('/:id/tas', async (req, res, next) => {
     try {
         const db = getDb();
         const result = await db.execute(`
-            SELECT u.id, u.name, u.email, ct.permissions
+            SELECT u.id, u.name, u.email, u.profile_picture, ct.permissions
             FROM users u
             JOIN course_tas ct ON u.id = ct.ta_id
             WHERE ct.course_id = ?

@@ -28,40 +28,67 @@
     margin-bottom: 24px;
 }
 
-/* Typography & Headers */
-.grader-header {
-    margin-bottom: 2rem;
+.grader-header-container {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.grader-student-avatar {
+    border: 3px solid var(--bg-surface);
+    box-shadow: var(--shadow-md);
+}
+
+.grader-header-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
 .grader-title {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 800;
     color: var(--primary-text);
-    margin: 0 0 1rem 0;
-    letter-spacing: -0.04em;
-}
-
-.meta-group {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 2rem;
-}
-
-.grader-meta {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
     margin: 0;
-    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+}
+
+.meta-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.meta-separator {
+    width: 1px;
+    height: 24px;
+    background-color: var(--border-color);
+}
+
+.meta-label {
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.1em;
 }
 
 .meta-value {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-weight: 600;
-    margin-left: 0.25rem;
+    font-size: 1rem;
 }
 
 /* Cards & Sections */
@@ -331,13 +358,45 @@
         border-bottom: 1px solid var(--border-color);
     }
 
-    .grader-title {
-        font-size: 1.5rem;
+    .grader-header-container {
+        flex-direction: row;
+        gap: 1.5rem;
+        align-items: flex-start;
+        text-align: left;
+        padding-bottom: 1.5rem;
+        margin-bottom: 2rem;
     }
 
-    .meta-group {
+    .grader-student-avatar {
+        width: 64px !important;
+        height: 64px !important;
+    }
+
+    .grader-header-content {
+        align-items: flex-start;
+    }
+
+    .meta-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 1rem;
-        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .meta-separator {
+        display: none;
+    }
+
+    .meta-item {
+        align-items: flex-start;
+    }
+
+    .meta-item:last-child {
+        grid-column: span 2;
+    }
+
+    .grader-title {
+        font-size: 1.5rem;
     }
 
     .preview-frame,

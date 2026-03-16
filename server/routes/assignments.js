@@ -254,7 +254,12 @@ router.post('/:id/test', async (req, res, next) => {
                         input: tc.input || '',
                         expected_output: tc.expectedOutput || tc.expected_output || '',
                         points: Number(tc.points) || 0,
-                        is_public: tc.isHidden === true ? 0 : 1
+                        is_public: tc.isHidden === true ? 0 : 1,
+                        input_type: tc.inputType || tc.input_type || 'stdin',
+                        input_filename: tc.inputFilename || tc.input_filename,
+                        output_filename: tc.outputFilename || tc.output_filename,
+                        run_args: tc.runArgs || tc.run_args,
+                        compare_mode: tc.compareMode || tc.compare_mode || 'exact'
                     }));
                 } catch (e) {
                     console.error('Failed to parse JSON test cases in /test:', e);
@@ -331,7 +336,7 @@ router.post('/:id/test', async (req, res, next) => {
                         input: tc.input,
                         expected: (tc.expected_output || '').trim(),
                         actual: '',
-                        error: runErr.message || 'Docker run failed. Is Docker running?',
+                        error: runErr.message || 'Execution failed.',
                         passed: false,
                         is_public: tc.is_public,
                         points: pts
@@ -409,7 +414,7 @@ router.post('/:id/run', async (req, res, next) => {
 
         } catch (runErr) {
             console.error('[Run Custom Code] execution failed', { assignmentId, error: runErr.message });
-            res.status(500).json({ error: runErr.message || 'Docker execution failed.' });
+            res.status(500).json({ error: runErr.message || 'Execution failed.' });
         } finally {
             try {
                 fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -519,7 +524,23 @@ router.post('/:id/autograde', async (req, res, next) => {
         if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
 
         // 2. Get Test Cases
-        const [testCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+        let testCases = [];
+        const [dbCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
+        testCases = dbCases;
+
+        if (testCases.length === 0 && assignment.test_case_file_path && assignment.test_case_file_path.toLowerCase().endsWith('.json')) {
+            const graderPath = path.join(__dirname, '../uploads', assignment.test_case_file_path);
+            if (fs.existsSync(graderPath)) {
+                try {
+                    const content = fs.readFileSync(graderPath, 'utf8');
+                    const jsonCases = JSON.parse(content);
+                    testCases = jsonCases; // gradeSubmission handles the mapping
+                } catch (e) {
+                    console.error('Failed to parse JSON test cases in /autograde:', e);
+                }
+            }
+        }
+
         if (testCases.length === 0) return res.json({ graded: 0, message: 'No test cases found' });
 
         // 3. Get Latest Submissions

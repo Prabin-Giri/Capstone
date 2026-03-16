@@ -4,6 +4,7 @@ const os = require('os');
 const crypto = require('crypto');
 const { execSync, execFileSync } = require('child_process');
 const { runInDocker } = require('./dockerRunner');
+const { runLocally } = require('./localRunner');
 const config = require('./config');
 
 /** If DOCKER_HOST is ssh://user@host, return { user, host }; else null */
@@ -213,13 +214,22 @@ async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = confi
         const runStdin = stdin; // use provided stdin on run step (supports file + stdin when grader sends both)
 
         for (const step of steps) {
-            lastResult = await runInDocker({
-                image,
-                cmd: step.cmd,
-                workDir: effectiveWorkDir,
-                stdin: step === steps[steps.length - 1] ? runStdin : '',
-                timeoutMs,
-            });
+            if (config.runMode === 'local') {
+                lastResult = await runLocally({
+                    cmd: step.cmd,
+                    workDir: effectiveWorkDir,
+                    stdin: step === steps[steps.length - 1] ? runStdin : '',
+                    timeoutMs,
+                });
+            } else {
+                lastResult = await runInDocker({
+                    image,
+                    cmd: step.cmd,
+                    workDir: effectiveWorkDir,
+                    stdin: step === steps[steps.length - 1] ? runStdin : '',
+                    timeoutMs,
+                });
+            }
             if (lastResult.exitCode !== 0 && lastResult.exitCode !== null) {
                 break;
             }

@@ -247,7 +247,8 @@ async function gradeSubmission(submissionId, opts = {}) {
     const efficiencyPts = submission.efficiency_points != null ? Number(submission.efficiency_points) : 0;
     const deductionPts = submission.deduction_points != null ? Number(submission.deduction_points) : 0;
     const rubricTotal = earned + stylePts + efficiencyPts - deductionPts;
-    const rawScore = totalPossible > 0 ? (rubricTotal / totalPossible) * 100 : (maxPossible > 0 ? (earned / maxPossible) * 100 : 0);
+    const assignPoints = Number(assignment.points) || 100;
+    const rawScore = totalPossible > 0 ? (rubricTotal / totalPossible) * assignPoints : (maxPossible > 0 ? (earned / maxPossible) * assignPoints : 0);
     const latePenaltyPercent = computeLatePenaltyPercent(assignment, submission.submitted_at);
     const finalGrade = latePenaltyPercent > 0
         ? Math.max(0, rawScore * (1 - latePenaltyPercent / 100))
@@ -256,7 +257,7 @@ async function gradeSubmission(submissionId, opts = {}) {
     const feedbackLines = [
         `Correctness: ${earned}/${maxPossible}.`,
         ...(totalPossible > maxPossible ? [`Rubric total: ${rubricTotal}/${totalPossible} (Style + Efficiency - Deductions).`] : []),
-        ...(latePenaltyPercent > 0 ? [`Late penalty: ${latePenaltyPercent.toFixed(1)}%. Final: ${finalGrade.toFixed(1)}%.`] : []),
+        ...(latePenaltyPercent > 0 ? [`Late penalty: ${latePenaltyPercent.toFixed(1)}%. Final Grade: ${finalGrade.toFixed(2)}/${assignPoints}.`] : [`Final Grade: ${finalGrade.toFixed(2)}/${assignPoints}.`]),
         '---',
         JSON.stringify(results),
     ];
@@ -264,8 +265,8 @@ async function gradeSubmission(submissionId, opts = {}) {
 
     if (!opts.publicOnly && !opts.dryRun) {
         await updateSubmissionGrade(submissionId, {
-            grade: Math.round(finalGrade * 100) / 100,
-            feedback,
+            auto_grade: Math.round(finalGrade * 100) / 100,
+            auto_feedback: feedback,
             status: 'graded',
         });
         await saveDb();
@@ -282,13 +283,27 @@ async function gradeSubmission(submissionId, opts = {}) {
 }
 
 async function updateSubmissionGrade(submissionId, opts) {
-    const { grade, feedback, status } = opts;
-    const updates = ["feedback = ?", "status = ?", "updated_at = CURRENT_TIMESTAMP"];
-    const params = [feedback ?? '', status ?? 'graded'];
+    const { grade, auto_grade, feedback, auto_feedback, status } = opts;
+    const updates = ["status = ?", "updated_at = CURRENT_TIMESTAMP"];
+    const params = [status ?? 'graded'];
+    
     if (grade !== undefined) {
         updates.push('grade = ?');
         params.push(grade);
     }
+    if (auto_grade !== undefined) {
+        updates.push('auto_grade = ?');
+        params.push(auto_grade);
+    }
+    if (feedback !== undefined) {
+        updates.push('feedback = ?');
+        params.push(feedback);
+    }
+    if (auto_feedback !== undefined) {
+        updates.push('auto_feedback = ?');
+        params.push(auto_feedback);
+    }
+    
     params.push(submissionId);
     await run(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
 }
@@ -376,6 +391,7 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
         }
 
         const { runInDocker } = require('./dockerRunner');
+        const { runLocally } = require('./localRunner');
         const config = require('./config');
         const lang = language.toLowerCase();
         const image = config.images[lang] || config.images.python;
@@ -386,12 +402,21 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
             ? ['sh', '-c', `javac *.java && java ${graderBase.replace('.java', '')} ${studentArg}`]
             : [lang === 'python' ? 'python3' : 'node', graderBase, studentArg];
 
-        const runResult = await runInDocker({
-            image,
-            cmd,
-            workDir,
-            timeoutMs: config.runTimeoutMs * 2, // Custom graders might need more time
-        });
+        let runResult;
+        if (config.runMode === 'local') {
+            runResult = await runLocally({
+                cmd,
+                workDir,
+                timeoutMs: config.runTimeoutMs * 2,
+            });
+        } else {
+            runResult = await runInDocker({
+                image,
+                cmd,
+                workDir,
+                timeoutMs: config.runTimeoutMs * 2, // Custom graders might need more time
+            });
+        }
 
         if (runResult.timedOut) throw new Error('Custom grader timed out');
 
@@ -416,7 +441,8 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
             expected: 'Passed'
         })) : [];
 
-        const rawScore = total > 0 ? (earned / total) * 100 : 0;
+        const assignPoints = Number(assignment.points) || 100;
+        const rawScore = total > 0 ? (earned / total) * assignPoints : 0;
         const latePenaltyPercent = computeLatePenaltyPercent(assignment, submission.submitted_at);
         const finalGrade = latePenaltyPercent > 0
             ? Math.max(0, rawScore * (1 - latePenaltyPercent / 100))
@@ -424,7 +450,7 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
 
         const feedback = [
             `Custom Grader Results: ${earned}/${total}.`,
-            ...(latePenaltyPercent > 0 ? [`Late penalty: ${latePenaltyPercent.toFixed(1)}%. Final: ${finalGrade.toFixed(1)}%.`] : []),
+            ...(latePenaltyPercent > 0 ? [`Late penalty: ${latePenaltyPercent.toFixed(1)}%. Final Grade: ${finalGrade.toFixed(2)}/${assignPoints}.`] : [`Final Grade: ${finalGrade.toFixed(2)}/${assignPoints}.`]),
             '---',
             JSON.stringify(results)
         ].join('\n');
