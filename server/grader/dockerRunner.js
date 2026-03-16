@@ -57,9 +57,13 @@ function runInDocker({ image, cmd, workDir, stdin = '', timeoutMs = config.runTi
 
         proc.on('error', (err) => {
             clearTimeout(timer);
+            let msg = err.message || 'Failed to run Docker';
+            if (err.code === 'ENOENT') {
+                msg = "Docker command not found ('spawn docker ENOENT'). If you are running on a cloud platform (Render/Vercel) without Docker installed, please set the environment variable GRADER_RUN_MODE=local in your platform settings.";
+            }
             resolve({
                 stdout: '',
-                stderr: err.message || 'Failed to run Docker',
+                stderr: msg,
                 exitCode: -1,
                 timedOut: false,
             });

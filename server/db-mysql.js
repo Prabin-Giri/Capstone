@@ -233,7 +233,7 @@ async function initDb() {
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
-        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active')");
+        await pool.execute(`INSERT INTO assignments (id, course_id, title, due_date, status, rubric_config) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active', '{"weighted":false,"criteria":[{"id":"c1","name":"Code Correctness","maxPoints":50},{"id":"c2","name":"Code Style","maxPoints":25},{"id":"c3","name":"Efficiency","maxPoints":25}]}')`);
         await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
         await pool.execute("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
         await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'student-001')");

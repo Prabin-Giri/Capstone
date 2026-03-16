@@ -21,8 +21,13 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded files statically with explicit CORS headers for cross-origin fetch (Monaco)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    }
+}));
 
 // Routes
 app.use('/api/courses', coursesRouter);
