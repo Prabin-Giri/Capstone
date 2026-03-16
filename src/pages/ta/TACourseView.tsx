@@ -9,7 +9,7 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Download, ArrowLeft } from 'lucide-react';
+import { FileText, Calendar, Download } from 'lucide-react';
 import './TACourseView.css';
 
 const TACourseView: React.FC = () => {
@@ -49,29 +49,10 @@ const TACourseView: React.FC = () => {
         <div className="ta-course-container">
             <div className="ta-course-header">
                 <div className="ta-course-header-left">
-                    <button
-                        type="button"
-                        className="ta-course-back"
-                        onClick={() => navigate('/ta')}
-                        aria-label="Back to TA Hub"
-                    >
-                        <ArrowLeft size={20} />
-                        Back to TA Hub
-                    </button>
                     <div className="header-title">
                         <h1>TA — {course.name}</h1>
                         <p className="header-metadata">{course.id}</p>
                     </div>
-                </div>
-                <div className="ta-course-header-actions">
-                    <button
-                        type="button"
-                        className="ta-course-btn ta-course-btn-primary"
-                        onClick={() => navigate('gradebook')}
-                    >
-                        <FileText size={18} />
-                        View Gradebook
-                    </button>
                 </div>
             </div>
 

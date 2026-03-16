@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests } from '../../lib/api';
 import type { Submission, Assignment, RubricConfig } from '../../lib/api';
-import { getRole } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
+import UserAvatar from '../../components/ui/UserAvatar';
 
 import './SubmissionGrader.css';
 import { showDialog } from '../../components/ui/Dialog';
@@ -14,7 +14,8 @@ import { getCommentChar } from '../../lib/utils';
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
     const navigate = useNavigate();
-    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
+    const { pathname } = useLocation();
+    const basePath = pathname.startsWith('/ta') ? '/ta' : '/faculty';
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [assignment, setAssignment] = useState<Assignment | null>(null);
@@ -25,6 +26,7 @@ const SubmissionGrader: React.FC = () => {
     const [previewFileName, setPreviewFileName] = useState<string | null>(null);
     const [, setIsAutograding] = useState(false);
     const [showAttemptSelector, setShowAttemptSelector] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
 
     const [isRunningCustom, setIsRunningCustom] = useState(false);
@@ -116,22 +118,23 @@ const SubmissionGrader: React.FC = () => {
         if (!dryRun) setShowAttemptSelector(false);
         try {
             const updatedSub = await runAutograde(targetId, dryRun);
-            const newGrade = updatedSub.grade !== undefined && updatedSub.grade !== null
-                ? Number(updatedSub.grade).toFixed(2)
-                : '';
-            setGrade(newGrade);
-            setFeedback(updatedSub.feedback || '');
             
-            if (!dryRun) {
-                // Update the main submission if it's the one we are looking at
+            // If dryRun, we update the local state to show the preview as a suggestion
+            if (dryRun) {
+                setSubmission(prev => prev ? {
+                    ...prev,
+                    auto_grade: updatedSub.grade,
+                    auto_feedback: updatedSub.feedback
+                } : null);
+                setAlertConfig({ show: true, type: 'info', title: 'Autograde Preview', message: 'Suggested results are ready. Review them and apply if desired.' });
+            } else {
+                // If not dryRun, backend updated auto_grade and auto_feedback. 
+                // We update the local submission state.
                 if (submission?.id === updatedSub.id) {
                     setSubmission(updatedSub);
                 }
-                // Update the attempt list to reflect the new grade
                 setAllSubmissions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s));
-                setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed and saved successfully.' });
-            } else {
-                setAlertConfig({ show: true, type: 'info', title: 'Autograde Preview', message: 'Calculated grade & feedback from test cases. Click "Save" to persist.' });
+                setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed. Suggested results are now available.' });
             }
         } catch (err) {
             console.error(err);
@@ -197,11 +200,14 @@ const SubmissionGrader: React.FC = () => {
             let totalWeight = 0;
             let weightedSum = 0;
             scores.forEach(({ crit, val }) => {
-                const w = crit.weight ?? 0;
-                if (!isNaN(w) && w > 0) {
-                    totalWeight += w;
-                    const pctOfMax = crit.maxPoints && crit.maxPoints > 0 ? (val / crit.maxPoints) : 0;
-                    weightedSum += pctOfMax * w;
+                // Fallback: if weight is missing, use maxPoints as weight; if maxPoints is missing, use weight as maxPoints
+                const weight = crit.weight ?? crit.maxPoints ?? 0;
+                const maxPts = crit.maxPoints ?? crit.weight ?? 0;
+                
+                if (!isNaN(weight) && weight > 0 && !isNaN(maxPts) && maxPts > 0) {
+                    totalWeight += weight;
+                    const pctOfMax = val / maxPts;
+                    weightedSum += pctOfMax * weight;
                 }
             });
             if (totalWeight > 0) {
@@ -259,11 +265,44 @@ const SubmissionGrader: React.FC = () => {
         <div className="grader-container">
             {/* Left Panel: Submission Info & File */}
             <div className="grader-panel-left">
-                <div className="grader-header">
-                    <h2 className="grader-title">{assignment.title}</h2>
-                    <div className="meta-group">
-                        <p className="grader-meta">STUDENT ID: <span className="meta-value">{submission.student_id}</span></p>
-                        <p className="grader-meta">SUBMITTED: <span className="meta-value">{new Date(submission.submitted_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></p>
+                <div className="grader-header-container">
+                    <UserAvatar 
+                        user={{ 
+                            name: submission.student_name, 
+                            profilePicture: submission.student_profile_picture 
+                        }} 
+                        size={72} 
+                        className="grader-student-avatar"
+                    />
+                    <div className="grader-header-content">
+                        <div className="grader-title-row">
+                            <h2 className="grader-title">{assignment.title}</h2>
+                        </div>
+                        <div className="meta-bar">
+                            <div className="meta-item">
+                                <span className="meta-label">ID</span>
+                                <span className="meta-value">{submission.student_id}</span>
+                            </div>
+                            <div className="meta-separator"></div>
+                            <div className="meta-item">
+                                <span className="meta-label">Student</span>
+                                <span className="meta-value">{submission.student_name}</span>
+                            </div>
+                            <div className="meta-separator"></div>
+                            <div className="meta-item">
+                                <span className="meta-label">Submitted</span>
+                                <span className="meta-value">
+                                    {new Date(submission.submitted_at).toLocaleString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric', 
+                                        year: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        hour12: true
+                                    })}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -493,6 +532,32 @@ const SubmissionGrader: React.FC = () => {
                 )}
 
                 <div className="grading-form">
+                    {(submission?.auto_grade !== undefined && submission?.auto_grade !== null) && (
+                        <div className="suggested-grade-box" style={{ 
+                            background: 'rgba(127, 29, 29, 0.1)', 
+                            border: '1px solid #7f1d1d', 
+                            borderRadius: '8px', 
+                            padding: '12px', 
+                            marginBottom: '20px' 
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <span style={{ fontSize: '12px', color: '#7f1d1d', fontWeight: 'bold', textTransform: 'uppercase' }}>Autograde Result</span>
+                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
+                                        {Number(submission.auto_grade).toFixed(2)} / {(assignment?.points || 100).toFixed(2)}
+                                    </div>
+                                </div>
+                                <Button 
+                                    size="sm" 
+                                    style={{ backgroundColor: '#7f1d1d', color: 'white' }}
+                                    onClick={() => setShowFeedbackModal(true)}
+                                >
+                                    View Feedback
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ marginBottom: '20px' }}>
                         <Button 
                             variant="primary" 
@@ -512,12 +577,12 @@ const SubmissionGrader: React.FC = () => {
                         <input
                             type="number"
                             min="0"
-                            max={assignment.points || 100}
+                            max={assignment?.points || 100}
                             className="form-input"
                             value={grade}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                const maxPoints = assignment.points || 100;
+                                const maxPoints = assignment?.points || 100;
                                 if (parseFloat(val) > maxPoints) {
                                     setGrade(maxPoints.toString());
                                 } else {
@@ -591,6 +656,74 @@ const SubmissionGrader: React.FC = () => {
                     message={alertConfig.message}
                     onClose={() => setAlertConfig({ ...alertConfig, show: false })}
                 />
+            )}
+
+            {/* Suggested Feedback Modal */}
+            {showFeedbackModal && (
+                <div className="modal-overlay" onClick={() => setShowFeedbackModal(false)}>
+                    <div className="modal-content feedback-modal" style={{ maxWidth: '600px', width: '90%' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Autograde Result Feedback</h3>
+                            <button className="modal-close" onClick={() => setShowFeedbackModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '20px' }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Suggested Score</span>
+                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#7f1d1d' }}>
+                                    {Number(submission?.auto_grade).toFixed(2)} / {(assignment?.points || 100).toFixed(2)}
+                                </div>
+                            </div>
+                            <div style={{ marginBottom: '24px' }}>
+                                <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Detailed Feedback</span>
+                                <div style={{ 
+                                    background: '#f9fafb', 
+                                    border: '1px solid #e5e7eb', 
+                                    borderRadius: '6px', 
+                                    padding: '16px',
+                                    maxHeight: '300px',
+                                    overflowY: 'auto',
+                                    whiteSpace: 'pre-wrap',
+                                    fontSize: '14px',
+                                    fontFamily: 'monospace'
+                                }}>
+                                    {submission?.auto_feedback || 'No feedback available.'}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                                <Button variant="ghost" onClick={() => setShowFeedbackModal(false)}>
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    style={{ backgroundColor: '#7f1d1d', color: 'white' }}
+                                    onClick={() => {
+                                        if (submission?.auto_feedback) {
+                                            setFeedback(submission.auto_feedback);
+                                        }
+                                        setShowFeedbackModal(false);
+                                    }}
+                                >
+                                    Use Feedback
+                                </Button>
+                                <Button 
+                                    style={{ backgroundColor: '#7f1d1d', color: 'white' }}
+                                    onClick={() => {
+                                        if (submission?.auto_grade !== undefined && submission?.auto_grade !== null) {
+                                            setGrade(Number(submission.auto_grade).toFixed(2));
+                                        }
+                                        setShowFeedbackModal(false);
+                                    }}
+                                >
+                                    Use Suggested Score
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

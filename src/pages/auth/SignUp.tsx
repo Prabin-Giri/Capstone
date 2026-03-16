@@ -11,6 +11,7 @@ const SignUp: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [studentId, setStudentId] = useState('');
     const [role, setRole] = useState<SignupRole>('student');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -32,6 +33,7 @@ const SignUp: React.FC = () => {
                 email,
                 password,
                 role,
+                student_id: role === 'student' ? studentId : undefined,
             });
             const verified = user.verified !== false;
             login({
@@ -108,6 +110,21 @@ const SignUp: React.FC = () => {
                                 required
                             />
                         </div>
+
+                        {role === 'student' && (
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="studentId">Please enter Student ID</label>
+                                <input
+                                    id="studentId"
+                                    type="text"
+                                    className="form-input"
+                                    value={studentId}
+                                    onChange={(e) => setStudentId(e.target.value)}
+                                    placeholder="e.g. 20054321"
+                                    required={role === 'student'}
+                                />
+                            </div>
+                        )}
 
                         <div className="form-group form-group-role">
                             <span className="form-label">Role</span>

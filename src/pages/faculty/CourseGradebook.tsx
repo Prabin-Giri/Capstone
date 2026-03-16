@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { getCourseGrades, getCourseGradesExportUrl } from '../../lib/api';
 import type { GradebookData, CourseGradesExportType } from '../../lib/api';
-import { getRole } from '../../lib/auth';
 import { Download, FileSpreadsheet, FileText, ChevronLeft, BarChart2, Printer, X, PieChart, Search, Filter, FileDown } from 'lucide-react';
 import './CourseGradebook.css';
 
-type CellStatus = 'graded' | 'ungraded' | 'not_submitted';
+type CellStatus = 'graded' | 'ungraded' | 'missing' | 'not_submitted';
 
 interface AssignmentStat {
     assignmentId: string;
@@ -25,13 +24,13 @@ interface ReportStats {
     lowest: number;
     submissionRate: number;
     distribution: Record<string, number>;
-    missingGrades: { student: string; assignment: string; status: 'ungraded' | 'not_submitted' }[];
+    missingGrades: { student: string; assignment: string; status: 'ungraded' | 'missing' | 'not_submitted' }[];
     totalStudents: number;
     gradedAssignments: number;
     /** Per-assignment: mean, median, highest, lowest */
     assignmentStats: AssignmentStat[];
-    /** Per-student, per-assignment: score or status */
-    studentRows: { studentName: string; studentId: string; cells: { assignmentId: string; assignmentTitle: string; score: number | null; status: CellStatus }[] }[];
+    /** Per-student, per-assignment: score (percentage) or status */
+    studentRows: { studentName: string; studentId: string; cells: { assignmentId: string; assignmentTitle: string; score: number | null; rawScore: number | null; status: CellStatus }[] }[];
     /** When scope is student or assignment */
     scopeStudentId?: string;
     scopeStudentName?: string;
@@ -41,7 +40,8 @@ interface ReportStats {
 
 const CourseGradebook: React.FC = () => {
     const { courseId } = useParams();
-    const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
+    const { pathname } = useLocation();
+    const basePath = pathname.startsWith('/ta') ? '/ta' : '/faculty';
     const [data, setData] = useState<GradebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [showExportModal, setShowExportModal] = useState(false);
@@ -107,7 +107,17 @@ const CourseGradebook: React.FC = () => {
         const grade = student.grades[assignmentId];
         if (grade !== null && grade !== undefined) return 'graded';
         const submitted = student.submitted?.[assignmentId];
-        return submitted ? 'ungraded' : 'not_submitted';
+        if (submitted) return 'ungraded';
+        
+        // Find assignment to check due date
+        const assignment = data?.assignments.find(a => a.id === assignmentId);
+        if (assignment?.due_date) {
+            const dueDate = new Date(assignment.due_date);
+            const now = new Date();
+            if (now > dueDate) return 'missing';
+        }
+        
+        return 'not_submitted';
     };
 
     const generateReport = () => {
@@ -117,7 +127,7 @@ const CourseGradebook: React.FC = () => {
         const allGrades: number[] = [];
         let totalPossibleGrades = students.length * assignments.length;
         let actualGradesCount = 0;
-        const missingGrades: { student: string; assignment: string; status: 'ungraded' | 'not_submitted' }[] = [];
+        const missingGrades: { student: string; assignment: string; status: 'ungraded' | 'missing' | 'not_submitted' }[] = [];
         const distribution = { A: 0, B: 0, C: 0, D: 0, F: 0 };
 
         const studentRowsFull = students.map(student => {
@@ -137,16 +147,15 @@ const CourseGradebook: React.FC = () => {
                     else if (grade >= 70) distribution.C++;
                     else if (grade >= 60) distribution.D++;
                     else distribution.F++;
-                } else if (status === 'ungraded') {
-                    missingGrades.push({ student: student.name, assignment: assignment.title, status: 'ungraded' });
                 } else {
-                    missingGrades.push({ student: student.name, assignment: assignment.title, status: 'not_submitted' });
+                    missingGrades.push({ student: student.name, assignment: assignment.title, status: status as 'ungraded' | 'missing' | 'not_submitted' });
                 }
                 
                 return {
                     assignmentId: assignment.id,
                     assignmentTitle: assignment.title,
                     score: grade ?? null,
+                    rawScore: (status === 'graded' ? rawGrade : null) as number | null,
                     status: status as CellStatus
                 };
             });
@@ -242,11 +251,12 @@ const CourseGradebook: React.FC = () => {
         }
     };
 
-    const getGradeClass = (grade: number) => {
-        if (grade >= 90) return 'grade-A';
-        if (grade >= 80) return 'grade-B';
-        if (grade >= 70) return 'grade-C';
-        if (grade >= 60) return 'grade-D';
+    const getGradeClass = (grade: number, pointsPossible: number = 100) => {
+        const pct = pointsPossible > 0 ? (grade / pointsPossible) * 100 : 0;
+        if (pct >= 90) return 'grade-A';
+        if (pct >= 80) return 'grade-B';
+        if (pct >= 70) return 'grade-C';
+        if (pct >= 60) return 'grade-D';
         return 'grade-F';
     };
 
@@ -271,9 +281,10 @@ const CourseGradebook: React.FC = () => {
         const studentHeaderCells = stats.studentRows[0]?.cells.map(c => `<th>${escapeHtml(c.assignmentTitle)}</th>`).join('') ?? '';
         const studentRows = stats.studentRows.map(row => {
             const cells = row.cells.map(c => {
-                if (c.status === 'graded' && c.score != null) return `<td><span class="badge grade-${gc(c.score)}">${c.score.toFixed(2)}</span></td>`;
+                if (c.status === 'graded' && c.score != null && c.rawScore != null) return `<td><span class="badge grade-${gc(c.score)}">${c.rawScore.toFixed(2)}</span></td>`;
                 if (c.status === 'ungraded') return '<td><span class="badge ungraded">Ungraded</span></td>';
-                return '<td><span class="badge missing">Not submitted</span></td>';
+                if (c.status === 'missing') return '<td><span class="badge missing">Missing</span></td>';
+                return '<td><span class="badge upcoming">Not submitted</span></td>';
             }).join('');
             return `<tr><td><b>${escapeHtml(row.studentName)}</b></td><td>${escapeHtml(row.studentId)}</td>${cells}</tr>`;
         }).join('');
@@ -284,9 +295,15 @@ const CourseGradebook: React.FC = () => {
                 return `<div class="dist-item"><div class="dist-bar" style="height:${pct}%"></div><span>${grade}</span><span>${count}</span></div>`;
             }).join('')
             : '';
-        const missingRows = stats.missingGrades.map(m => `
-            <tr><td><b>${escapeHtml(m.student)}</b></td><td>${escapeHtml(m.assignment)}</td>
-            <td><span class="badge ${m.status === 'ungraded' ? 'ungraded' : 'missing'}">${m.status === 'ungraded' ? 'Ungraded' : 'Not submitted'}</span></td></tr>`).join('');
+        const missingRows = stats.missingGrades.map(m => {
+            let label = 'Not submitted';
+            let cls = 'upcoming';
+            if (m.status === 'ungraded') { label = 'Ungraded'; cls = 'ungraded'; }
+            else if (m.status === 'missing') { label = 'Missing'; cls = 'missing'; }
+            
+            return `<tr><td><b>${escapeHtml(m.student)}</b></td><td>${escapeHtml(m.assignment)}</td>
+            <td><span class="badge ${cls}">${label}</span></td></tr>`;
+        }).join('');
         const scopeLine = stats.scopeStudentName
             ? `<p><strong>Summary for student:</strong> ${escapeHtml(stats.scopeStudentName)}</p>`
             : stats.scopeAssignmentTitle
@@ -307,13 +324,11 @@ table{width:100%;border-collapse:collapse;margin-bottom:1.5rem}
 th,td{border:1px solid #ddd;padding:0.5rem 0.75rem;text-align:left}
 th{background:#f5f5f5;font-weight:600}
 .badge{padding:0.2rem 0.5rem;border-radius:4px;font-size:0.85em}
-.grade-A{background:#d4edda;color:#155724}
-.grade-B{background:#cce5ff;color:#004085}
-.grade-C{background:#fff3cd;color:#856404}
-.grade-D{background:#f8d7da;color:#721c24}
-.grade-F{background:#f5c6cb;color:#721c24}
-.ungraded{background:#fff3cd;color:#856404}
-.missing{background:#f8d7da;color:#721c24}
+.grade-A, .grade-B, .grade-C, .grade-D{background:#d4edda;color:#155724}
+.badge.grade-F{background:#f8d7da;color:#721c24}
+.badge.ungraded{background:#fff3cd;color:#856404}
+.badge.missing{background:#f8d7da;color:#721c24}
+.badge.upcoming{background:#e9ecef;color:#6c757d}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem;margin-bottom:1.5rem}
 .stat{background:#f8f9fa;padding:1rem;border-radius:8px;text-align:center}
 .stat-label{font-size:0.8rem;color:#666}
@@ -528,13 +543,15 @@ ${stats.missingGrades.length > 0 ? `
                                     return (
                                         <td key={a.id}>
                                             {isGraded ? (
-                                                <span className={`grade-badge ${getGradeClass(grade)}`}>
+                                                <span className={`grade-badge ${getGradeClass(grade, a.points)}`}>
                                                     {Number(grade).toFixed(2)}
                                                 </span>
                                             ) : hasSubmission ? (
                                                 <span className="status-badge-ungraded">Ungraded</span>
+                                            ) : getCellStatus(student, a.id) === 'missing' ? (
+                                                <span className="status-badge-missing">Missing</span>
                                             ) : (
-                                                <span className="status-badge-missing">Not submitted</span>
+                                                <span className="status-badge-not-submitted">Not submitted</span>
                                             )}
                                         </td>
                                     );
@@ -891,8 +908,10 @@ ${stats.missingGrades.length > 0 ? `
                                                                 <td>{row.studentId}</td>
                                                                 {row.cells.map(c => (
                                                                     <td key={c.assignmentId}>
-                                                                        {c.status === 'graded' && c.score != null ? (
-                                                                            <span className={`grade-badge ${getGradeClass(c.score)}`}>{c.score}</span>
+                                                                        {c.status === 'graded' && c.score != null && c.rawScore != null ? (
+                                                                            <span className={`grade-badge ${getGradeClass(c.rawScore, assignments.find(a => a.id === c.assignmentId)?.points)}`}>
+                                                                                {c.rawScore.toFixed(2)}
+                                                                            </span>
                                                                         ) : c.status === 'ungraded' ? (
                                                                             <span className="status-badge-ungraded">Ungraded</span>
                                                                         ) : (

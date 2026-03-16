@@ -76,6 +76,8 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose
                         <AlertTriangle className="text-yellow-600" size={24} />
                         <div className="ac-alert-content">
                             <strong>Note:</strong> This will overwrite existing auto-generated grades. Manual overrides will be preserved.
+                            <br /><br />
+                            Are you sure you want to proceed?
                         </div>
                     </div>
 

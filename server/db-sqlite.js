@@ -116,23 +116,8 @@ async function initDb() {
         'ALTER TABLE assignments ADD COLUMN type TEXT DEFAULT "individual"',
         'ALTER TABLE users ADD COLUMN verified INTEGER DEFAULT 1',
         'ALTER TABLE submissions ADD COLUMN feedback TEXT DEFAULT NULL',
-        `CREATE TABLE IF NOT EXISTS course_enrollments (
-            course_id TEXT NOT NULL,
-            student_id TEXT NOT NULL,
-            enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (course_id, student_id),
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
-            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS course_tas (
-            course_id TEXT NOT NULL,
-            ta_id TEXT NOT NULL,
-            permissions TEXT,
-            enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (course_id, ta_id),
-            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
-            FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
-        )`,
+        'ALTER TABLE submissions ADD COLUMN auto_grade REAL DEFAULT NULL',
+        'ALTER TABLE submissions ADD COLUMN auto_feedback TEXT DEFAULT NULL',
     ];
     for (const sql of migrations) {
         try { db.run(sql); } catch (e) {

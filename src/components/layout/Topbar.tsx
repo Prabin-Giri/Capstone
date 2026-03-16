@@ -46,8 +46,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         const path = location.pathname;
         if (path.includes('/calendar')) return 'Calendar';
         if (path.includes('/faculty')) return 'Faculty Dashboard';
-        if (path.includes('/student')) return 'Student Dashboard';
-        if (path.includes('/ta')) return 'TA Dashboard';
+        if (path.includes('/student') || path.includes('/ta')) return 'Dashboard';
         return 'AutoGrade';
     };
 
@@ -57,7 +56,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                 <button className="mobile-toggle" onClick={onToggleSidebar}>
                     <Menu size={24} />
                 </button>
-                <div className="page-title">{getPageTitle()}</div>
+                <div className="topbar-title">{getPageTitle()}</div>
             </div>
 
             <div className="user-profile">

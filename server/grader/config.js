@@ -29,4 +29,7 @@ module.exports = {
 
     /** Default partial credit % when allow_partial and no exact match but program ran */
     defaultPartialCreditPercent: 0,
+
+    /** 'docker' (default) or 'local' */
+    runMode: process.env.GRADER_RUN_MODE || 'docker',
 };

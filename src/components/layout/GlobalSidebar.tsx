@@ -14,7 +14,7 @@ interface GlobalSidebarProps {
 
 const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen }) => {
     const role = getRole();
-    const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : role === AUTH_ROLES.TA ? '/ta' : '/student';
+    const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
     const [userData, setUserData] = React.useState(getUser());
     const location = useLocation();
 

@@ -29,7 +29,7 @@ router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.query;
-        let sql = 'SELECT submissions.*, users.name as student_name FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1';
+        let sql = 'SELECT submissions.*, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1';
         const params = [];
 
         if (assignment_id) {
@@ -53,7 +53,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
+        const result = await db.execute('SELECT submissions.*, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE submissions.id = ?', [req.params.id]);
         const row = queryOne(result);
         if (!row) {
             return res.status(404).json({ error: 'Submission not found' });

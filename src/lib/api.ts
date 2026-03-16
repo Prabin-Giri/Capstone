@@ -143,6 +143,12 @@ export async function createCourse(course: Course): Promise<Course> {
     });
 }
 
+export async function deleteCourse(id: string): Promise<void> {
+    return apiFetch<void>(`/courses/${id}`, {
+        method: 'DELETE',
+    });
+}
+
 export type CourseGradesExportType = 'assignments' | 'final' | 'student';
 
 export function getCourseGradesExportUrl(
@@ -342,13 +348,16 @@ export interface Submission {
     assignment_id: string;
     student_id: string;
     student_name?: string;
+    student_profile_picture?: string;
     file_name: string;
     file_path: string;
     submitted_at: string;
     updated_at: string;
     status: 'pending' | 'graded' | 'returned';
     grade?: number;
+    auto_grade?: number;
     feedback?: string;
+    auto_feedback?: string;
     files?: { name: string, path: string }[];
 }
 
@@ -654,6 +663,7 @@ export interface User {
     role: 'student' | 'faculty' | 'ta' | 'admin';
     profile_picture?: string;
     verified?: boolean;
+    student_id?: string;
 }
 
 export async function loginRequest(email: string, password: string): Promise<User> {
@@ -666,7 +676,7 @@ export async function loginRequest(email: string, password: string): Promise<Use
     });
 }
 
-export async function signupRequest(data: { name: string; email: string; password: string; role: string }): Promise<User> {
+export async function signupRequest(data: { name: string; email: string; password: string; role: string; student_id?: string }): Promise<User> {
     return apiFetch<User>('/users/signup', {
         method: 'POST',
         headers: {

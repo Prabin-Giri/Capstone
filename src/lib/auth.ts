@@ -48,7 +48,7 @@ export const login = (user: UserSession) => {
     } else if (user.role === AUTH_ROLES.FACULTY) {
         window.location.href = user.verified ? '/faculty' : '/faculty/pending';
     } else if (user.role === AUTH_ROLES.TA) {
-        window.location.href = '/ta';
+        window.location.href = '/student';
     } else {
         window.location.href = '/student';
     }

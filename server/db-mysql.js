@@ -10,7 +10,8 @@ function getConfig() {
     if (process.env.DATABASE_URL) {
         const url = process.env.DATABASE_URL;
         const useSsl = process.env.MYSQL_SSL === '1' || /rds\.amazonaws\.com/.test(url);
-        return useSsl ? { uri: url, ssl: { rejectUnauthorized: true } } : url;
+        const rejectUnauthorized = process.env.DB_SSL_VERIFY !== 'false';
+        return useSsl ? { uri: url, ssl: { rejectUnauthorized } } : url;
     }
     const host = process.env.MYSQL_HOST || 'localhost';
     const useSsl = process.env.MYSQL_SSL === '1' || (host && host.includes('rds.amazonaws.com'));
@@ -24,7 +25,10 @@ function getConfig() {
         connectionLimit: 10,
         queueLimit: 0,
     };
-    if (useSsl) config.ssl = { rejectUnauthorized: true };
+    if (useSsl) {
+        const rejectUnauthorized = process.env.DB_SSL_VERIFY !== 'false';
+        config.ssl = { rejectUnauthorized };
+    }
     return config;
 }
 
@@ -88,6 +92,8 @@ const CREATE_TABLES = [
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         grade_published INT DEFAULT 0,
         correctness_score DOUBLE DEFAULT NULL,
+        auto_grade DOUBLE DEFAULT NULL,
+        auto_feedback TEXT DEFAULT NULL,
         style_points DOUBLE DEFAULT NULL,
         efficiency_points DOUBLE DEFAULT NULL,
         deduction_points DOUBLE DEFAULT 0,
@@ -193,6 +199,24 @@ async function initDb() {
     // Ensure users.verified exists (faculty pending admin approval)
     try {
         await pool.execute('ALTER TABLE users ADD COLUMN verified TINYINT DEFAULT 1');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.student_id exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN student_id VARCHAR(255) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure submissions.auto_grade exists
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN auto_grade DOUBLE DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure submissions.auto_feedback exists
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN auto_feedback TEXT DEFAULT NULL');
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }

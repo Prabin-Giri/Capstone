@@ -373,11 +373,16 @@ body.dialog-open .app-body {
     background-color: var(--light-grey);
 }
 
-.page-title {
-    font-size: 1.25rem;
-    font-weight: 700;
+.topbar-title {
+    font-size: 1.5rem;
+    font-weight: 800;
     color: var(--text-primary);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    line-height: 1.2;
 }
 
 .user-profile {
@@ -476,7 +481,7 @@ body.dialog-open .app-body {
         justify-content: center;
     }
 
-    .page-title {
+    .topbar-title {
         font-size: 1.1rem;
     }
 

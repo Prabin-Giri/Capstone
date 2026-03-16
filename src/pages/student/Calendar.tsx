@@ -55,12 +55,14 @@ const Calendar: React.FC = () => {
                 getColors(userId)
             ]);
 
-            const enrolledCourseIds = new Set(fetchedCourses.map((c) => c.id));
+            const activeCourses = fetchedCourses.filter(c => !c.is_archived);
+            const enrolledCourseIds = new Set(activeCourses.map((c) => c.id));
             const myAssignments = fetchedAssignments.filter((a) => enrolledCourseIds.has(a.course_id));
+            const myTodos = fetchedTodos.filter(t => !t.course_id || enrolledCourseIds.has(t.course_id));
 
-            setCourses(fetchedCourses);
+            setCourses(activeCourses);
             setAssignments(myAssignments);
-            setTodos(fetchedTodos);
+            setTodos(myTodos);
             setCourseColors(fetchedColors);
         } catch (err) {
             console.error('Failed to load calendar data', err);

@@ -10,6 +10,7 @@ import {
     getFileUrl,
     getAssignmentGradesExportUrl,
     updateCourse,
+    deleteCourse,
     enrollStudent,
     enrollStudentsByCSV,
     unenrollStudent,
@@ -26,6 +27,7 @@ import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import UserAvatar from '../../components/ui/UserAvatar';
 import './FacultyCourseView.css';
 import { showDialog } from '../../components/ui/Dialog';
 
@@ -38,6 +40,7 @@ const FacultyCourseView: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showDropdown, setShowDropdown] = useState(false);
     const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
     const [archiveInput, setArchiveInput] = useState('');
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
@@ -167,7 +170,7 @@ const FacultyCourseView: React.FC = () => {
     const handleArchiveCourse = async () => {
         if (!courseId || !course) return;
 
-        if (archiveInput !== course.name) {
+        if (archiveInput.trim().toLowerCase() !== course.name.trim().toLowerCase()) {
             setActionError('Course name does not match');
             return;
         }
@@ -184,6 +187,23 @@ const FacultyCourseView: React.FC = () => {
         } catch (err) {
             console.error('Failed to archive course', err);
             setActionError('Failed to update course status. Please try again.');
+        }
+    };
+
+    const handleDeleteCourse = async () => {
+        if (!courseId || !course) return;
+
+        if (archiveInput.trim().toLowerCase() !== course.name.trim().toLowerCase()) {
+            setActionError('Course name does not match');
+            return;
+        }
+
+        try {
+            await deleteCourse(courseId);
+            navigate('/dashboard');
+        } catch (err) {
+            console.error('Failed to delete course', err);
+            setActionError('Failed to delete course. Please ensure all assignments are deleted first.');
         }
     };
 
@@ -423,6 +443,19 @@ const FacultyCourseView: React.FC = () => {
                                     <Archive size={16} />
                                     {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
                                 </button>
+                                <button
+                                    className="dropdown-item"
+                                    onClick={() => {
+                                        setShowDeleteModal(true);
+                                        setShowDropdown(false);
+                                        setArchiveInput('');
+                                        setActionError(null);
+                                    }}
+                                    style={{ color: 'var(--primary-color)' }}
+                                >
+                                    <Trash2 size={16} />
+                                    Delete Course
+                                </button>
                             </div>
                         )}
                     </div>
@@ -582,7 +615,7 @@ const FacultyCourseView: React.FC = () => {
                             </button>
                             <button className="enroll-btn-small" onClick={() => setShowEnrollModal(true)}>
                                 <UserPlus size={14} />
-                                Enroll students to class
+                                Enroll Student
                             </button>
                         </div>
                     </div>
@@ -597,9 +630,7 @@ const FacultyCourseView: React.FC = () => {
                             {enrolledTAs.map(ta => (
                                 <div key={ta.id} className="student-item" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
                                     <div className="student-info">
-                                        <div className="student-avatar" style={{ background: 'var(--primary-color)' }}>
-                                            {ta.name.charAt(0)}
-                                        </div>
+                                        <UserAvatar user={ta} size={36} />
                                         <div>
                                             <div className="student-name-row">
                                                 <p className="student-name" style={{ fontWeight: 600 }}>{ta.name}</p>
@@ -730,7 +761,7 @@ const FacultyCourseView: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handleArchiveCourse}
-                                    disabled={archiveInput !== course.name}
+                                    disabled={archiveInput.trim().toLowerCase() !== course.name.trim().toLowerCase()}
                                     className={`archive-btn ${course.is_archived ? 'archive-btn-unarchive' : 'archive-btn-confirm'}`}
                                 >
                                     {course.is_archived ? 'Unarchive' : 'Archive'}
@@ -1089,6 +1120,71 @@ const FacultyCourseView: React.FC = () => {
                             <Button variant="primary" onClick={resetEnrollModal}>
                                 Close
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="archive-modal-overlay">
+                    <div className="archive-modal-card">
+                        <div className="archive-header">
+                            <div className="archive-title-container">
+                                <div className="archive-icon-container">
+                                    <Trash2 size={22} />
+                                </div>
+                                <h2 className="archive-title">Delete Course?</h2>
+                            </div>
+                            <button className="archive-close-btn" onClick={() => setShowDeleteModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="archive-body">
+                            <p className="archive-instruction">
+                                Deleting is <strong>permanent</strong>. To confirm, type <span style={{ fontWeight: 800, color: 'var(--primary-color)' }}>{course.name}</span> below.
+                            </p>
+
+                            <div className="archive-input-container">
+                                <input
+                                    type="text"
+                                    value={archiveInput}
+                                    onChange={(e) => {
+                                        setArchiveInput(e.target.value);
+                                        setActionError(null);
+                                    }}
+                                    placeholder="Type course name"
+                                    autoFocus
+                                />
+                            </div>
+
+                            {actionError && (
+                                <p style={{ color: 'var(--danger-color)', fontSize: '0.85rem', marginBottom: '1rem' }}>{actionError}</p>
+                            )}
+
+                            <div className="archive-warning" style={{ borderColor: 'var(--primary-light)', background: 'var(--primary-light)' }}>
+                                <AlertTriangle size={24} style={{ color: 'var(--primary-color)' }} />
+                                <p className="archive-warning-text" style={{ color: 'var(--primary-text)' }}>
+                                    <strong>Danger:</strong> This will delete all assignments, students list, and grades.
+                                </p>
+                            </div>
+
+                            <div className="archive-footer">
+                                <button
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="archive-btn archive-btn-cancel"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteCourse}
+                                    disabled={archiveInput.trim().toLowerCase() !== course.name.trim().toLowerCase()}
+                                    className="archive-btn"
+                                    style={{ background: 'var(--primary-color)', color: 'white' }}
+                                >
+                                    Delete Course
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
