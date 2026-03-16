@@ -52,8 +52,8 @@ const CourseGrades: React.FC = () => {
             const assignmentPoints = assignment.points || 100; // Default to 100 if not set
             const isGraded = submission && (submission.status === 'graded' || submission.status === 'returned');
             if (isGraded && submission.grade !== undefined && submission.grade !== null) {
-                earned += submission.grade;
-                possible += assignmentPoints;
+                earned += Number(submission.grade);
+                possible += Number(assignmentPoints);
             }
         });
 
@@ -141,7 +141,7 @@ const CourseGrades: React.FC = () => {
                                             )}
                                         </td>
                                         <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                            {submission?.grade !== null && submission?.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') ? (
+                                            {submission?.grade !== null && submission?.grade !== undefined && (submission?.status === 'graded' || submission?.status === 'returned') ? (
                                                 <span>{Number(submission.grade).toFixed(2)}/{maxPoints.toFixed(2)}</span>
                                             ) : (
                                                 <span style={{ color: 'var(--text-tertiary)' }}>-/{maxPoints.toFixed(2)}</span>
@@ -168,7 +168,7 @@ const CourseGrades: React.FC = () => {
                             <tr className="grade-row" style={{ backgroundColor: 'var(--bg-surface)', borderTop: '2px solid var(--border-color)' }}>
                                 <td colSpan={4} style={{ fontWeight: 700, paddingLeft: '1.5rem' }}>Total Grade</td>
                                 <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    {possible > 0 ? `${earned.toFixed(2)} / ${possible.toFixed(2)} (${totalPercentage}%)` : '-'}
+                                    {possible > 0 ? `${Number(earned).toFixed(2)} / ${Number(possible).toFixed(2)} (${totalPercentage}%)` : '-'}
                                 </td>
                                 <td></td>
                                 <td></td>
