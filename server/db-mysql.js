@@ -10,7 +10,7 @@ function getConfig() {
     if (process.env.DATABASE_URL) {
         const url = process.env.DATABASE_URL;
         const useSsl = process.env.MYSQL_SSL === '1' || /rds\.amazonaws\.com/.test(url);
-        return useSsl ? { uri: url, ssl: { rejectUnauthorized: true } } : url;
+        return useSsl ? { uri: url, ssl: { rejectUnauthorized: false } } : url;
     }
     const host = process.env.MYSQL_HOST || 'localhost';
     const useSsl = process.env.MYSQL_SSL === '1' || (host && host.includes('rds.amazonaws.com'));
@@ -24,7 +24,7 @@ function getConfig() {
         connectionLimit: 10,
         queueLimit: 0,
     };
-    if (useSsl) config.ssl = { rejectUnauthorized: true };
+    if (useSsl) config.ssl = { rejectUnauthorized: false };
     return config;
 }
 
