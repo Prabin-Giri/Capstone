@@ -1,6 +1,9 @@
 {
     "name": "intelligrade-server",
     "version": "1.0.0",
+    "engines": {
+        "node": ">=20.0.0"
+    },
     "description": "Backend server for IntelliGrade assignment submission system",
     "main": "index.js",
     "scripts": {
