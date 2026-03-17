@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getCourseGrades, getSubmissions, type GradebookData } from '../../lib/api';
 import { ChevronLeft, BarChart2, X, ExternalLink } from 'lucide-react';
-import UserAvatar from '../../components/ui/UserAvatar';
 import './FacultyStudentListView.css';
 
 const FacultyStudentListView: React.FC = () => {
@@ -36,6 +35,20 @@ const FacultyStudentListView: React.FC = () => {
     const { course, students, assignments } = data;
 
     const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null;
+
+    const computeOverallPercentage = (student: GradebookData['students'][number]) => {
+        let total = 0;
+        let earned = 0;
+        for (const a of assignments) {
+            const raw = student.grades[a.id];
+            if (raw == null) continue;
+            const pointsPossible = a.points || 100;
+            total += pointsPossible;
+            earned += raw;
+        }
+        if (total <= 0) return null;
+        return (earned / total) * 100;
+    };
 
     // Report generation logic similar to gradebook for selected student
     const generateStudentReport = () => {
@@ -143,25 +156,44 @@ const FacultyStudentListView: React.FC = () => {
                             <th>Student</th>
                             <th>Student ID</th>
                             <th>Email Address</th>
+                            <th style={{ textAlign: 'right' }}>Overall</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {students.length === 0 && (
                             <tr>
-                                <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No students enrolled.</td>
+                                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No students enrolled.</td>
                             </tr>
                         )}
                         {students.map(student => (
+                            (() => {
+                                const overall = computeOverallPercentage(student);
+                                return (
                             <tr key={student.id}>
                                 <td>
                                     <div className="student-name-cell">
-                                        <UserAvatar user={{ name: student.name }} size={32} />
+                                        <div
+                                            className="student-avatar-circle"
+                                            aria-hidden="true"
+                                            title={student.name}
+                                        >
+                                            {student.name?.trim()?.charAt(0)?.toUpperCase() || '?'}
+                                        </div>
                                         <span>{student.name}</span>
                                     </div>
                                 </td>
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.id}</td>
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.email}</td>
+                                <td style={{ textAlign: 'right' }}>
+                                    {overall == null ? (
+                                        <span style={{ color: 'var(--text-secondary)' }}>—</span>
+                                    ) : (
+                                        <span className={`grade-badge ${getGradeClass(overall)}`}>
+                                            {overall.toFixed(1)}%
+                                        </span>
+                                    )}
+                                </td>
                                 <td style={{ textAlign: 'right' }}>
                                     <button 
                                         className="view-grades-btn"
@@ -172,6 +204,8 @@ const FacultyStudentListView: React.FC = () => {
                                     </button>
                                 </td>
                             </tr>
+                                );
+                            })()
                         ))}
                     </tbody>
                 </table>
