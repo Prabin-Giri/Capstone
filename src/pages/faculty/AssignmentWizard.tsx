@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase } from '../../lib/api';
 import type { TestCase, RubricConfig } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
-import { Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus } from 'lucide-react';
 import './AssignmentWizard.css';
 import { showDialog } from '../../components/ui/Dialog';
 
@@ -43,6 +43,14 @@ const AssignmentWizard: React.FC = () => {
             { id: 'sec-1', title: '', items: [{ id: 'crit-1', name: '', weight: null, maxPoints: null, comment: '' }] }
         ]
     });
+
+    const descriptionRef = useRef<HTMLDivElement>(null);
+    const attachmentInputRef = useRef<HTMLInputElement>(null);
+
+    const API_BASE = useMemo(
+        () => import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+        []
+    );
 
     useEffect(() => {
         if (isEditing && assignmentId) {
@@ -97,6 +105,36 @@ const AssignmentWizard: React.FC = () => {
             });
         }
     }, [isEditing, assignmentId, courseId, navigate]);
+
+    // When editing loads description from API, reflect it into the editor.
+    useEffect(() => {
+        if (descriptionRef.current && descriptionRef.current.innerHTML !== formData.description) {
+            descriptionRef.current.innerHTML = formData.description || '';
+        }
+    }, [formData.description]);
+
+    const exec = (command: string, value?: string) => {
+        // Ensure editor has focus so execCommand applies to it
+        descriptionRef.current?.focus();
+        document.execCommand(command, false, value);
+        // Sync current HTML back into form state
+        const html = descriptionRef.current?.innerHTML ?? '';
+        setFormData((prev) => ({ ...prev, description: html }));
+    };
+
+    const handleAttachFile = async (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(`${API_BASE}/uploads/attachments`, { method: 'POST', body: form });
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        const fileUrl = `${API_BASE.replace('/api', '')}/uploads/${data.filePath}`;
+        const safeName = String(data.originalName || file.name).replace(/[<>]/g, '');
+        exec(
+            'insertHTML',
+            `<a class="attachment-bubble" href="${fileUrl}" target="_blank" rel="noreferrer">${safeName}</a>&nbsp;`
+        );
+    };
 
     const handleAddTestCase = () => {
         setTestCases([...testCases, {
@@ -232,13 +270,79 @@ const AssignmentWizard: React.FC = () => {
 
                 <div className="form-group">
                     <label className="form-label">Description</label>
-                    <textarea
-                        required
-                        className="form-textarea"
-                        value={formData.description}
-                        onChange={e => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Enter assignment instructions..."
-                    />
+                    <div className="rich-editor">
+                        <div className="rich-toolbar" role="toolbar" aria-label="Description editor toolbar">
+                            <button type="button" className="rich-btn" onClick={() => exec('bold')} title="Bold">
+                                <Bold size={16} />
+                            </button>
+                            <button type="button" className="rich-btn" onClick={() => exec('italic')} title="Italic">
+                                <Italic size={16} />
+                            </button>
+                            <button type="button" className="rich-btn" onClick={() => exec('underline')} title="Underline">
+                                <Underline size={16} />
+                            </button>
+                            <span className="rich-divider" />
+                            <button type="button" className="rich-btn" onClick={() => exec('insertUnorderedList')} title="Bullet list">
+                                <List size={16} />
+                            </button>
+                            <button type="button" className="rich-btn" onClick={() => exec('insertOrderedList')} title="Numbered list">
+                                <ListOrdered size={16} />
+                            </button>
+                            <span className="rich-divider" />
+                            <button
+                                type="button"
+                                className="rich-btn"
+                                onClick={async () => {
+                                    const url = window.prompt('Paste a link URL');
+                                    if (!url) return;
+                                    exec('createLink', url);
+                                }}
+                                title="Insert link"
+                            >
+                                <Link2 size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                className="rich-btn"
+                                onClick={() => attachmentInputRef.current?.click()}
+                                title="Upload attachment"
+                            >
+                                <Paperclip size={16} />
+                            </button>
+                            <button type="button" className="rich-btn" onClick={() => exec('removeFormat')} title="Clear formatting">
+                                <RemoveFormatting size={16} />
+                            </button>
+                        </div>
+
+                        <div
+                            ref={descriptionRef}
+                            className="rich-content"
+                            contentEditable
+                            role="textbox"
+                            aria-multiline="true"
+                            onInput={() => setFormData((prev) => ({ ...prev, description: descriptionRef.current?.innerHTML ?? '' }))}
+                            onBlur={() => setFormData((prev) => ({ ...prev, description: descriptionRef.current?.innerHTML ?? '' }))}
+                            data-placeholder="Enter assignment instructions…"
+                        />
+
+                        <input
+                            ref={attachmentInputRef}
+                            type="file"
+                            style={{ display: 'none' }}
+                            onChange={async (e) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                try {
+                                    await handleAttachFile(f);
+                                } catch (err) {
+                                    const msg = err instanceof Error ? err.message : String(err);
+                                    await showDialog({ title: 'Upload failed', message: msg, confirmText: 'OK' });
+                                } finally {
+                                    e.currentTarget.value = '';
+                                }
+                            }}
+                        />
+                    </div>
                 </div>
 
                 <div className="form-row">

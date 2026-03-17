@@ -9,7 +9,7 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Download } from 'lucide-react';
+import { FileText, Calendar, Download, Users } from 'lucide-react';
 import './TACourseView.css';
 
 const TACourseView: React.FC = () => {
@@ -53,6 +53,17 @@ const TACourseView: React.FC = () => {
                         <h1>TA — {course.name}</h1>
                         <p className="header-metadata">{course.id}</p>
                     </div>
+                </div>
+                <div className="ta-course-header-actions">
+                    <button
+                        type="button"
+                        className="create-btn"
+                        onClick={() => navigate('students')}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Users size={18} />
+                        Students
+                    </button>
                 </div>
             </div>
 

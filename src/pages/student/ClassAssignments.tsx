@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import type { Course, Assignment, Submission } from '../../lib/api';
+import { Search, Clock } from 'lucide-react';
 import './ClassAssignments.css';
 
 const ClassAssignments: React.FC = () => {
@@ -14,6 +15,7 @@ const ClassAssignments: React.FC = () => {
     const [course, setCourse] = useState<Course | null>(null);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [submissions, setSubmissions] = useState<Map<string, Submission>>(new Map());
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         async function loadData() {
@@ -45,6 +47,26 @@ const ClassAssignments: React.FC = () => {
         loadData();
     }, [courseId]);
 
+    // Hooks must be unconditional (no early returns before these).
+    const upcoming = useMemo(() => {
+        const now = new Date();
+        const upcomingSorted = assignments
+            .filter(a => !!a.due_date && new Date(a.due_date) >= now && a.status !== 'closed')
+            .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+        return upcomingSorted[0] ?? null;
+    }, [assignments]);
+
+    const filteredAssignments = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return assignments;
+        return assignments.filter(a => {
+            const title = (a.title ?? '').toLowerCase();
+            const desc = (a.description ?? '').toLowerCase();
+            const id = (a.id ?? '').toLowerCase();
+            return title.includes(q) || desc.includes(q) || id.includes(q);
+        });
+    }, [assignments, searchQuery]);
+
     if (!courseId) {
         return (
             <div className="class-assignments">
@@ -67,9 +89,6 @@ const ClassAssignments: React.FC = () => {
                     {course ? `${course.name} • ${course.term}` : 'Loading...'}
                 </p>
             </div>
-            <Link to={`/student/courses/${courseId}`} className="btn-course-home">
-                Course Home
-            </Link>
         </div>
     );
 
@@ -117,6 +136,34 @@ const ClassAssignments: React.FC = () => {
     return (
         <div className="class-assignments">
             {header}
+            <div className="assignments-toolbar">
+                <div className="assignments-search">
+                    <Search size={18} className="assignments-search-icon" />
+                    <input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search assignments..."
+                        className="assignments-search-input"
+                    />
+                </div>
+            </div>
+
+            {upcoming && (
+                <div className="upcoming-banner">
+                    <div className="upcoming-left">
+                        <div className="upcoming-title">Upcoming deadline</div>
+                        <div className="upcoming-name">{upcoming.title}</div>
+                    </div>
+                    <div className="upcoming-right">
+                        <Clock size={16} />
+                        <span>{new Date(upcoming.due_date).toLocaleString()}</span>
+                        <Link className="upcoming-link" to={`/student/courses/${courseId}/assignments/${upcoming.id}`}>
+                            Open
+                        </Link>
+                    </div>
+                </div>
+            )}
+
             <div className="table-wrapper">
                 <table className="assignments-table">
                     <thead>
@@ -130,7 +177,7 @@ const ClassAssignments: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {assignments.map((assignment) => {
+                        {filteredAssignments.map((assignment) => {
                             const submission = submissions.get(assignment.id);
                             const dueDateObj = new Date(assignment.due_date);
                             const isPastDue = new Date() > dueDateObj;

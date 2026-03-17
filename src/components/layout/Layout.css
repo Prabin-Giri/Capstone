@@ -279,6 +279,14 @@ body.dialog-open .app-body {
     color: var(--text-primary);
 }
 
+.course-nav-link.disabled,
+.course-nav-link[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    user-select: none;
+}
+
 .course-nav-link.active {
     background-color: rgba(132, 0, 41, 0.15);
     color: var(--primary-text);

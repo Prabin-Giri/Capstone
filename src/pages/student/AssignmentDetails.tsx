@@ -120,7 +120,28 @@ const AssignmentDetails: React.FC = () => {
 
     // Use assignment.points if available, falling back to 100
     const points = assignment.points || 100;
-    const description = assignment.description || 'No description provided.';
+
+    const toSafeHtml = (input: string) => {
+        const raw = input ?? '';
+        // If it doesn't look like HTML, escape it and preserve newlines.
+        const looksLikeHtml = /<[^>]+>/.test(raw);
+        if (!looksLikeHtml) {
+            const escaped = raw
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            return escaped.replace(/\n/g, '<br />');
+        }
+        // Basic sanitization: strip script/style tags and inline event handlers.
+        return raw
+            .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+            .replace(/<\s*style[^>]*>[\s\S]*?<\s*\/\s*style\s*>/gi, '')
+            .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
+    };
+
+    const descriptionHtml = toSafeHtml(assignment.description || 'No description provided.');
 
     const displayDate = new Date(assignment.due_date).toLocaleString('en-US', {
         month: 'short',
@@ -253,7 +274,6 @@ const AssignmentDetails: React.FC = () => {
                                 <span className="meta-label">POINTS:</span>
                                 <span className="meta-value" style={{ fontSize: '1.25rem' }}>{points}</span>
                             </div>
-                            <StatusBadge status={displayStatus as any} />
                         </div>
                     </div>
                 </div>
@@ -267,12 +287,15 @@ const AssignmentDetails: React.FC = () => {
                                 : `-/${points.toFixed(2)}`}
                         </div>
                     </div>
+                    <div className="details-status">
+                        <StatusBadge status={displayStatus as any} />
+                    </div>
                 </div>
             </div>
 
             <div className="section">
                 <h2 className="section-title">Instructions</h2>
-                <div className="description-text">{description}</div>
+                <div className="description-text" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
             </div>
 
             {testCases.length > 0 && (

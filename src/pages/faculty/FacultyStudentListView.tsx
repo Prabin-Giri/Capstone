@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
 import { getCourseGrades, getSubmissions, type GradebookData } from '../../lib/api';
 import { ChevronLeft, BarChart2, X, ExternalLink } from 'lucide-react';
 import './FacultyStudentListView.css';
 
 const FacultyStudentListView: React.FC = () => {
     const { courseId } = useParams();
+    const { pathname } = useLocation();
     const navigate = useNavigate();
     const [data, setData] = useState<GradebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
+    const basePath = useMemo(() => {
+        return pathname.startsWith('/ta') ? `/ta/courses/${courseId}` : `/faculty/courses/${courseId}`;
+    }, [pathname, courseId]);
 
     useEffect(() => {
         if (courseId) {
@@ -35,20 +40,6 @@ const FacultyStudentListView: React.FC = () => {
     const { course, students, assignments } = data;
 
     const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null;
-
-    const computeOverallPercentage = (student: GradebookData['students'][number]) => {
-        let total = 0;
-        let earned = 0;
-        for (const a of assignments) {
-            const raw = student.grades[a.id];
-            if (raw == null) continue;
-            const pointsPossible = a.points || 100;
-            total += pointsPossible;
-            earned += raw;
-        }
-        if (total <= 0) return null;
-        return (earned / total) * 100;
-    };
 
     // Report generation logic similar to gradebook for selected student
     const generateStudentReport = () => {
@@ -119,14 +110,14 @@ const FacultyStudentListView: React.FC = () => {
             if (submissions.length > 0) {
                 // Navigate to the most recent submission's grading page
                 const latest = submissions[submissions.length - 1];
-                navigate(`/faculty/courses/${courseId}/assignments/${assignmentId}/grading/${latest.id}`);
+                navigate(`${basePath}/assignments/${assignmentId}/grading/${latest.id}`);
             } else {
                 // No submission — go to the general grading dashboard for that assignment
-                navigate(`/faculty/courses/${courseId}/assignments/${assignmentId}/grading`);
+                navigate(`${basePath}/assignments/${assignmentId}/grading`);
             }
         } catch (err) {
             console.error('Failed to fetch submission', err);
-            navigate(`/faculty/courses/${courseId}/assignments/${assignmentId}/grading`);
+            navigate(`${basePath}/assignments/${assignmentId}/grading`);
         }
     };
 
@@ -137,7 +128,7 @@ const FacultyStudentListView: React.FC = () => {
             <div className="student-list-header">
                 <div>
                     <div className="breadcrumb">
-                        <Link to={`/faculty/courses/${courseId}`}>
+                        <Link to={basePath}>
                             <ChevronLeft size={14} />
                             Back to Course
                         </Link>
@@ -156,20 +147,16 @@ const FacultyStudentListView: React.FC = () => {
                             <th>Student</th>
                             <th>Student ID</th>
                             <th>Email Address</th>
-                            <th style={{ textAlign: 'right' }}>Overall</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {students.length === 0 && (
                             <tr>
-                                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No students enrolled.</td>
+                                <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No students enrolled.</td>
                             </tr>
                         )}
                         {students.map(student => (
-                            (() => {
-                                const overall = computeOverallPercentage(student);
-                                return (
                             <tr key={student.id}>
                                 <td>
                                     <div className="student-name-cell">
@@ -186,15 +173,6 @@ const FacultyStudentListView: React.FC = () => {
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.id}</td>
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.email}</td>
                                 <td style={{ textAlign: 'right' }}>
-                                    {overall == null ? (
-                                        <span style={{ color: 'var(--text-secondary)' }}>—</span>
-                                    ) : (
-                                        <span className={`grade-badge ${getGradeClass(overall)}`}>
-                                            {overall.toFixed(1)}%
-                                        </span>
-                                    )}
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
                                     <button 
                                         className="view-grades-btn"
                                         onClick={() => setSelectedStudentId(student.id)}
@@ -204,8 +182,6 @@ const FacultyStudentListView: React.FC = () => {
                                     </button>
                                 </td>
                             </tr>
-                                );
-                            })()
                         ))}
                     </tbody>
                 </table>
