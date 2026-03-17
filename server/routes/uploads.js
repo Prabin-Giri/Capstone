@@ -68,6 +68,21 @@ router.post('/starter-code', upload.single('file'), async (req, res, next) => {
     }
 });
 
+// POST /api/uploads/attachments
+// Generic attachment uploader (used by rich text editors, etc.)
+router.post('/attachments', upload.single('file'), async (req, res, next) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        res.json({
+            message: 'Attachment uploaded successfully',
+            filePath: req.file.filename,
+            originalName: req.file.originalname
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /api/uploads/documents/:courseId
 router.get('/documents/:courseId', async (req, res, next) => {
     try {

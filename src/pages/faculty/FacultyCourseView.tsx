@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     getCourse,
     getCourseAssignments,
+    getCourseGrades,
     deleteAssignment,
     getCourseDocuments,
     uploadSyllabus,
@@ -25,11 +26,11 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import UserAvatar from '../../components/ui/UserAvatar';
 import './FacultyCourseView.css';
 import { showDialog } from '../../components/ui/Dialog';
+import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 
 const FacultyCourseView: React.FC = () => {
     const { courseId } = useParams();
@@ -44,6 +45,7 @@ const FacultyCourseView: React.FC = () => {
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
     const [archiveInput, setArchiveInput] = useState('');
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
+    const [pendingCount, setPendingCount] = useState(0);
     const [enrolledTAs, setEnrolledTAs] = useState<User[]>([]);
     const [studentToUnenroll, setStudentToUnenroll] = useState<User | null>(null);
     const [taToRemove, setTaToRemove] = useState<User | null>(null);
@@ -95,6 +97,22 @@ const FacultyCourseView: React.FC = () => {
             setDocuments(documentsData);
             setEnrolledStudents(studentsData);
             setEnrolledTAs(tasData);
+
+            // Calculate actual pending (ungraded) submissions
+            try {
+                const gradebookData = await getCourseGrades(courseId);
+                let ungraded = 0;
+                for (const student of gradebookData.students) {
+                    for (const assignment of gradebookData.assignments) {
+                        if (student.submitted?.[assignment.id] && student.grades[assignment.id] == null) {
+                            ungraded++;
+                        }
+                    }
+                }
+                setPendingCount(ungraded);
+            } catch {
+                setPendingCount(0);
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -339,6 +357,29 @@ const FacultyCourseView: React.FC = () => {
     if (loading && !course) return <div className="faculty-course-container">Loading...</div>;
     if (!course) return <div className="faculty-course-container">Course not found</div>;
 
+    const monthStart = startOfMonth(new Date());
+    const monthEnd = endOfMonth(monthStart);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const calendarDays: Date[] = [];
+    for (let d = calendarStart; d <= calendarEnd; d = addDays(d, 1)) {
+        calendarDays.push(d);
+    }
+
+    const dueDayKey = (d: Date) => format(d, 'yyyy-MM-dd');
+    const dueDays = new Set(
+        assignments
+            .map(a => {
+                try {
+                    return parseISO(a.due_date);
+                } catch {
+                    return null;
+                }
+            })
+            .filter(Boolean)
+            .map(d => dueDayKey(d as Date))
+    );
+
     return (
         <div className="faculty-course-container">
             {/* Hidden File Inputs */}
@@ -461,6 +502,18 @@ const FacultyCourseView: React.FC = () => {
                     </div>
 
                     <button
+                        onClick={() => navigate('students')}
+                        className="create-btn"
+                        style={{ background: 'var(--card-glass)', color: 'var(--text-primary)' }}
+                        title="View students"
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Users size={18} />
+                            Students
+                        </div>
+                    </button>
+
+                    <button
                         onClick={() => navigate('gradebook')}
                         className="create-btn"
                         style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
@@ -490,7 +543,7 @@ const FacultyCourseView: React.FC = () => {
                 <div className="analytics-card glass">
                     <span className="analytics-label">Pending Grading</span>
                     <span className="analytics-value" style={{ color: 'var(--text-primary)' }}>
-                        {assignments.filter(a => a.status === 'closed').length * enrolledStudents.length}
+                        {pendingCount}
                     </span>
                     <span className="analytics-desc">Total submissions to review</span>
                 </div>
@@ -527,7 +580,19 @@ const FacultyCourseView: React.FC = () => {
 
             <div className="course-main-content">
                 <div className="assignments-section">
-                    <h2 className="section-title">Assignments</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 
+                            className="section-title" 
+                            style={{ margin: 0, cursor: 'pointer' }} 
+                            onClick={() => navigate('assignments')}
+                        >Assignments</h2>
+                        <button
+                            onClick={() => navigate('assignments/new')}
+                            className="enroll-btn-small"
+                        >
+                            <Plus size={14} /> Add Assignment
+                        </button>
+                    </div>
                     <div className="assignments-list">
                         {assignments.length === 0 ? (
                             <div className="empty-state">
@@ -606,99 +671,65 @@ const FacultyCourseView: React.FC = () => {
                 </div>
 
                 <div className="students-section">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                        <h2 className="section-title" style={{ margin: 0 }}>Enrolled</h2>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="enroll-btn-small" style={{ background: 'var(--card-glass)', color: 'var(--text-secondary)' }} onClick={() => setShowInviteTAModal(true)}>
-                                <Key size={14} />
-                                Invite TA
-                            </button>
-                            <button className="enroll-btn-small" onClick={() => setShowEnrollModal(true)}>
-                                <UserPlus size={14} />
-                                Enroll Student
-                            </button>
-                        </div>
-                    </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', margin: '0 0 1rem' }}>
-                        Add students to this class so they can see assignments and submit work. Only enrolled students appear in the gradebook.
-                    </p>
-
-                    {/* TAs List */}
-                    {enrolledTAs.length > 0 && (
-                        <div className="students-list glass" style={{ marginBottom: '16px', borderLeft: '3px solid var(--primary-color)' }}>
-                            <p style={{ margin: '0 0 12px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teaching Assistants</p>
-                            {enrolledTAs.map(ta => (
-                                <div key={ta.id} className="student-item" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
-                                    <div className="student-info">
-                                        <UserAvatar user={ta} size={36} />
-                                        <div>
-                                            <div className="student-name-row">
-                                                <p className="student-name" style={{ fontWeight: 600 }}>{ta.name}</p>
-                                                <span className="student-id-tag" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>TA STAFF</span>
-                                            </div>
-                                            <p className="student-email">{ta.email}</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setTaToRemove(ta)}
-                                        className="trash-btn-red"
-                                        title="Remove TA"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                    <div className="right-side-info">
+                        <div className="ta-info-card glass">
+                            <div className="ta-info-top">
+                                <div>
+                                    <div className="ta-info-title">Teaching Assistants</div>
+                                    <div className="ta-info-subtitle">{enrolledTAs.length} assigned</div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Students List */}
-                    <div className="students-list glass">
-                        {enrolledTAs.length > 0 && (
-                            <p style={{ margin: '0 0 12px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Students</p>
-                        )}
-                        {enrolledStudents.length === 0 ? (
-                            <p className="empty-text">No students enrolled yet.</p>
-                        ) : (
-                            [...enrolledStudents]
-                                .sort((a, b) => a.name.localeCompare(b.name))
-                                .map(student => (
-                                    <div key={student.id} className="student-item">
-                                        <div className="student-info">
-                                            <div className="student-avatar" style={{ padding: student.profile_picture ? 0 : undefined, overflow: 'hidden' }}>
-                                                {student.profile_picture ? (
-                                                    <img
-                                                        src={getFileUrl(student.profile_picture)}
-                                                        alt={`${student.name} profile`}
-                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                        onError={(e) => {
-                                                            const target = e.target as HTMLImageElement;
-                                                            target.style.display = 'none';
-                                                            target.parentElement!.style.padding = '';
-                                                            target.parentElement!.textContent = student.name.charAt(0);
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    student.name.charAt(0)
-                                                )}
-                                            </div>
-                                            <div>
-                                                <div className="student-name-row">
-                                                    <p className="student-name">{student.name}</p>
-                                                    <span className="student-id-tag">{student.id}</span>
-                                                </div>
-                                                <p className="student-email">{student.email}</p>
-                                            </div>
+                                <Users size={18} style={{ color: 'var(--primary-text)' }} />
+                            </div>
+                            {enrolledTAs.length === 0 ? (
+                                <div className="ta-info-empty">No TAs assigned yet.</div>
+                            ) : (
+                                <div className="ta-info-list">
+                                    {enrolledTAs.slice(0, 3).map(ta => (
+                                        <div key={ta.id} className="ta-info-row">
+                                            <span className="ta-dot" aria-hidden="true" />
+                                            <span className="ta-name">{ta.name}</span>
                                         </div>
-                                        <button
-                                            onClick={() => setStudentToUnenroll(student)}
-                                            className="trash-btn-red"
-                                            title="Unenroll Student"
+                                    ))}
+                                    {enrolledTAs.length > 3 && (
+                                        <div className="ta-info-more">+{enrolledTAs.length - 3} more</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mini-calendar glass">
+                            <div className="mini-calendar-header">
+                                <span className="mini-calendar-month">{format(monthStart, 'MMMM yyyy')}</span>
+                                <span className="mini-calendar-legend">
+                                    <span className="legend-item"><span className="legend-dot today" /> Today</span>
+                                    <span className="legend-item"><span className="legend-dot due" /> Due</span>
+                                </span>
+                            </div>
+                            <div className="mini-calendar-grid">
+                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
+                                    <div key={d} className="mini-calendar-dow">{d}</div>
+                                ))}
+                                {calendarDays.map(day => {
+                                    const inMonth = isSameMonth(day, monthStart);
+                                    const isToday = isSameDay(day, new Date());
+                                    const hasDue = dueDays.has(dueDayKey(day));
+                                    return (
+                                        <div
+                                            key={dueDayKey(day)}
+                                            className={[
+                                                'mini-calendar-day',
+                                                inMonth ? 'in-month' : 'out-month',
+                                                isToday ? 'is-today' : '',
+                                                hasDue ? 'has-due' : ''
+                                            ].filter(Boolean).join(' ')}
+                                            title={hasDue ? 'Assignment due' : undefined}
                                         >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))
-                        )}
+                                            <span className="day-num">{format(day, 'd')}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
