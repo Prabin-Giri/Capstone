@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     getCourse,
     getCourseAssignments,
+    getCourseGrades,
     deleteAssignment,
     getCourseDocuments,
     uploadSyllabus,
@@ -44,6 +45,7 @@ const FacultyCourseView: React.FC = () => {
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
     const [archiveInput, setArchiveInput] = useState('');
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
+    const [pendingCount, setPendingCount] = useState(0);
     const [enrolledTAs, setEnrolledTAs] = useState<User[]>([]);
     const [studentToUnenroll, setStudentToUnenroll] = useState<User | null>(null);
     const [taToRemove, setTaToRemove] = useState<User | null>(null);
@@ -95,6 +97,22 @@ const FacultyCourseView: React.FC = () => {
             setDocuments(documentsData);
             setEnrolledStudents(studentsData);
             setEnrolledTAs(tasData);
+
+            // Calculate actual pending (ungraded) submissions
+            try {
+                const gradebookData = await getCourseGrades(courseId);
+                let ungraded = 0;
+                for (const student of gradebookData.students) {
+                    for (const assignment of gradebookData.assignments) {
+                        if (student.submitted?.[assignment.id] && student.grades[assignment.id] == null) {
+                            ungraded++;
+                        }
+                    }
+                }
+                setPendingCount(ungraded);
+            } catch {
+                setPendingCount(0);
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -490,7 +508,7 @@ const FacultyCourseView: React.FC = () => {
                 <div className="analytics-card glass">
                     <span className="analytics-label">Pending Grading</span>
                     <span className="analytics-value" style={{ color: 'var(--text-primary)' }}>
-                        {assignments.filter(a => a.status === 'closed').length * enrolledStudents.length}
+                        {pendingCount}
                     </span>
                     <span className="analytics-desc">Total submissions to review</span>
                 </div>
@@ -527,7 +545,23 @@ const FacultyCourseView: React.FC = () => {
 
             <div className="course-main-content">
                 <div className="assignments-section">
+<<<<<<< Updated upstream
                     <h2 className="section-title">Assignments</h2>
+=======
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 
+                            className="section-title" 
+                            style={{ margin: 0, cursor: 'pointer' }} 
+                            onClick={() => navigate('assignments')}
+                        >Assignments</h2>
+                        <button
+                            onClick={() => navigate('assignments/new')}
+                            className="enroll-btn-small"
+                        >
+                            <Plus size={14} /> Add Assignment
+                        </button>
+                    </div>
+>>>>>>> Stashed changes
                     <div className="assignments-list">
                         {assignments.length === 0 ? (
                             <div className="empty-state">

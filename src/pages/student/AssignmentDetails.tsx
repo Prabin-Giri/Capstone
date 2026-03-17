@@ -234,25 +234,27 @@ const AssignmentDetails: React.FC = () => {
         <div className="assignment-details">
             <div className="details-header">
                 <div className="details-header-left">
-                    <h1 className="details-title">{assignment.title}</h1>
-                    <div className="details-meta">
-                        <div className="meta-item">
-                            <span className="meta-label">Due:</span>
-                            <span className="meta-value">{displayDate}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <h1 className="details-title">{assignment.title}</h1>
+                        {assignment.language && (
+                            <div className="meta-item" style={{ margin: 0, padding: '2px 6px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '8px', flexDirection: 'column', gap: '0px' }}>
+                                <Code size={10} className="meta-icon" style={{ marginBottom: '-1px' }} />
+                                <span className="meta-value text-capitalize" style={{ fontSize: '0.55rem', lineHeight: '1' }}>{assignment.language}</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="details-meta" style={{ textAlign: 'left', alignItems: 'flex-start' }}>
+                        <div className="meta-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                            <span className="meta-label">DUE:</span>
+                            <span className="meta-value" style={{ fontSize: '1rem' }}>{displayDate}</span>
                         </div>
-                        <div className="meta-row-combined">
-                            <div className="meta-item">
-                                <span className="meta-label">Points:</span>
-                                <span className="meta-value">{points}</span>
+                        <div className="meta-row-combined" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: '0.5rem' }}>
+                            <div className="meta-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                                <span className="meta-label">POINTS:</span>
+                                <span className="meta-value" style={{ fontSize: '1.25rem' }}>{points}</span>
                             </div>
                             <StatusBadge status={displayStatus as any} />
                         </div>
-                        {assignment.language && (
-                            <div className="meta-item">
-                                <Code size={16} className="meta-icon" />
-                                <span className="meta-value text-capitalize">{assignment.language}</span>
-                            </div>
-                        )}
                     </div>
                 </div>
 

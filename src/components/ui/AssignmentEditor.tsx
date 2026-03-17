@@ -365,18 +365,18 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                             ),
                             borderRight: '1px solid var(--border-color)',
                             display: 'flex',
-                            flexDirection: 'column',
-                            background: 'var(--bg-surface)',
+                            minWidth: 200,
+                            background: '#1e1e1e',
                         }}
                     >
-                        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-color)', cursor: 'default' }}>
+                        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #333', cursor: 'default' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <button onClick={() => setIsSidebarOpen(false)} title="Collapse" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0, display: 'flex', alignItems: 'center' }}><Folder size={16} /></button>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>FILES</span>
+                                <button onClick={() => setIsSidebarOpen(false)} title="Collapse" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}><Folder size={16} /></button>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', letterSpacing: '0.05em' }}>FILES</span>
                             </div>
                             <div className="sidebar-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <button onClick={handleAddFileClick} title="New File" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><Plus size={16} /></button>
-                                <button onClick={handleFileUploadClick} title="Upload File" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><Upload size={16} /></button>
+                                <button onClick={handleAddFileClick} title="New File" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><Plus size={16} /></button>
+                                <button onClick={handleFileUploadClick} title="Upload File" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><Upload size={16} /></button>
                                 <input
                                     type="file"
                                     ref={fileInputRef}
