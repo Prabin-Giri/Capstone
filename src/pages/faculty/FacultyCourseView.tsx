@@ -25,7 +25,7 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
 import { showDialog } from '../../components/ui/Dialog';
@@ -444,6 +444,18 @@ const FacultyCourseView: React.FC = () => {
                             </div>
                         )}
                     </div>
+
+                    <button
+                        onClick={() => navigate('students')}
+                        className="create-btn"
+                        style={{ background: 'var(--card-glass)', color: 'var(--text-primary)' }}
+                        title="View students"
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Users size={18} />
+                            Students
+                        </div>
+                    </button>
 
                     <button
                         onClick={() => navigate('gradebook')}
