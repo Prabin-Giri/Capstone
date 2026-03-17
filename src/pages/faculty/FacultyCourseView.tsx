@@ -524,9 +524,6 @@ const FacultyCourseView: React.FC = () => {
 
             <div className="course-main-content">
                 <div className="assignments-section">
-<<<<<<< Updated upstream
-                    <h2 className="section-title">Assignments</h2>
-=======
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <h2 
                             className="section-title" 
@@ -540,7 +537,6 @@ const FacultyCourseView: React.FC = () => {
                             <Plus size={14} /> Add Assignment
                         </button>
                     </div>
->>>>>>> Stashed changes
                     <div className="assignments-list">
                         {assignments.length === 0 ? (
                             <div className="empty-state">

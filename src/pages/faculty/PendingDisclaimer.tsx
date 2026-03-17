@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { getSession, logout, updateUser } from '../../lib/auth';
 import { checkUserVerified } from '../../lib/api';
 import './PendingDisclaimer.css';

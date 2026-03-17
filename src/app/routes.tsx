@@ -1,7 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/layout/ProtectedRoute';
-import LandingPage from '../pages/LandingPage';
 import Login from '../pages/auth/Login';
 import SignUp from '../pages/auth/SignUp';
 import StudentDashboard from '../pages/student/StudentDashboard';
@@ -13,11 +12,8 @@ import SubmissionResults from '../pages/student/SubmissionResults';
 import CourseGrades from '../pages/student/CourseGrades';
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import FacultyCourseView from '../pages/faculty/FacultyCourseView';
-<<<<<<< Updated upstream
-=======
 import FacultyStudentListView from '../pages/faculty/FacultyStudentListView';
 import FacultyAssignmentList from '../pages/faculty/FacultyAssignmentList';
->>>>>>> Stashed changes
 import AssignmentWizard from '../pages/faculty/AssignmentWizard';
 import GradingDashboard from '../pages/faculty/GradingDashboard';
 import SubmissionGrader from '../pages/faculty/SubmissionGrader';
@@ -77,11 +73,8 @@ export const router = createBrowserRouter([
                     { path: 'pending', element: <PendingDisclaimer /> },
                     { path: 'courses/new', element: <NewCourse /> },
                     { path: 'courses/:courseId', element: <FacultyCourseView /> },
-<<<<<<< Updated upstream
-=======
                     { path: 'courses/:courseId/students', element: <FacultyStudentListView /> },
                     { path: 'courses/:courseId/assignments', element: <FacultyAssignmentList /> },
->>>>>>> Stashed changes
                     { path: 'courses/:courseId/assignments/new', element: <AssignmentWizard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/edit', element: <AssignmentWizard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading', element: <GradingDashboard /> },

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getCourseGrades, getSubmissions, type GradebookData } from '../../lib/api';
 import { ChevronLeft, BarChart2, X, ExternalLink } from 'lucide-react';
-import UserAvatar from '../../components/ui/UserAvatar';
 import './FacultyStudentListView.css';
 
 const FacultyStudentListView: React.FC = () => {
@@ -174,7 +173,13 @@ const FacultyStudentListView: React.FC = () => {
                             <tr key={student.id}>
                                 <td>
                                     <div className="student-name-cell">
-                                        <UserAvatar user={{ name: student.name }} size={32} />
+                                        <div
+                                            className="student-avatar-circle"
+                                            aria-hidden="true"
+                                            title={student.name}
+                                        >
+                                            {student.name?.trim()?.charAt(0)?.toUpperCase() || '?'}
+                                        </div>
                                         <span>{student.name}</span>
                                     </div>
                                 </td>

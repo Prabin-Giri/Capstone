@@ -7,7 +7,7 @@ import './Admin.css';
 const Admin: React.FC = () => {
     const navigate = useNavigate();
     const [pendingFaculty, setPendingFaculty] = useState<PendingFaculty[]>([]);
-    const [loadingPending, setLoadingPending] = useState(true);
+        const [, setLoadingPending] = useState(true);
     const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
     useEffect(() => {

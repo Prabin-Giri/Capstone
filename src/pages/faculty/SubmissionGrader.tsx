@@ -4,7 +4,6 @@ import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignm
 import type { Submission, Assignment, RubricConfig } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
-import { Play } from 'lucide-react';
 import AlertModal from '../../components/ui/AlertModal';
 
 import './SubmissionGrader.css';
@@ -22,7 +21,7 @@ const SubmissionGrader: React.FC = () => {
     const [codeContent, setCodeContent] = useState<string | null>(null);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [previewFileName, setPreviewFileName] = useState<string | null>(null);
-    const [isAutograding, setIsAutograding] = useState(false);
+    const [, setIsAutograding] = useState(false);
     const [showAttemptSelector, setShowAttemptSelector] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
 
