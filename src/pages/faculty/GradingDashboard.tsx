@@ -65,12 +65,16 @@ const GradingDashboard: React.FC = () => {
     const handleAutoGrade = async (config: { latePenalty: string; timeout: number }) => {
         if (!assignmentId) return;
         try {
-            await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
-            await loadData(); // Reload to show new grades
-            setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed successfully.' });
+            const summary = await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
+            setAlertConfig({
+                show: true,
+                type: 'success',
+                title: 'Tests completed',
+                message: `Ran tests for ${summary.graded} submissions. Average suggested score: ${summary.average}. Open a submission to see detailed results.`
+            });
         } catch (err) {
             console.error(err);
-            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Autograding failed. Please check test cases and system logs.' });
+            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Run tests failed. Please check test cases and system logs.' });
         }
     };
 
@@ -94,7 +98,7 @@ const GradingDashboard: React.FC = () => {
                         className="btn-dashboard-action btn-autograde"
                     >
                         <Play size={20} />
-                        Auto-Grade All
+                        Run Tests for All
                     </button>
                     <button
                         onClick={() => setShowPlagiarismModal(true)}

@@ -38,6 +38,10 @@ const SubmissionGrader: React.FC = () => {
     const [grade, setGrade] = useState('');
     const [feedback, setFeedback] = useState('');
 
+    // Last test run state (for summary above rubric)
+    const [lastTestResults, setLastTestResults] = useState<import('../../lib/api').TestResult[] | null>(null);
+    const [showTestDetails, setShowTestDetails] = useState(false);
+
     useEffect(() => {
         loadData();
     }, [submissionId]);
@@ -76,6 +80,19 @@ const SubmissionGrader: React.FC = () => {
                 : '';
             setGrade(initialGrade);
             setFeedback(subData.feedback || '');
+
+            // If bulk "Run Tests for All" has stored test results in auto_feedback (JSON),
+            // hydrate the lastTestResults state so the summary box shows up immediately.
+            if (subData.auto_feedback) {
+                try {
+                    const parsed = JSON.parse(subData.auto_feedback as unknown as string);
+                    if (Array.isArray(parsed)) {
+                        setLastTestResults(parsed as any);
+                    }
+                } catch {
+                    // Ignore if not JSON; user may be using legacy feedback format.
+                }
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -172,6 +189,11 @@ const SubmissionGrader: React.FC = () => {
 
             const data = await runTests(assignment.id, codeToRun, assignment.language || 'python');
             setIsRunningCustom(false);
+            if (Array.isArray(data.results)) {
+                setLastTestResults(data.results);
+            } else {
+                setLastTestResults(null);
+            }
             return {
                 results: data.results,
                 log: `Sent ${files.length} file(s) to execution engine.\nLanguage: ${assignment.language || 'python'}\nTotal length: ${codeToRun.length} bytes.`
@@ -387,9 +409,53 @@ const SubmissionGrader: React.FC = () => {
                 </div>
             </div>
 
-            {/* Right Panel: Rubric + Grading Form */}
+            {/* Right Panel: Tests summary + Rubric + Grading Form */}
             <div className="grader-panel-right">
                 <h2 className="section-title grader-form-title">Grading</h2>
+
+                {lastTestResults && lastTestResults.length > 0 && (
+                    <div
+                        style={{
+                            marginBottom: '20px',
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid #e5e7eb',
+                            background: '#f9fafb',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px'
+                        }}
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                Testcases
+                            </span>
+                            {(() => {
+                                const total = lastTestResults.length;
+                                const passed = lastTestResults.filter(r => r.passed).length;
+                                const allPassed = passed === total;
+                                return (
+                                    <>
+                                        <span style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>
+                                            {passed}/{total}
+                                        </span>
+                                        <span style={{ fontSize: 13, color: allPassed ? '#15803d' : '#b91c1c', fontWeight: 500 }}>
+                                            {allPassed ? 'Passed' : 'Some tests failed'}
+                                        </span>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowTestDetails(true)}
+                        >
+                            View details
+                        </Button>
+                    </div>
+                )}
 
                 {rubric && (
                     <div className="rubric-card">
@@ -532,46 +598,6 @@ const SubmissionGrader: React.FC = () => {
                 )}
 
                 <div className="grading-form">
-                    {(submission?.auto_grade !== undefined && submission?.auto_grade !== null) && (
-                        <div className="suggested-grade-box" style={{ 
-                            background: 'rgba(127, 29, 29, 0.1)', 
-                            border: '1px solid #7f1d1d', 
-                            borderRadius: '8px', 
-                            padding: '12px', 
-                            marginBottom: '20px' 
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <span style={{ fontSize: '12px', color: '#7f1d1d', fontWeight: 'bold', textTransform: 'uppercase' }}>Autograde Result</span>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
-                                        {Number(submission.auto_grade).toFixed(2)} / {(assignment?.points || 100).toFixed(2)}
-                                    </div>
-                                </div>
-                                <Button 
-                                    size="sm" 
-                                    style={{ backgroundColor: '#7f1d1d', color: 'white' }}
-                                    onClick={() => setShowFeedbackModal(true)}
-                                >
-                                    View Feedback
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div style={{ marginBottom: '20px' }}>
-                        <Button 
-                            variant="primary" 
-                            size="lg" 
-                            style={{ width: '100%', marginBottom: '10px' }}
-                            onClick={() => handleAutograde(undefined, true)}
-                        >
-                            Autograde
-                        </Button>
-                        <p style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-                            Automatically calculate grade based on test cases.
-                        </p>
-                    </div>
-
                     <div className="form-group">
                         <label className="form-label">Final Grade</label>
                         <input
@@ -658,68 +684,92 @@ const SubmissionGrader: React.FC = () => {
                 />
             )}
 
-            {/* Suggested Feedback Modal */}
-            {showFeedbackModal && (
-                <div className="modal-overlay" onClick={() => setShowFeedbackModal(false)}>
-                    <div className="modal-content feedback-modal" style={{ maxWidth: '600px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            {/* Test Details Modal */}
+            {showTestDetails && lastTestResults && (
+                <div className="modal-overlay" onClick={() => setShowTestDetails(false)}>
+                    <div
+                        className="modal-content"
+                        style={{ maxWidth: '640px', width: '90%' }}
+                        onClick={e => e.stopPropagation()}
+                    >
                         <div className="modal-header">
-                            <h3 className="modal-title">Autograde Result Feedback</h3>
-                            <button className="modal-close" onClick={() => setShowFeedbackModal(false)}>
+                            <h3 className="modal-title">Testcase Results</h3>
+                            <button className="modal-close" onClick={() => setShowTestDetails(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <line x1="18" y1="6" x2="6" y2="18"></line>
                                     <line x1="6" y1="6" x2="18" y2="18"></line>
                                 </svg>
                             </button>
                         </div>
-                        <div className="modal-body" style={{ padding: '20px' }}>
-                            <div style={{ marginBottom: '20px' }}>
-                                <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Suggested Score</span>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#7f1d1d' }}>
-                                    {Number(submission?.auto_grade).toFixed(2)} / {(assignment?.points || 100).toFixed(2)}
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: '24px' }}>
-                                <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Detailed Feedback</span>
-                                <div style={{ 
-                                    background: '#f9fafb', 
-                                    border: '1px solid #e5e7eb', 
-                                    borderRadius: '6px', 
-                                    padding: '16px',
-                                    maxHeight: '300px',
-                                    overflowY: 'auto',
-                                    whiteSpace: 'pre-wrap',
-                                    fontSize: '14px',
-                                    fontFamily: 'monospace'
-                                }}>
-                                    {submission?.auto_feedback || 'No feedback available.'}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
-                                <Button variant="ghost" onClick={() => setShowFeedbackModal(false)}>
-                                    Cancel
-                                </Button>
-                                <Button 
-                                    style={{ backgroundColor: '#7f1d1d', color: 'white' }}
-                                    onClick={() => {
-                                        if (submission?.auto_feedback) {
-                                            setFeedback(submission.auto_feedback);
-                                        }
-                                        setShowFeedbackModal(false);
-                                    }}
-                                >
-                                    Use Feedback
-                                </Button>
-                                <Button 
-                                    style={{ backgroundColor: '#7f1d1d', color: 'white' }}
-                                    onClick={() => {
-                                        if (submission?.auto_grade !== undefined && submission?.auto_grade !== null) {
-                                            setGrade(Number(submission.auto_grade).toFixed(2));
-                                        }
-                                        setShowFeedbackModal(false);
-                                    }}
-                                >
-                                    Use Suggested Score
-                                </Button>
+                        <div className="modal-body">
+                            {(() => {
+                                const total = lastTestResults.length;
+                                const passed = lastTestResults.filter(r => r.passed).length;
+                                const totalPoints = lastTestResults.reduce((s, r) => s + (r.points ?? 0), 0);
+                                const earnedPoints = lastTestResults.reduce(
+                                    (s, r) => s + (r.passed ? (r.points ?? 0) : 0),
+                                    0
+                                );
+                                return (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <p style={{ margin: 0, fontSize: 14, color: '#4b5563' }}>
+                                            <strong>{passed}/{total}</strong> testcases passed
+                                        </p>
+                                        {totalPoints > 0 && (
+                                            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+                                                Points from tests: <strong>{earnedPoints}/{totalPoints}</strong>
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            <div style={{ maxHeight: '360px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {lastTestResults.map((result, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            borderRadius: 8,
+                                            border: '1px solid #e5e7eb',
+                                            padding: '10px 12px',
+                                            background: result.passed ? '#ecfdf3' : '#fef2f2'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                            <span style={{ fontWeight: 600, fontSize: 13, color: '#111827' }}>
+                                                Testcase {idx + 1}{result.is_public === 0 ? ' (Hidden)' : ''}
+                                            </span>
+                                            <span
+                                                style={{
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    color: result.passed ? '#15803d' : '#b91c1c',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.08em'
+                                                }}
+                                            >
+                                                {result.passed ? 'Passed' : 'Failed'}
+                                            </span>
+                                        </div>
+                                        {result.is_public === 1 && (
+                                            <div style={{ fontSize: 13, color: '#374151', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <div>
+                                                    <strong>Expected:</strong>{' '}
+                                                    <code>{result.expected}</code>
+                                                </div>
+                                                <div>
+                                                    <strong>Actual:</strong>{' '}
+                                                    <code>{result.actual}</code>
+                                                </div>
+                                                {result.error && (
+                                                    <div style={{ color: '#b91c1c', marginTop: 4 }}>
+                                                        {result.error}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

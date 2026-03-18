@@ -507,7 +507,7 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
     }
 });
 
-// POST /api/assignments/:id/autograde - Batch auto-grade all submissions
+// POST /api/assignments/:id/autograde - Batch auto-grade all submissions (dry-run: does not change status to graded)
 router.post('/:id/autograde', async (req, res, next) => {
     try {
         const { latePenalty, timeout = 2000 } = req.body;
@@ -560,13 +560,38 @@ router.post('/:id/autograde', async (req, res, next) => {
         let gradedCount = 0;
         let totalGrades = 0;
 
+        const summaries = [];
+
         for (const sub of latestSubmissions) {
             try {
-                // This will run the grader (custom or default), update the DB, and return the result
-                const result = await gradeSubmission(sub.id);
-
+                // Run grader in dry-run mode: compute suggested grade but do not persist or change status
+                const result = await gradeSubmission(sub.id, { dryRun: true });
+                // Persist test results & suggested auto_grade without touching status/grade
+                const testResultsPayload = JSON.stringify(
+                    (result.results || []).map(r => ({
+                        id: r.testId || r.id,
+                        expected: r.expected,
+                        actual: r.actual,
+                        error: r.error || null,
+                        passed: !!r.passed,
+                        is_public: r.is_public ? 1 : 0,
+                        points: r.points ?? 0,
+                    }))
+                );
+                await db.execute(
+                    'UPDATE submissions SET auto_grade = ?, auto_feedback = ? WHERE id = ?',
+                    [result.grade ?? null, testResultsPayload, sub.id]
+                );
                 gradedCount++;
                 totalGrades += result.grade;
+                summaries.push({
+                    submissionId: sub.id,
+                    studentId: sub.student_id,
+                    grade: result.grade,
+                    rawScore: result.rawScore,
+                    maxPossible: result.maxPossible,
+                    latePenaltyPercent: result.latePenaltyPercent,
+                });
             } catch (err) {
                 console.error(`Failed to grade submission ${sub.id}:`, err);
             }
@@ -574,7 +599,8 @@ router.post('/:id/autograde', async (req, res, next) => {
 
         res.json({
             graded: gradedCount,
-            average: gradedCount > 0 ? Math.round(totalGrades / gradedCount) : 0
+            average: gradedCount > 0 ? Math.round(totalGrades / gradedCount) : 0,
+            summaries,
         });
 
     } catch (err) {

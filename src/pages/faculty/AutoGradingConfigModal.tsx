@@ -35,7 +35,7 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose
                             <Settings size={24} />
                         </div>
                         <div>
-                            <h3 className="ac-title">Auto-Grading Configuration</h3>
+                            <h3 className="ac-title">Run Tests for All Submissions</h3>
                         </div>
                     </div>
                     <button onClick={onClose} className="ac-close-btn">
@@ -45,7 +45,7 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose
 
                 <div className="ac-body">
                     <div className="ac-section">
-                        <label className="ac-label">Late Submission Penalty</label>
+                        <label className="ac-label">Late Submission Penalty (for suggested scores)</label>
                         <select
                             value={latePenalty}
                             onChange={(e) => setLatePenalty(e.target.value)}
@@ -55,7 +55,7 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose
                             <option value="daily_10">Deduct 10% per day late</option>
                             <option value="zero">Zero Credit if Late</option>
                         </select>
-                        <span className="ac-help-text">Applied to submissions received after the due date.</span>
+                            <span className="ac-help-text">Applied when computing suggested grades; does not change saved grades.</span>
                     </div>
 
                     <div className="ac-section">
@@ -73,11 +73,9 @@ const AutoGradingConfigModal: React.FC<AutoGradingConfigModalProps> = ({ onClose
                     </div>
 
                     <div className="ac-alert">
-                        <AlertTriangle className="text-yellow-600" size={24} />
+                            <AlertTriangle className="text-yellow-600" size={24} />
                         <div className="ac-alert-content">
-                            <strong>Note:</strong> This will overwrite existing auto-generated grades. Manual overrides will be preserved.
-                            <br /><br />
-                            Are you sure you want to proceed?
+                            <strong>Note:</strong> This will run all test cases in bulk and compute suggested scores, but it will not change submission status to graded or overwrite manual grades.
                         </div>
                     </div>
 
