@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase } from '../../lib/api';
+import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, UPLOADS_BASE } from '../../lib/api';
 import type { TestCase, RubricConfig } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
@@ -49,10 +49,7 @@ const AssignmentWizard: React.FC = () => {
     const descriptionRef = useRef<HTMLDivElement>(null);
     const attachmentInputRef = useRef<HTMLInputElement>(null);
 
-    const API_BASE = useMemo(
-        () => import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
-        []
-    );
+    const API_BASE = `${UPLOADS_BASE}/api`;
 
     useEffect(() => {
         if (isEditing && assignmentId) {
@@ -139,7 +136,7 @@ const AssignmentWizard: React.FC = () => {
         const res = await fetch(`${API_BASE}/uploads/attachments`, { method: 'POST', body: form });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
-        const fileUrl = `${API_BASE.replace('/api', '')}/uploads/${data.filePath}`;
+        const fileUrl = `${UPLOADS_BASE}/uploads/${data.filePath}`;
         const safeName = String(data.originalName || file.name).replace(/[<>]/g, '');
         exec(
             'insertHTML',
