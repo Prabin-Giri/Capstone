@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode } from '../../lib/api';
+import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE } from '../../lib/api';
 import { Code, Download, Eye, FolderOpen } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
@@ -61,7 +61,7 @@ const AssignmentDetails: React.FC = () => {
                 try {
                     const loadedFiles = await Promise.all(
                         submission.files.map(async (file, index) => {
-                            const url = `http://localhost:3001/uploads/${file.path}`;
+                            const url = `${UPLOADS_BASE}/uploads/${file.path}`;
                             const res = await fetch(url);
                             let content = '// Failed to load prior submission';
                             if (res.ok) {
@@ -185,7 +185,7 @@ const AssignmentDetails: React.FC = () => {
     }
 
     async function handleLoadIntoEditor(starterPath: string) {
-        const url = `http://localhost:3001/uploads/${starterPath}`;
+        const url = `${UPLOADS_BASE}/uploads/${starterPath}`;
         const filename = cleanFilename(starterPath.split('/').pop() || starterPath);
         try {
             const res = await fetch(url);
@@ -310,7 +310,7 @@ const AssignmentDetails: React.FC = () => {
             });
 
             const token = localStorage.getItem('token');
-            const url = `http://localhost:3001/api/submissions`;
+            const url = `${UPLOADS_BASE}/api/submissions`;
             const method = 'POST';
 
             const res = await fetch(url, {
@@ -465,7 +465,7 @@ const AssignmentDetails: React.FC = () => {
                         {parseStarterPaths(assignment.starter_code_path).map((starterPath, idx) => {
                             const storedFilename = starterPath.split('/').pop() || starterPath;
                             const displayName = cleanFilename(storedFilename);
-                            const downloadUrl = `http://localhost:3001/uploads/${starterPath}`;
+                            const downloadUrl = `${UPLOADS_BASE}/uploads/${starterPath}`;
                             return (
                                 <div key={idx} className="material-item">
                                     <div className="material-info">

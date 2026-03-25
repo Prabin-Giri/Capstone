@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Mail, HelpCircle, User } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
+import { UPLOADS_BASE } from '../../lib/api';
 import { cancelDialog } from '../ui/Dialog';
 import './Layout.css';
 
@@ -56,7 +57,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                 >
                     {userData?.profilePicture ? (
                         <img
-                            src={`http://localhost:3001/uploads/${userData.profilePicture}`}
+                            src={`${UPLOADS_BASE}/uploads/${userData.profilePicture}`}
                             alt="Account"
                             style={{
                                 width: '32px',

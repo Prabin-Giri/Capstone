@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Mail, Shield, ChevronRight, LogOut, ChevronLeft, Settings, Bell, Lock, Camera, Check, X, ALargeSmall } from 'lucide-react';
 import { getUser, logout, updateUser, type UserSession } from '../../lib/auth';
+import { UPLOADS_BASE } from '../../lib/api';
 import Cropper, { type Area } from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImage';
 import UserAvatar from '../ui/UserAvatar';
@@ -163,7 +164,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                 const formData = new FormData();
                 formData.append('file', pendingAvatar.blob, 'profile.jpg');
 
-                const uploadResponse = await fetch(`http://localhost:3001/api/uploads/profile-picture/${userData.id}`, {
+                const uploadResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${userData.id}`, {
                     method: 'POST',
                     body: formData
                 });

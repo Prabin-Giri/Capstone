@@ -1,4 +1,5 @@
 import React from 'react';
+import { UPLOADS_BASE } from '../../lib/api';
 import './UserAvatar.css';
 
 interface UserAvatarProps {
@@ -26,7 +27,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40, className = ''
     if (profilePic && !imgError) {
         const imageUrl = profilePic.startsWith('http') 
             ? profilePic 
-            : `http://localhost:3001/uploads/${profilePic}`;
+            : `${UPLOADS_BASE}/uploads/${profilePic}`;
             
         return (
             <div className={`user-avatar ${className}`} style={avatarStyle}>
