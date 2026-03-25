@@ -239,6 +239,8 @@ export interface Assignment {
     late_penalty_value?: number;
     late_penalty_cap?: number;
     rubric_config?: RubricConfig | string | null;
+    /** Faculty-only: when 1, GAs see "Student 1 / 2 / …" instead of real names */
+    hide_student_names?: number | boolean;
 }
 
 export async function getAssignments(): Promise<Assignment[]> {

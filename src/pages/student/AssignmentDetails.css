@@ -113,6 +113,85 @@
     color: var(--text-secondary);
 }
 
+/* Instruction file attachments */
+.instruction-attachments {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.instruction-file-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.instruction-file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.instruction-file-icon {
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
+.instruction-file-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.instruction-file-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.instruction-file-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.instruction-file-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.instruction-file-btn.download {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.instruction-file-btn.download:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
 .rubric-table {
     width: 100%;
     border-collapse: collapse;

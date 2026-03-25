@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor, { useMonaco } from '@monaco-editor/react';
-import { Play, FileText, Folder, Plus, Upload, CheckCircle, XCircle, Terminal, X } from 'lucide-react';
+import { Play, FileText, Folder, Plus, Upload, CheckCircle, XCircle, Terminal, X, GripHorizontal, PanelBottomOpen, Maximize2, Minimize2 } from 'lucide-react';
 import './AssignmentEditor.css';
 import { showDialog } from './Dialog';
 import type { TestResult } from '../../lib/api';
@@ -60,12 +60,15 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     const [openFileIds, setOpenFileIds] = useState<string[]>([files[0].id]);
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;
     const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobile());
-    const [sidebarWidth, setSidebarWidth] = useState(180);
+    const [sidebarWidth, setSidebarWidth] = useState(200);
     const [isResizing, setIsResizing] = useState(false);
     const [testResults, setTestResults] = useState<TestResult[] | null>(null);
     const [testLog, setTestLog] = useState<string | null>(null);
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+    const [terminalHeight, setTerminalHeight] = useState(240);
+    const [isTerminalResizing, setIsTerminalResizing] = useState(false);
     const [terminalTab, setTerminalTab] = useState<'tests' | 'custom'>('tests');
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Custom Run State
     const [customStdin, setCustomStdin] = useState('');
@@ -78,7 +81,32 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const terminalResizeStartY = useRef(0);
+    const terminalResizeStartHeight = useRef(0);
     const monaco = useMonaco();
+
+    const pctToEditorFont = (pct: number) => Math.round(14 * pct / 100);
+    const [editorFontSize, setEditorFontSize] = useState<number>(() =>
+        pctToEditorFont(parseInt(localStorage.getItem('app-font-size') || '100'))
+    );
+
+    // Sync editor font size with global app font size setting
+    useEffect(() => {
+        const handleFontSizeChange = (e: Event) => {
+            setEditorFontSize(pctToEditorFont((e as CustomEvent<number>).detail));
+        };
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === 'app-font-size' && e.newValue) {
+                setEditorFontSize(pctToEditorFont(parseInt(e.newValue)));
+            }
+        };
+        window.addEventListener('font-size-change', handleFontSizeChange);
+        window.addEventListener('storage', handleStorage);
+        return () => {
+            window.removeEventListener('font-size-change', handleFontSizeChange);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, []);
 
     // Re-sync files if initialFiles change (e.g. starter code loaded)
     useEffect(() => {
@@ -96,8 +124,9 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
         }
     }, [files, onChange]);
 
-    // Reactively detect dark mode from body class (AccountDrawer adds 'dark-theme' to document.body)
+    // Reactively detect dark mode from body class
     const getIsDark = () =>
+        localStorage.getItem('theme') === 'dark' ||
         theme === 'dark' ||
         document.body.classList.contains('dark-theme') ||
         document.documentElement.classList.contains('dark') ||
@@ -110,22 +139,15 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
 
     useEffect(() => {
         setIsDark(getIsDark());
-
-        // Watch body and html for class changes (covers CSS-class-based theming)
         const observer = new MutationObserver(() => setIsDark(getIsDark()));
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
         observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-        // Watch localStorage changes (fired when AccountDrawer calls localStorage.setItem)
         const handleStorage = (e: StorageEvent) => {
-            if (e.key === 'app-theme' || e.key === null) setIsDark(getIsDark());
+            if (e.key === 'app-theme' || e.key === 'theme' || e.key === null) setIsDark(getIsDark());
         };
         window.addEventListener('storage', handleStorage);
-
-        // Also listen for a custom 'theme-change' event dispatched by AccountDrawer
         const handleThemeEvent = () => setIsDark(getIsDark());
         window.addEventListener('theme-change', handleThemeEvent);
-
         return () => {
             observer.disconnect();
             window.removeEventListener('storage', handleStorage);
@@ -141,7 +163,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
         }
     }, [monaco, editorTheme]);
 
-    const activeFile = files.find(f => f.id === activeFileId) || files[0];
+    const activeFile = activeFileId ? (files.find(f => f.id === activeFileId) ?? null) : null;
 
     const handleEditorChange = (value: string | undefined) => {
         setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value || '' } : f));
@@ -158,7 +180,6 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             setIsCreatingFile(false);
             return;
         }
-
         const newFile: EditorFile = {
             id: Date.now().toString(),
             name: newFileName.trim(),
@@ -173,22 +194,18 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     };
 
     const handleNewFileKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            confirmNewFile();
-        } else if (e.key === 'Escape') {
+        if (e.key === 'Enter') confirmNewFile();
+        else if (e.key === 'Escape') {
             setIsCreatingFile(false);
             setNewFileName('');
         }
     };
 
-    const handleFileUploadClick = () => {
-        fileInputRef.current?.click();
-    };
+    const handleFileUploadClick = () => fileInputRef.current?.click();
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFiles = e.target.files;
         if (!uploadedFiles) return;
-
         Array.from(uploadedFiles).forEach(file => {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -205,8 +222,6 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             };
             reader.readAsText(file);
         });
-
-        // Reset input
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -224,7 +239,6 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             cancelText: 'Cancel',
         });
         if (!confirmed) return;
-
         const updatedFiles = files.filter(f => f.id !== id);
         setFiles(updatedFiles);
         setOpenFileIds(prev => prev.filter(fid => fid !== id));
@@ -234,9 +248,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                 setActiveFileId(remainingOpen[0]);
             } else {
                 setActiveFileId(updatedFiles[0]?.id || '');
-                if (updatedFiles[0]) {
-                    setOpenFileIds([updatedFiles[0].id]);
-                }
+                if (updatedFiles[0]) setOpenFileIds([updatedFiles[0].id]);
             }
         }
     };
@@ -248,19 +260,16 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
         if (activeFileId === id && nextOpenIds.length > 0) {
             setActiveFileId(nextOpenIds[0]);
         } else if (nextOpenIds.length === 0) {
-            // Unset active file if no tabs open
             setActiveFileId('');
         }
     };
 
     const handleFileClick = (id: string) => {
-        if (!openFileIds.includes(id)) {
-            setOpenFileIds(prev => [...prev, id]);
-        }
+        if (!openFileIds.includes(id)) setOpenFileIds(prev => [...prev, id]);
         setActiveFileId(id);
     };
 
-    // Resizing logic
+    // Sidebar resizing
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isResizing) return;
@@ -269,9 +278,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             const newWidth = Math.max(150, Math.min(e.clientX - containerLeft, 600));
             setSidebarWidth(newWidth);
         };
-        const handleMouseUp = () => {
-            setIsResizing(false);
-        };
+        const handleMouseUp = () => setIsResizing(false);
         if (isResizing) {
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
@@ -281,6 +288,34 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             document.removeEventListener('mouseup', handleMouseUp);
         };
     }, [isResizing]);
+
+    // Exit fullscreen on Escape
+    useEffect(() => {
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isFullscreen) setIsFullscreen(false);
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isFullscreen]);
+
+    // Terminal resizing (drag from top)
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isTerminalResizing) return;
+            const delta = terminalResizeStartY.current - e.clientY;
+            const newHeight = Math.max(80, Math.min(terminalResizeStartHeight.current + delta, 600));
+            setTerminalHeight(newHeight);
+        };
+        const handleMouseUp = () => setIsTerminalResizing(false);
+        if (isTerminalResizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isTerminalResizing]);
 
     const handleRunClick = async () => {
         if (!onRunTests) return;
@@ -312,23 +347,32 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
         }
     };
 
-    return (
-        <div className="assignment-editor-container">
-            {/* Top Toolbar */}
-            <div className="editor-toolbar">
-                <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    const langLabel = activeFile?.language
+        ? activeFile.language.charAt(0).toUpperCase() + activeFile.language.slice(1)
+        : language;
 
-                    <span className="editor-title" style={{ fontSize: '1rem', fontWeight: 600 }}>Project Workspace</span>
+    return (
+        <div className={`assignment-editor-container${isFullscreen ? ' editor-fullscreen' : ''}`} data-editor-theme={isDark ? 'dark' : 'light'}>
+            {/* VSCode-like Title Bar */}
+            <div className="editor-titlebar">
+                <div className="titlebar-left">
+                    <span className="editor-title">Project Workspace</span>
                 </div>
-                <div className="toolbar-right" style={{ display: 'flex', gap: '8px' }}>
+                <div className="titlebar-right">
+                    <button
+                        className="btn-icon-titlebar"
+                        onClick={() => setIsFullscreen(f => !f)}
+                        title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                    >
+                        {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                    </button>
                     {onRunCustomInput && (
                         <button
-                            className="btn-run-tests"
-                            style={{ backgroundColor: 'var(--light-grey)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                            className="btn-run-tests btn-secondary-run"
                             onClick={handleCustomRunClick}
                             disabled={isRunning}
                         >
-                            <Terminal size={16} className={isRunning && terminalTab === 'custom' ? 'spin-icon' : ''} />
+                            <Terminal size={14} className={isRunning && terminalTab === 'custom' ? 'spin-icon' : ''} />
                             {isRunning && terminalTab === 'custom' ? 'Running...' : 'Run with Input'}
                         </button>
                     )}
@@ -338,19 +382,20 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                             onClick={handleRunClick}
                             disabled={isRunning}
                         >
-                            <Play size={16} className={isRunning && terminalTab === 'tests' ? 'spin-icon' : ''} />
+                            <Play size={14} className={isRunning && terminalTab === 'tests' ? 'spin-icon' : ''} fill={isRunning && terminalTab === 'tests' ? 'currentColor' : 'none'} />
                             {isRunning && terminalTab === 'tests' ? 'Running...' : 'Run Tests'}
                         </button>
                     )}
                 </div>
             </div>
 
-            <div ref={containerRef} className="editor-main-area" style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-                {/* Mobile backdrop: tap outside sidebar to close */}
+            {/* Body: sidebar + editor pane */}
+            <div ref={containerRef} className="editor-body">
+                {/* Mobile overlay backdrop */}
                 {isSidebarOpen && isMobile() && (
                     <div
                         onClick={() => setIsSidebarOpen(false)}
-                        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 20 }}
+                        className="sidebar-backdrop"
                     />
                 )}
 
@@ -358,38 +403,33 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                 {isSidebarOpen && (
                     <div
                         className="editor-sidebar"
-                        style={{
-                            ...(isMobile()
-                                ? { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 30, width: '220px', boxShadow: '4px 0 20px rgba(0,0,0,0.18)' }
-                                : { width: `${sidebarWidth}px`, flexShrink: 0 }
-                            ),
-                            borderRight: '1px solid var(--border-color)',
-                            display: 'flex',
-                            minWidth: 200,
-                            background: '#1e1e1e',
-                        }}
+                        style={isMobile()
+                            ? { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 30, width: '220px', boxShadow: '4px 0 24px rgba(0,0,0,0.3)' }
+                            : { width: `${sidebarWidth}px` }
+                        }
                     >
-                        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #333', cursor: 'default' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <button onClick={() => setIsSidebarOpen(false)} title="Collapse" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}><Folder size={16} /></button>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', letterSpacing: '0.05em' }}>FILES</span>
+                        <div className="sidebar-section-label">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                    className="sidebar-toggle-btn"
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    title="Collapse Explorer"
+                                >
+                                    <Folder size={13} />
+                                </button>
+                                <span>EXPLORER</span>
                             </div>
-                            <div className="sidebar-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <button onClick={handleAddFileClick} title="New File" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><Plus size={16} /></button>
-                                <button onClick={handleFileUploadClick} title="Upload File" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><Upload size={16} /></button>
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    style={{ display: 'none' }}
-                                    onChange={handleFileUpload}
-                                    multiple
-                                />
+                            <div className="sidebar-actions">
+                                <button onClick={handleAddFileClick} title="New File"><Plus size={15} /></button>
+                                <button onClick={handleFileUploadClick} title="Upload File"><Upload size={15} /></button>
+                                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} multiple />
                             </div>
                         </div>
+                        <div className="sidebar-files-label">PROJECT</div>
                         <div className="file-list">
                             {isCreatingFile && (
                                 <div className="file-item new-file-input-wrapper">
-                                    <FileText size={16} className="file-icon" />
+                                    <FileText size={14} className="file-icon" />
                                     <input
                                         ref={newFileInputRef}
                                         type="text"
@@ -408,14 +448,11 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                     className={`file-item ${f.id === activeFileId ? 'active' : ''}`}
                                     onClick={() => handleFileClick(f.id)}
                                 >
-                                    <FileText size={16} className="file-icon" />
+                                    <FileText size={14} className="file-icon" />
                                     <span className="file-name">{f.name}</span>
                                     {!f.isStarter && (
-                                        <button
-                                            className="file-delete-btn"
-                                            onClick={(e) => handleDeleteFile(e, f.id)}
-                                        >
-                                            <X size={14} />
+                                        <button className="file-delete-btn" onClick={(e) => handleDeleteFile(e, f.id)}>
+                                            <X size={13} />
                                         </button>
                                     )}
                                 </div>
@@ -424,35 +461,25 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                     </div>
                 )}
 
-                {/* Resizer Handle — desktop only */}
+                {/* Sidebar resize handle */}
                 {isSidebarOpen && !isMobile() && (
                     <div
+                        className={`sidebar-resize-handle ${isResizing ? 'active' : ''}`}
                         onMouseDown={() => setIsResizing(true)}
-                        style={{
-                            width: '4px',
-                            cursor: 'col-resize',
-                            background: isResizing ? 'var(--primary-color)' : 'transparent',
-                            zIndex: 10,
-                            transition: 'background 0.2s',
-                            flexShrink: 0
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--primary-light)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = isResizing ? 'var(--primary-color)' : 'transparent')}
                     />
                 )}
 
                 {/* Main Editor Pane */}
-                <div className="editor-pane" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                    {/* Tab Bar Container */}
-                    <div className="editor-tabs" style={{ display: 'flex', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', alignItems: 'center' }}>
+                <div className="editor-pane">
+                    {/* Tab Bar */}
+                    <div className="editor-tabs">
                         {!isSidebarOpen && (
                             <button
-                                className="btn-icon"
+                                className="tab-sidebar-toggle"
                                 onClick={() => setIsSidebarOpen(true)}
-                                title="Expand Explorer"
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', color: 'var(--text-secondary)' }}
+                                title="Show Explorer"
                             >
-                                <Folder size={18} />
+                                <Folder size={16} />
                             </button>
                         )}
                         {openFileIds.map(fid => {
@@ -462,186 +489,216 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                             return (
                                 <div
                                     key={fid}
+                                    className={`editor-tab ${isActive ? 'active' : ''}`}
                                     onClick={() => setActiveFileId(fid)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
-                                        cursor: 'pointer',
-                                        borderBottom: isActive ? '2px solid var(--primary-color)' : '2px solid transparent',
-                                        background: isActive ? 'var(--light-grey)' : 'transparent',
-                                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                        userSelect: 'none',
-                                        fontSize: '13px'
-                                    }}
                                 >
+                                    <FileText size={13} style={{ opacity: 0.7, flexShrink: 0 }} />
                                     <span>{tabFile.name}</span>
                                     <button
+                                        className="tab-close-btn"
                                         onClick={(e) => handleTabClose(e, fid)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', opacity: 0.6 }}
                                     >
-                                        <X size={12} />
+                                        <X size={11} />
                                     </button>
                                 </div>
                             );
                         })}
                     </div>
-                    {activeFile ? (
-                        <Editor
-                            height="400px"
-                            language={activeFile.language}
-                            theme={editorTheme}
-                            value={activeFile.content}
-                            onChange={handleEditorChange}
-                            options={{
-                                minimap: { enabled: false },
-                                fontSize: 14,
-                                lineHeight: 24,
-                                padding: { top: 16 },
-                                scrollBeyondLastLine: false,
-                                smoothScrolling: true,
-                                fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                                readOnly: readOnly
-                            }}
-                        />
-                    ) : (
-                        <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                            No file open. Select a file from the explorer.
+
+                    {/* Monaco Editor fills remaining space */}
+                    <div className="monaco-wrapper">
+                        {activeFile ? (
+                            <Editor
+                                height="100%"
+                                language={activeFile.language}
+                                theme={editorTheme}
+                                value={activeFile.content}
+                                onChange={handleEditorChange}
+                                options={{
+                                    minimap: { enabled: false },
+                                    fontSize: editorFontSize,
+                                    lineHeight: Math.round(editorFontSize * 1.57),
+                                    padding: { top: 12 },
+                                    scrollBeyondLastLine: false,
+                                    smoothScrolling: true,
+                                    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                                    readOnly: readOnly,
+                                    renderLineHighlight: 'all',
+                                    cursorBlinking: 'smooth',
+                                    bracketPairColorization: { enabled: true },
+                                    folding: true,
+                                    lineNumbers: 'on',
+                                    glyphMargin: false,
+                                    overviewRulerBorder: false,
+                                }}
+                            />
+                        ) : (
+                            <div className="monaco-empty-state">
+                                <Folder size={36} style={{ opacity: 0.25 }} />
+                                <span style={{ fontSize: '0.9rem', opacity: 0.5 }}>Open a file from the Explorer to start editing</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Terminal Panel — drag from top handle */}
+                    {isTerminalOpen && (
+                        <div className="editor-terminal" style={{ height: `${terminalHeight}px` }}>
+                            {/* Drag handle */}
+                            <div
+                                className={`terminal-resize-handle ${isTerminalResizing ? 'active' : ''}`}
+                                onMouseDown={(e) => {
+                                    terminalResizeStartY.current = e.clientY;
+                                    terminalResizeStartHeight.current = terminalHeight;
+                                    setIsTerminalResizing(true);
+                                    e.preventDefault();
+                                }}
+                            >
+                                <GripHorizontal size={14} />
+                            </div>
+
+                            {/* Terminal Header */}
+                            <div className="terminal-header">
+                                <div className="terminal-tabs">
+                                    <div
+                                        className={`terminal-tab ${terminalTab === 'tests' ? 'active' : ''}`}
+                                        onClick={() => setTerminalTab('tests')}
+                                    >
+                                        <CheckCircle size={13} />
+                                        <span>Test Results</span>
+                                    </div>
+                                    {onRunCustomInput && (
+                                        <div
+                                            className={`terminal-tab ${terminalTab === 'custom' ? 'active' : ''}`}
+                                            onClick={() => setTerminalTab('custom')}
+                                        >
+                                            <Play size={13} />
+                                            <span>Custom Run</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <button className="terminal-close" onClick={() => setIsTerminalOpen(false)} title="Close Terminal">
+                                    <X size={14} />
+                                </button>
+                            </div>
+
+                            <div className="terminal-content">
+                                {terminalTab === 'tests' ? (
+                                    testResults ? (
+                                        <div className="terminal-results-grid">
+                                            {(() => {
+                                                const totalPoints = testResults.reduce((s, r) => s + (r.points ?? 0), 0) || points;
+                                                const earnedPoints = testResults.reduce((s, r) => s + (r.passed ? (r.points ?? 0) : 0), 0);
+                                                return (
+                                                    <div className="terminal-summary">
+                                                        <h3>Execution Summary</h3>
+                                                        <p>Passed: {testResults.filter(r => r.passed).length} / {testResults.length}</p>
+                                                        {totalPoints > 0 && <p>Points: {earnedPoints} / {totalPoints}</p>}
+                                                    </div>
+                                                );
+                                            })()}
+                                            <div className="terminal-test-cases">
+                                                {testResults.map((result, idx) => (
+                                                    <div key={idx} className={`terminal-test-case ${result.passed ? 'passed' : 'failed'}`}>
+                                                        <div className="test-case-header">
+                                                            {result.passed ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                                                            <span>Test Case {idx + 1} {result.is_public === 0 ? '(Hidden)' : ''}</span>
+                                                        </div>
+                                                        {result.is_public === 1 && !result.passed && (
+                                                            <div className="test-case-details">
+                                                                <div><strong>Expected:</strong> <code>{result.expected}</code></div>
+                                                                <div><strong>Actual:</strong> <code>{result.actual}</code></div>
+                                                                {result.error && <div className="test-error">{result.error}</div>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {testLog && (
+                                                <div className="terminal-log-output">
+                                                    <h4>Console Log</h4>
+                                                    <pre>{testLog}</pre>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="terminal-loading">
+                                            <span className={isRunning && terminalTab === 'tests' ? 'blinking-cursor' : ''}>
+                                                {isRunning && terminalTab === 'tests'
+                                                    ? (testLog || 'Executing tests...')
+                                                    : (testLog || '$ Ready. Click "Run Tests" to see results.')}
+                                            </span>
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="terminal-custom-run">
+                                        <div className="custom-run-input-area">
+                                            <label className="terminal-label">STDIN</label>
+                                            <textarea
+                                                value={customStdin}
+                                                onChange={e => setCustomStdin(e.target.value)}
+                                                placeholder="Enter standard input here..."
+                                                className="custom-stdin-textarea"
+                                            />
+                                            <button
+                                                className="btn-run-tests"
+                                                onClick={handleCustomRunClick}
+                                                disabled={isRunning}
+                                                style={{ alignSelf: 'flex-end', marginTop: '6px' }}
+                                            >
+                                                <Play size={13} />
+                                                {isRunning && terminalTab === 'custom' ? 'Executing...' : 'Run Code'}
+                                            </button>
+                                        </div>
+                                        <div className="custom-run-output-area">
+                                            <label className="terminal-label">OUTPUT</label>
+                                            <div className="custom-output-box">
+                                                {isRunning && terminalTab === 'custom' ? (
+                                                    <span className="blinking-cursor">Executing in sandbox...</span>
+                                                ) : customRunResult ? (
+                                                    <>
+                                                        {customRunResult.stdout && <div>{customRunResult.stdout}</div>}
+                                                        {customRunResult.stderr && <div style={{ color: '#f87171', marginTop: customRunResult.stdout ? '8px' : '0' }}>{customRunResult.stderr}</div>}
+                                                        {customRunResult.timedOut && <div style={{ color: '#f87171', marginTop: '8px' }}>Process timed out after 10 seconds.</div>}
+                                                        {customRunResult.exitCode !== 0 && !customRunResult.timedOut && (
+                                                            <div style={{ color: '#f87171', marginTop: '8px' }}>Exit code: {customRunResult.exitCode}</div>
+                                                        )}
+                                                        {!customRunResult.stdout && !customRunResult.stderr && !customRunResult.timedOut && customRunResult.exitCode === 0 && (
+                                                            <span style={{ opacity: 0.4 }}>(No output)</span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span style={{ opacity: 0.4 }}>$ Output will appear here.</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Terminal View */}
-            {isTerminalOpen && (
-                <div className="editor-terminal">
-                    <div className="terminal-header">
-                        <div className="terminal-title" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', opacity: terminalTab === 'tests' ? 1 : 0.5 }} onClick={() => setTerminalTab('tests')}>
-                                <Terminal size={16} />
-                                <span>Test Results</span>
-                            </div>
-                            {onRunCustomInput && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', opacity: terminalTab === 'custom' ? 1 : 0.5 }} onClick={() => setTerminalTab('custom')}>
-                                    <Play size={16} />
-                                    <span>Custom Run</span>
-                                </div>
-                            )}
-                        </div>
-                        <button className="terminal-close" onClick={() => setIsTerminalOpen(false)}>
-                            <X size={16} />
-                        </button>
-                    </div>
-
-                    <div className="terminal-content">
-                        {terminalTab === 'tests' ? (
-                            testResults ? (
-                                <div className="terminal-results-grid">
-                                    {(() => {
-                                        const totalPoints = testResults.reduce((s, r) => s + (r.points ?? 0), 0) || points;
-                                        const earnedPoints = testResults.reduce((s, r) => s + (r.passed ? (r.points ?? 0) : 0), 0);
-
-                                        return (
-                                            <div className="terminal-summary">
-                                                <h3>Execution Summary</h3>
-                                                <p>Passed: {testResults.filter(r => r.passed).length} / {testResults.length}</p>
-                                                {totalPoints > 0 && <p>Points: {earnedPoints} / {totalPoints}</p>}
-                                            </div>
-                                        )
-                                    })()}
-
-                                    <div className="terminal-test-cases">
-                                        {testResults.map((result, idx) => (
-                                            <div key={idx} className={`terminal-test-case ${result.passed ? 'passed' : 'failed'}`}>
-                                                <div className="test-case-header">
-                                                    {result.passed ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                                                    <span>Test Case {idx + 1} {result.is_public === 0 ? '(Hidden)' : ''}</span>
-                                                </div>
-                                                {result.is_public === 1 && !result.passed && (
-                                                    <div className="test-case-details">
-                                                        <div><strong>Expected:</strong> <code>{result.expected}</code></div>
-                                                        <div><strong>Actual:</strong> <code>{result.actual}</code></div>
-                                                        {result.error && <div className="test-error">{result.error}</div>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {testLog && (
-                                        <div className="terminal-log-output">
-                                            <h4>Console Log</h4>
-                                            <pre>{testLog}</pre>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="terminal-loading">
-                                    <span className={isRunning && terminalTab === 'tests' ? 'blinking-cursor' : ''}>
-                                        {isRunning && terminalTab === 'tests' ? (testLog || 'Executing tests...') : (testLog || 'Ready. Click "Run Tests" to see results.')}
-                                    </span>
-                                </div>
-                            )
-                        ) : (
-                            <div className="terminal-custom-run" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', padding: '1rem' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Standard Input (stdin)</label>
-                                    <textarea
-                                        value={customStdin}
-                                        onChange={e => setCustomStdin(e.target.value)}
-                                        placeholder="Enter dataset or manual input here..."
-                                        style={{ 
-                                            flex: 1, 
-                                            background: 'var(--bg-body)', 
-                                            border: '1px solid var(--border-color)', 
-                                            borderRadius: '6px', 
-                                            padding: '8px', 
-                                            color: 'var(--text-primary)', 
-                                            fontFamily: 'monospace',
-                                            resize: 'none'
-                                        }}
-                                    />
-                                    <div style={{ textAlign: 'right' }}>
-                                        <button 
-                                            className="btn btn-primary btn-sm" 
-                                            onClick={handleCustomRunClick} 
-                                            disabled={isRunning}
-                                            style={{ marginTop: '0.5rem' }}
-                                        >
-                                            {isRunning && terminalTab === 'custom' ? 'Executing...' : 'Run Code'}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Execution Output</label>
-                                    <div style={{ 
-                                        flex: 1, 
-                                        background: '#1e1e1e', 
-                                        color: '#d4d4d4', 
-                                        borderRadius: '6px', 
-                                        padding: '12px', 
-                                        fontFamily: 'monospace', 
-                                        overflowY: 'auto',
-                                        fontSize: '13px',
-                                        whiteSpace: 'pre-wrap'
-                                    }}>
-                                        {isRunning && terminalTab === 'custom' ? (
-                                            <span className="blinking-cursor">Executing your code in sandbox...</span>
-                                        ) : customRunResult ? (
-                                            <>
-                                                {customRunResult.stdout && <div>{customRunResult.stdout}</div>}
-                                                {customRunResult.stderr && <div style={{ color: '#f87171', marginTop: customRunResult.stdout ? '8px' : '0' }}>{customRunResult.stderr}</div>}
-                                                {customRunResult.timedOut && <div style={{ color: '#f87171', marginTop: '8px' }}>Process timed out after 10 seconds.</div>}
-                                                {customRunResult.exitCode !== 0 && !customRunResult.timedOut && <div style={{ color: '#f87171', marginTop: '8px' }}>Program exited with code {customRunResult.exitCode}</div>}
-                                                {!customRunResult.stdout && !customRunResult.stderr && !customRunResult.timedOut && customRunResult.exitCode === 0 && <div style={{ opacity: 0.5 }}>(Program finished with no output)</div>}
-                                            </>
-                                        ) : (
-                                            <span style={{ opacity: 0.5 }}>Output will appear here.</span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+            {/* VSCode-like Status Bar */}
+            <div className="editor-status-bar">
+                <div className="status-bar-left">
+                    <span className="status-item">{langLabel}</span>
+                    {activeFile && <span className="status-item status-filename">{activeFile.name}</span>}
                 </div>
-            )}
+                <div className="status-bar-right">
+                    {(onRunTests || onRunCustomInput) && (
+                        <button
+                            className="status-terminal-btn"
+                            onClick={() => setIsTerminalOpen(v => !v)}
+                            title={isTerminalOpen ? 'Hide Terminal' : 'Show Terminal'}
+                        >
+                            <PanelBottomOpen size={13} />
+                            <span>Terminal</span>
+                        </button>
+                    )}
+                    {readOnly && <span className="status-item status-readonly">READ ONLY</span>}
+                </div>
+            </div>
         </div>
     );
 };

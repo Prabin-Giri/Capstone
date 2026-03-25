@@ -25,6 +25,7 @@ dist-ssr
 
 # Env (secrets – do not commit)
 .env
+docker-compose.yml
 
 # Server specific
 server/node_modules

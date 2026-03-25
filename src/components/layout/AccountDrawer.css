@@ -393,8 +393,8 @@
 
 .settings-item {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
     padding: 1rem;
     background: var(--bg-surface);
     border-radius: 16px;
@@ -402,21 +402,31 @@
     transition: all 0.2s;
 }
 
-.settings-item-left {
+.settings-item-body {
+    flex: 1;
+    min-width: 0;
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .settings-icon {
     width: 40px;
     height: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--light-grey);
     color: var(--primary-text);
     border-radius: 12px;
+    margin-top: 2px;
+}
+
+.settings-label {
+    width: 100%;
 }
 
 .settings-label h4 {
@@ -506,6 +516,43 @@
     font-weight: 700;
     color: var(--primary-color);
     background: var(--light-grey);
+}
+
+/* Font Size Segmented Control */
+.font-size-segmented {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.font-size-seg-btn {
+    padding: 6px 11px;
+    border: none;
+    border-right: 1px solid var(--border-color);
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+}
+
+.font-size-seg-btn:last-child {
+    border-right: none;
+}
+
+.font-size-seg-btn:hover:not(.active) {
+    background: var(--light-grey);
+    color: var(--text-primary);
+}
+
+.font-size-seg-btn.active {
+    background: var(--primary-color);
+    color: #fff;
 }
 
 

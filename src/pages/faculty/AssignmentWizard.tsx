@@ -5,7 +5,7 @@ import type { TestCase, RubricConfig } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
-import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus, X } from 'lucide-react';
 import './AssignmentWizard.css';
 import { showDialog } from '../../components/ui/Dialog';
 
@@ -31,7 +31,9 @@ const AssignmentWizard: React.FC = () => {
         late_penalty_value: '10' as string | number,
         late_penalty_cap: '50' as string | number
     });
-    const [starterCodeFile, setStarterCodeFile] = useState<File | null>(null);
+    // existingStarterPaths: already-uploaded paths (from DB); starterCodeFiles: new local files pending upload
+    const [existingStarterPaths, setExistingStarterPaths] = useState<string[]>([]);
+    const [starterCodeFiles, setStarterCodeFiles] = useState<File[]>([]);
     const [testCaseFile, setTestCaseFile] = useState<File | null>(null);
     const [testCases, setTestCases] = useState<(Omit<Partial<TestCase>, 'points'> & { points?: number | string })[]>([]);
     const [loading, setLoading] = useState(isEditing);
@@ -75,6 +77,15 @@ const AssignmentWizard: React.FC = () => {
                     late_penalty_value: data.late_penalty_value != null ? data.late_penalty_value : 10,
                     late_penalty_cap: data.late_penalty_cap != null ? data.late_penalty_cap : 50
                 });
+                // Parse existing starter code paths (supports both plain string and JSON array)
+                if (data.starter_code_path) {
+                    try {
+                        const parsed = JSON.parse(data.starter_code_path);
+                        setExistingStarterPaths(Array.isArray(parsed) ? parsed : [data.starter_code_path]);
+                    } catch {
+                        setExistingStarterPaths([data.starter_code_path]);
+                    }
+                }
                 setTestCases(cases.map(tc => ({ ...tc, points: tc.points })));
 
                 // Load rubric configuration if present
@@ -179,9 +190,17 @@ const AssignmentWizard: React.FC = () => {
             let starterCodePath = formData.starter_code_path;
             let testCaseFilePath = formData.test_case_file_path;
 
-            if (starterCodeFile) {
-                const uploadResult = await uploadStarterCode(starterCodeFile);
-                starterCodePath = uploadResult.filePath;
+            // Upload any new files and merge with remaining existing paths
+            const newPaths = await Promise.all(
+                starterCodeFiles.map(f => uploadStarterCode(f).then(r => r.filePath))
+            );
+            const allPaths = [...existingStarterPaths, ...newPaths];
+            if (allPaths.length === 0) {
+                starterCodePath = '';
+            } else if (allPaths.length === 1) {
+                starterCodePath = allPaths[0];
+            } else {
+                starterCodePath = JSON.stringify(allPaths);
             }
 
             if (testCaseFile) {
@@ -669,13 +688,38 @@ const AssignmentWizard: React.FC = () => {
                     <div className="upload-box-wizard">
                         <input
                             type="file"
-                            onChange={e => e.target.files?.[0] && setStarterCodeFile(e.target.files[0])}
+                            multiple
+                            onChange={e => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                    const picked = Array.from(e.target.files);
+                                    setStarterCodeFiles(prev => [...prev, ...picked]);
+                                    e.target.value = '';
+                                }
+                            }}
                             className="form-input-file"
                         />
-                        {formData.starter_code_path && (
-                            <p className="file-info-wizard">
-                                Current: <span className="active-filename">{formData.starter_code_path}</span>
-                            </p>
+                        {(existingStarterPaths.length > 0 || starterCodeFiles.length > 0) && (
+                            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {existingStarterPaths.map((p, i) => (
+                                    <div key={`existing-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px', background: 'var(--bg-body)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                                        <span className="active-filename" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                                            {p.replace(/^\d+-\d+-/, '')}
+                                        </span>
+                                        <button type="button" onClick={() => setExistingStarterPaths(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', flexShrink: 0 }} title="Remove">
+                                            <X size={13} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {starterCodeFiles.map((f, i) => (
+                                    <div key={`new-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px', background: 'color-mix(in srgb, var(--primary-color) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--primary-color) 25%, transparent)', borderRadius: '6px' }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-text)', background: 'color-mix(in srgb, var(--primary-color) 15%, transparent)', padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>NEW</span>
+                                        <span className="active-filename" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{f.name}</span>
+                                        <button type="button" onClick={() => setStarterCodeFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', flexShrink: 0 }} title="Remove">
+                                            <X size={13} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>

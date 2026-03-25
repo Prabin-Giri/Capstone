@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment } from '../../lib/api';
+import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment, updateAssignment } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
 import { BarChart2, Search, Play } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -17,10 +17,15 @@ const GradingDashboard: React.FC = () => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const basePath = pathname.startsWith('/ta') ? '/ta' : '/faculty';
+    const isFaculty = basePath === '/faculty';
+    const isTA = basePath === '/ta';
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [groupedSubmissions, setGroupedSubmissions] = useState<Record<string, Submission[]>>({});
+    // Ordered list of student_ids (for stable anon numbering)
+    const [studentOrder, setStudentOrder] = useState<string[]>([]);
     const [selectedStudentSubmissions, setSelectedStudentSubmissions] = useState<Submission[] | null>(null);
     const [loading, setLoading] = useState(true);
+    const [togglingHide, setTogglingHide] = useState(false);
     const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
     const [showAutoGradeModal, setShowAutoGradeModal] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
@@ -55,10 +60,39 @@ const GradingDashboard: React.FC = () => {
             });
 
             setGroupedSubmissions(grouped);
+            // Preserve stable order for anonymous numbering
+            setStudentOrder(prev => {
+                const existing = new Set(prev);
+                const newIds = Object.keys(grouped).filter(id => !existing.has(id));
+                return [...prev, ...newIds];
+            });
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    }
+
+    // Only hide names for TAs — faculty always sees real names
+    const hideNames = isTA && !!assignment?.hide_student_names;
+
+    // Stable anonymous label based on studentOrder list
+    const anonLabel = (studentId: string) => {
+        const idx = studentOrder.indexOf(studentId);
+        return idx >= 0 ? `Student ${idx + 1}` : 'Student';
+    };
+
+    async function handleToggleHideNames() {
+        if (!assignment || !assignmentId) return;
+        setTogglingHide(true);
+        try {
+            const newVal = assignment.hide_student_names ? 0 : 1;
+            await updateAssignment(assignmentId, { hide_student_names: newVal });
+            setAssignment(prev => prev ? { ...prev, hide_student_names: newVal } : prev);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setTogglingHide(false);
         }
     }
 
@@ -113,6 +147,26 @@ const GradingDashboard: React.FC = () => {
                 </div>
             </div>
 
+            {isFaculty && (
+                <label className="hide-names-checkbox-row">
+                    <input
+                        type="checkbox"
+                        checked={!!assignment.hide_student_names}
+                        onChange={handleToggleHideNames}
+                        disabled={togglingHide}
+                        className="hide-names-checkbox"
+                    />
+                    <span>Hide names for GA</span>
+                </label>
+            )}
+
+            {isTA && assignment.hide_student_names ? (
+                <div className="grading-anon-banner">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Student names are hidden by the instructor. Students are shown anonymously.
+                </div>
+            ) : null}
+
             <div className="grading-card">
                 <table className="grading-table">
                     <thead>
@@ -135,21 +189,30 @@ const GradingDashboard: React.FC = () => {
                         ) : (
                             Object.values(groupedSubmissions).map(group => {
                                 const latestSubmission = group[0]; // First one is latest due to sort
+                                const displayName = hideNames
+                                    ? anonLabel(latestSubmission.student_id)
+                                    : (latestSubmission.student_name || latestSubmission.student_id);
+                                // Only show "graded" if a grade has actually been assigned
+                                const effectiveStatus = (latestSubmission.grade !== null && latestSubmission.grade !== undefined)
+                                    ? latestSubmission.status
+                                    : 'pending';
                                 return (
                                     <tr key={latestSubmission.student_id}>
                                         <td className="text-medium">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <UserAvatar 
-                                                    user={{ 
-                                                        name: latestSubmission.student_name, 
-                                                        profilePicture: latestSubmission.student_profile_picture 
-                                                    }} 
-                                                    size={32} 
+                                                <UserAvatar
+                                                    user={hideNames
+                                                        ? { name: displayName }
+                                                        : { name: latestSubmission.student_name, profilePicture: latestSubmission.student_profile_picture }
+                                                    }
+                                                    size={32}
                                                 />
                                                 <span>
-                                                    {latestSubmission.student_name 
-                                                        ? `${latestSubmission.student_name} (${latestSubmission.student_id})` 
-                                                        : latestSubmission.student_id}
+                                                    {hideNames
+                                                        ? displayName
+                                                        : (latestSubmission.student_name
+                                                            ? `${latestSubmission.student_name} (${latestSubmission.student_id})`
+                                                            : latestSubmission.student_id)}
                                                 </span>
                                             </div>
                                         </td>
@@ -167,7 +230,7 @@ const GradingDashboard: React.FC = () => {
                                             </Button>
                                         </td>
                                         <td>
-                                            <StatusBadge status={latestSubmission.status} />
+                                            <StatusBadge status={effectiveStatus} />
                                         </td>
                                         <td className="text-medium">
                                             {latestSubmission.grade !== undefined && latestSubmission.grade !== null
@@ -197,17 +260,19 @@ const GradingDashboard: React.FC = () => {
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <UserAvatar 
-                                        user={{ 
-                                            name: selectedStudentSubmissions[0].student_name, 
-                                            profilePicture: selectedStudentSubmissions[0].student_profile_picture 
-                                        }} 
-                                        size={40} 
+                                    <UserAvatar
+                                        user={hideNames
+                                            ? { name: anonLabel(selectedStudentSubmissions[0].student_id) }
+                                            : { name: selectedStudentSubmissions[0].student_name, profilePicture: selectedStudentSubmissions[0].student_profile_picture }
+                                        }
+                                        size={40}
                                     />
                                     <h3 className="modal-title" style={{ margin: 0 }}>
-                                        {selectedStudentSubmissions[0].student_name 
-                                            ? `Submissions for ${selectedStudentSubmissions[0].student_name} (${selectedStudentSubmissions[0].student_id})` 
-                                            : `Submissions for ${selectedStudentSubmissions[0].student_id}`}
+                                        {hideNames
+                                            ? `Submissions for ${anonLabel(selectedStudentSubmissions[0].student_id)}`
+                                            : (selectedStudentSubmissions[0].student_name
+                                                ? `Submissions for ${selectedStudentSubmissions[0].student_name} (${selectedStudentSubmissions[0].student_id})`
+                                                : `Submissions for ${selectedStudentSubmissions[0].student_id}`)}
                                     </h3>
                                 </div>
                             <button

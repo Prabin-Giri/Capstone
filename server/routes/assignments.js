@@ -111,6 +111,7 @@ router.put('/:id', async (req, res, next) => {
             late_penalty_value,
             late_penalty_cap,
             rubric_config,
+            hide_student_names,
         } = req.body;
         const id = req.params.id;
 
@@ -136,6 +137,7 @@ router.put('/:id', async (req, res, next) => {
         if (late_penalty_value !== undefined) { updates.push('late_penalty_value = ?'); values.push(Number(late_penalty_value)); }
         if (late_penalty_cap !== undefined) { updates.push('late_penalty_cap = ?'); values.push(Number(late_penalty_cap)); }
         if (rubric_config !== undefined) { updates.push('rubric_config = ?'); values.push(rubric_config); }
+        if (hide_student_names !== undefined) { updates.push('hide_student_names = ?'); values.push(hide_student_names === true || hide_student_names === 1 || hide_student_names === '1' ? 1 : 0); }
 
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
@@ -276,7 +278,7 @@ router.post('/:id/test', async (req, res, next) => {
             return res.json({ results: [], summary: 'No test cases defined.' });
         }
 
-        const lang = (language === 'node' ? 'javascript' : language) || 'python';
+        const lang = ((language === 'node' ? 'javascript' : language) || 'python').toLowerCase();
         const supported = ['python', 'javascript', 'java', 'php'];
         if (!supported.includes(lang)) {
             return res.json({
@@ -294,7 +296,15 @@ router.post('/:id/test', async (req, res, next) => {
         }
 
         const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'student-test-'));
-        const fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : (lang === 'java' ? 'Main.java' : 'main.php'));
+        // For Java, javac requires the filename to match the public class name
+        let fileName;
+        if (lang === 'java') {
+            const classMatch = code.match(/public\s+class\s+(\w+)/);
+            const className = classMatch ? classMatch[1] : 'Main';
+            fileName = className + '.java';
+        } else {
+            fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : 'main.php');
+        }
         const filePath = path.join(tmpDir, fileName);
 
         try {
@@ -378,7 +388,7 @@ router.post('/:id/run', async (req, res, next) => {
             return res.status(400).json({ error: 'Code is required' });
         }
 
-        const lang = (language === 'node' ? 'javascript' : language) || 'python';
+        const lang = ((language === 'node' ? 'javascript' : language) || 'python').toLowerCase();
         const supported = ['python', 'javascript', 'java', 'php'];
         
         if (!supported.includes(lang)) {
@@ -386,7 +396,15 @@ router.post('/:id/run', async (req, res, next) => {
         }
 
         const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'custom-run-'));
-        const fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : (lang === 'java' ? 'Main.java' : 'main.php'));
+        // For Java, javac requires the filename to match the public class name
+        let fileName;
+        if (lang === 'java') {
+            const classMatch = code.match(/public\s+class\s+(\w+)/);
+            const className = classMatch ? classMatch[1] : 'Main';
+            fileName = className + '.java';
+        } else {
+            fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : 'main.php');
+        }
         const filePath = path.join(tmpDir, fileName);
 
         try {
