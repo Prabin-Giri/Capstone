@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode } from '../../lib/api';
-import { Code, Download, Eye } from 'lucide-react';
+import { Code, Download, Eye, FolderOpen } from 'lucide-react';
+import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
 import { AssignmentEditor } from '../../components/ui/AssignmentEditor';
@@ -10,7 +11,7 @@ import type { EditorFile } from '../../components/ui/AssignmentEditor';
 
 import { getUser } from '../../lib/auth';
 import { showDialog } from '../../components/ui/Dialog';
-import { getCommentChar } from '../../lib/utils';
+import { getCommentChar, getLanguageFromFilename } from '../../lib/utils';
 
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
@@ -71,7 +72,7 @@ const AssignmentDetails: React.FC = () => {
                                 id: `submission-${index}`,
                                 name: file.name,
                                 content: content,
-                                language: assignment?.language || 'python',
+                                language: getLanguageFromFilename(file.name, assignment?.language || 'python'),
                                 isStarter: false
                             };
                         })
@@ -86,7 +87,7 @@ const AssignmentDetails: React.FC = () => {
                     id: 'submission-0',
                     name: `submission.${assignment?.language === 'python' ? 'py' : assignment?.language === 'java' ? 'java' : 'js'}`,
                     content: '// Prior submission loaded (no files retrieved).\n// Run tests to fetch code or paste new code here.',
-                    language: assignment?.language || 'python',
+                    language: getLanguageFromFilename(`submission.${assignment?.language === 'python' ? 'py' : assignment?.language === 'java' ? 'java' : 'js'}`, assignment?.language || 'python'),
                     isStarter: false
                 }]);
             }
@@ -123,7 +124,6 @@ const AssignmentDetails: React.FC = () => {
 
     const toSafeHtml = (input: string) => {
         const raw = input ?? '';
-        // If it doesn't look like HTML, escape it and preserve newlines.
         const looksLikeHtml = /<[^>]+>/.test(raw);
         if (!looksLikeHtml) {
             const escaped = raw
@@ -134,14 +134,101 @@ const AssignmentDetails: React.FC = () => {
                 .replace(/'/g, '&#039;');
             return escaped.replace(/\n/g, '<br />');
         }
-        // Basic sanitization: strip script/style tags and inline event handlers.
         return raw
             .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
             .replace(/<\s*style[^>]*>[\s\S]*?<\s*\/\s*style\s*>/gi, '')
             .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
     };
 
-    const descriptionHtml = toSafeHtml(assignment.description || 'No description provided.');
+    // Extract attachment-bubble links from description before rendering
+    const instructionAttachments: { url: string; name: string }[] = [];
+    const rawDescription = assignment.description || '';
+    const attachBubbleRe = /<a[^>]*class="attachment-bubble"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
+    let abMatch;
+    while ((abMatch = attachBubbleRe.exec(rawDescription)) !== null) {
+        instructionAttachments.push({ url: abMatch[1], name: abMatch[2].trim() });
+    }
+    const descriptionWithoutFiles = rawDescription.replace(/<a[^>]*class="attachment-bubble"[^>]*>.*?<\/a>/gi, '').trim();
+    const descriptionHtml = toSafeHtml(descriptionWithoutFiles || (!instructionAttachments.length ? 'No description provided.' : ''));
+
+    // Strip server-added timestamp-random prefix: "1234567890-123456789-realname.py" → "realname.py"
+    function cleanFilename(storedName: string): string {
+        return storedName.replace(/^\d+-\d+-/, '');
+    }
+
+    // Parse starter_code_path: supports plain string (legacy) or JSON array
+    function parseStarterPaths(raw: string): string[] {
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [raw];
+        } catch {
+            return [raw];
+        }
+    }
+
+    async function handleInstructionDownload(url: string, filename: string) {
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch {
+            window.open(url, '_blank');
+        }
+    }
+
+    async function handleLoadIntoEditor(starterPath: string) {
+        const url = `http://localhost:3001/uploads/${starterPath}`;
+        const filename = cleanFilename(starterPath.split('/').pop() || starterPath);
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            let newFiles: EditorFile[] = [];
+
+            if (filename.toLowerCase().endsWith('.zip')) {
+                const zip = await JSZip.loadAsync(blob);
+                const codeExts = new Set(['py','java','js','ts','jsx','tsx','php','c','cpp','h','txt','md','json','xml','html','css']);
+                newFiles = await Promise.all(
+                    Object.values(zip.files)
+                        .filter(f => !f.dir && codeExts.has(f.name.split('.').pop()?.toLowerCase() ?? ''))
+                        .map(async (f) => {
+                            const content = await f.async('string');
+                            const name = f.name.split('/').pop() || f.name;
+                            return { id: `starter-${Date.now()}-${f.name}`, name, content, language: getLanguageFromFilename(name, assignment?.language || 'python') } as EditorFile;
+                        })
+                );
+            } else {
+                const content = await blob.text();
+                newFiles = [{ id: `starter-${Date.now()}`, name: filename, content, language: getLanguageFromFilename(filename, assignment?.language || 'python') }];
+            }
+
+            if (newFiles.length === 0) {
+                await showDialog({ title: 'No code files', message: 'No readable code files were found.', confirmText: 'OK' });
+                return;
+            }
+
+            // Append to existing editor files instead of replacing
+            setEditorFiles(prev => {
+                const existingNames = new Set(prev.map(f => f.name));
+                const toAdd = newFiles.filter(f => !existingNames.has(f.name));
+                const merged = [...prev, ...toAdd];
+                setInitialFiles(merged);
+                return merged;
+            });
+
+            document.querySelector('.section:has(.assignment-editor-container)')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {
+            console.error('Load into editor failed', e);
+            await showDialog({ title: 'Error', message: 'Could not load the starter code into the editor.', confirmText: 'OK' });
+        }
+    }
 
     const displayDate = new Date(assignment.due_date).toLocaleString('en-US', {
         month: 'short',
@@ -160,20 +247,14 @@ const AssignmentDetails: React.FC = () => {
         if (!assignment) throw new Error("No assignment loaded");
         setIsRunningTests(true);
         try {
-            // Combine all files into a single string for now or adapt based on backend
-            // Our runTests API currently accepts a single string `code`, so we will concatenate them
-            // or if there's only one active code file, run that.
-            const comment = getCommentChar(assignment.language || 'python');
-            let codeToRun = editorFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
-            if (editorFiles.length === 1) {
-                codeToRun = editorFiles[0].content;
-            }
-
-            const data = await runTests(assignment.id, codeToRun, assignment.language || 'python');
+            const detectedLang = assignment.language || (editorFiles[0] ? getLanguageFromFilename(editorFiles[0].name) : 'python');
+            const comment = getCommentChar(detectedLang);
+            const codeToRun = editorFiles.length === 1 ? editorFiles[0].content : editorFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const data = await runTests(assignment.id, codeToRun, detectedLang);
             setIsRunningTests(false);
             return {
                 results: data.results,
-                log: `Sent ${editorFiles.length} file(s) to execution engine.\nLanguage: ${assignment.language || 'python'}\nTotal length: ${codeToRun.length} bytes.`
+                log: `Sent ${editorFiles.length} file(s) to execution engine.\nLanguage: ${detectedLang}\nTotal length: ${codeToRun.length} bytes.`
             };
         } catch (err) {
             setIsRunningTests(false);
@@ -186,9 +267,10 @@ const AssignmentDetails: React.FC = () => {
         if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
         setIsRunningTests(true);
         try {
-            const comment = getCommentChar(assignment.language || 'python');
-            const codeToRun = files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
-            const data = await runCustomCode(assignment.id, codeToRun, assignment.language || 'python', stdin);
+            const detectedLang = assignment.language || (files[0] ? getLanguageFromFilename(files[0].name) : 'python');
+            const comment = getCommentChar(detectedLang);
+            const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
             setIsRunningTests(false);
             return data;
         } catch (err) {
@@ -295,7 +377,43 @@ const AssignmentDetails: React.FC = () => {
 
             <div className="section">
                 <h2 className="section-title">Instructions</h2>
-                <div className="description-text" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+                {descriptionWithoutFiles.trim() && (
+                    <div className="description-text" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+                )}
+                {instructionAttachments.length > 0 && (
+                    <div className="instruction-attachments">
+                        {instructionAttachments.map((file, i) => {
+                            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+                            const isPreviewable = /^(pdf|png|jpg|jpeg|gif|webp|svg|py|js|ts|java|cpp|c|cs|txt|json|md|html|css)$/.test(ext);
+                            return (
+                                <div key={i} className="instruction-file-card">
+                                    <div className="instruction-file-info">
+                                        <Download size={15} className="instruction-file-icon" />
+                                        <span className="instruction-file-name">{file.name}</span>
+                                    </div>
+                                    <div className="instruction-file-actions">
+                                        {isPreviewable && (
+                                            <a
+                                                href={file.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="instruction-file-btn preview"
+                                            >
+                                                <Eye size={13} /> Preview
+                                            </a>
+                                        )}
+                                        <button
+                                            className="instruction-file-btn download"
+                                            onClick={() => handleInstructionDownload(file.url, file.name)}
+                                        >
+                                            <Download size={13} /> Download
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             {testCases.length > 0 && (
@@ -340,27 +458,42 @@ const AssignmentDetails: React.FC = () => {
                 </div>
             </div>
 
-            {assignment.starter_code_path && (
+            {assignment.starter_code_path && parseStarterPaths(assignment.starter_code_path).length > 0 && (
                 <div className="section">
                     <h2 className="section-title">Assignment Materials</h2>
                     <div className="materials-box">
-                        <div className="material-item">
-                            <div className="material-info">
-                                <Download size={20} color="var(--primary-text)" />
-                                <div>
-                                    <div className="material-name">Starter Code</div>
-                                    <div className="material-size">Download resources to begin the assignment</div>
+                        {parseStarterPaths(assignment.starter_code_path).map((starterPath, idx) => {
+                            const storedFilename = starterPath.split('/').pop() || starterPath;
+                            const displayName = cleanFilename(storedFilename);
+                            const downloadUrl = `http://localhost:3001/uploads/${starterPath}`;
+                            return (
+                                <div key={idx} className="material-item">
+                                    <div className="material-info">
+                                        <Download size={20} color="var(--primary-text)" />
+                                        <div>
+                                            <div className="material-name">{displayName}</div>
+                                            <div className="material-size">Starter code file</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                            className="btn btn-outline"
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            onClick={() => handleLoadIntoEditor(starterPath)}
+                                        >
+                                            <FolderOpen size={14} /> Load into Editor
+                                        </button>
+                                        <button
+                                            className="btn btn-primary"
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            onClick={() => handleInstructionDownload(downloadUrl, displayName)}
+                                        >
+                                            <Download size={14} /> Download
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                            <a
-                                href={`http://localhost:3001/uploads/${assignment.starter_code_path}`}
-                                download
-                                className="btn btn-outline"
-
-                            >
-                                Download ZIP
-                            </a>
-                        </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

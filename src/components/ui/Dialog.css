@@ -140,6 +140,6 @@
 }
 
 .dialog-btn-danger {
-    background: #ef4444;
+    background: var(--primary-color, #800000);
     color: #fff;
 }

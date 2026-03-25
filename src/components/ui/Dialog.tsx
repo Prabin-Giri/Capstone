@@ -81,7 +81,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         alert: <AlertCircle size={24} style={{ color: 'var(--primary-color)' }} />,
         confirm: <AlertCircle size={24} style={{ color: 'var(--primary-color)' }} />,
         success: <CheckCircle size={24} style={{ color: '#22c55e' }} />,
-        danger: <Trash2 size={24} style={{ color: '#ef4444' }} />,
+        danger: <Trash2 size={24} style={{ color: 'var(--primary-color)' }} />,
     };
 
     const icon = iconMap[state.type ?? (isConfirm ? 'confirm' : 'alert')];

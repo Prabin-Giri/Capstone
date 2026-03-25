@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Shield, ChevronRight, LogOut, ChevronLeft, Settings, Bell, Lock, Camera, Check, X, Moon, Sun } from 'lucide-react';
+import { User, Mail, Shield, ChevronRight, LogOut, ChevronLeft, Settings, Bell, Lock, Camera, Check, X, ALargeSmall } from 'lucide-react';
 import { getUser, logout, updateUser, type UserSession } from '../../lib/auth';
 import Cropper, { type Area } from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImage';
@@ -13,7 +13,6 @@ interface AccountDrawerProps {
 }
 
 type ViewType = 'main' | 'edit' | 'settings' | 'notifications' | 'security';
-type ThemeType = 'system' | 'light' | 'dark';
 type PhotoStep = 'options' | 'camera' | 'crop';
 
 const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
@@ -27,8 +26,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
     const [editingFields, setEditingFields] = useState<{ avatar: boolean }>({ avatar: false });
     const [pendingAvatar, setPendingAvatar] = useState<{ blob: Blob; url: string } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [theme, setTheme] = useState<ThemeType>(() => (localStorage.getItem('app-theme') as ThemeType) || 'system');
-    const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
+    const [fontSize, setFontSize] = useState<number>(() => parseInt(localStorage.getItem('app-font-size') || '100'));
 
     // Photo Overlay States
     const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -47,30 +45,13 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         const handleUpdate = () => setUserData(getUser());
         window.addEventListener('user-profile-updated', handleUpdate);
 
-        // Apply theme
-        const applyTheme = (currentTheme: ThemeType) => {
-            const isDark = currentTheme === 'dark' || (currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            if (isDark) {
-                document.body.classList.add('dark-theme');
-            } else {
-                document.body.classList.remove('dark-theme');
-            }
-        };
-
-        applyTheme(theme);
-
-        // Listen for system theme changes
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = () => {
-            if (theme === 'system') applyTheme('system');
-        };
-        mediaQuery.addEventListener('change', handleChange);
+        // Apply saved font size
+        document.documentElement.style.fontSize = `${fontSize}%`;
 
         return () => {
             window.removeEventListener('user-profile-updated', handleUpdate);
-            mediaQuery.removeEventListener('change', handleChange);
         };
-    }, [theme]);
+    }, []);
 
     // Reset view when drawer closes
     React.useEffect(() => {
@@ -156,11 +137,19 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
     };
 
 
-    const handleThemeChange = (newTheme: ThemeType) => {
-        setTheme(newTheme);
-        localStorage.setItem('app-theme', newTheme);
-        // Dispatch a custom event so same-tab components (e.g. Monaco editor) react immediately
-        window.dispatchEvent(new CustomEvent('theme-change', { detail: newTheme }));
+    const FONT_SIZE_OPTIONS = [
+        { label: 'XS', value: 80 },
+        { label: 'S',  value: 90 },
+        { label: 'M',  value: 100 },
+        { label: 'L',  value: 115 },
+        { label: 'XL', value: 130 },
+    ];
+
+    const handleFontSizeChange = (value: number) => {
+        setFontSize(value);
+        localStorage.setItem('app-font-size', String(value));
+        document.documentElement.style.fontSize = `${value}%`;
+        window.dispatchEvent(new CustomEvent('font-size-change', { detail: value }));
     };
 
     const handleSaveInfo = async () => {
@@ -388,41 +377,26 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
             <div className="drawer-section">
                 <div className="settings-list">
                     <div className="settings-item">
-                        <div className="settings-item-left">
-                            <div className="settings-icon">
-                                {theme === 'dark' ? <Moon size={18} /> : (theme === 'light' ? <Sun size={18} /> : <Settings size={18} />)}
-                            </div>
-                            <div className="settings-label">
-                                <h4>Appearance</h4>
-                                <p>Choose your preferred theme</p>
-                            </div>
+                        <div className="settings-icon">
+                            <ALargeSmall size={18} />
                         </div>
-                        <div className="theme-dropdown-wrapper">
-                            <button
-                                className="theme-select-btn"
-                                onClick={() => setIsThemeDropdownOpen(prev => !prev)}
-                            >
-                                <span>
-                                    {theme === 'system' ? 'System Default' : theme === 'light' ? 'Light' : 'Dark'}
-                                </span>
-                                <ChevronRight size={14} style={{ transform: isThemeDropdownOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
-                            </button>
-                            {isThemeDropdownOpen && (
-                                <div className="theme-dropdown-menu">
-                                    {(['system', 'light', 'dark'] as ThemeType[]).map(opt => (
-                                        <button
-                                            key={opt}
-                                            className={`theme-dropdown-item ${theme === opt ? 'active' : ''}`}
-                                            onClick={() => {
-                                                handleThemeChange(opt);
-                                                setIsThemeDropdownOpen(false);
-                                            }}
-                                        >
-                                            {opt === 'system' ? 'System Default' : opt === 'light' ? 'Light' : 'Dark'}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="settings-item-body">
+                            <div className="settings-label">
+                                <h4>Font Size</h4>
+                                <p>Adjust the text size globally</p>
+                            </div>
+                            <div className="font-size-segmented">
+                                {FONT_SIZE_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.label}
+                                        className={`font-size-seg-btn ${fontSize === opt.value ? 'active' : ''}`}
+                                        onClick={() => handleFontSizeChange(opt.value)}
+                                        aria-label={`Font size ${opt.label}`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

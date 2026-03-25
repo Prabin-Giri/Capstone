@@ -220,6 +220,12 @@ async function initDb() {
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
+    // Ensure assignments.hide_student_names exists (blind grading for GAs)
+    try {
+        await pool.execute('ALTER TABLE assignments ADD COLUMN hide_student_names TINYINT DEFAULT 0');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
 
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;

@@ -43,6 +43,21 @@
     margin: 0;
 }
 
+/* Anonymous grading banner for TAs */
+.grading-anon-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
 /* Card & Table */
 .grading-card {
     background-color: var(--bg-surface);
@@ -231,6 +246,30 @@
 
 .btn-dashboard-action:active {
     transform: translateY(0);
+}
+
+/* Hide names for GA — faculty checkbox */
+.hide-names-checkbox-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.hide-names-checkbox-row:hover {
+    color: var(--primary-text);
+}
+
+.hide-names-checkbox {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary-color);
+    cursor: pointer;
 }
 
 /* Auto-Grade Button (Premium Glass/Gold) */
