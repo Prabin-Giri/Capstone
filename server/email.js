@@ -28,6 +28,14 @@ function getEmailProvider() {
     if (configuredProvider === 'auto') {
         if (hasResendConfig()) return 'resend';
         if (!hasPlaceholderSmtpConfig()) return 'smtp';
+        
+        // Log specifically why SMTP was skipped
+        const whySmtp = [];
+        if (!process.env.SMTP_USER) whySmtp.push('SMTP_USER missing');
+        if (!process.env.SMTP_PASS) whySmtp.push('SMTP_PASS missing');
+        if (hasPlaceholderSmtpConfig()) whySmtp.push('Placeholder detected');
+        
+        console.warn(`[AutoGrade Email] Skipping "auto" SMTP selection: ${whySmtp.join(', ')}`);
         return 'unconfigured';
     }
 
@@ -192,7 +200,13 @@ async function deliverEmail({ to, subject, html, debug }) {
         } else if (provider === 'resend') {
             result = await sendViaResend({ from, to, subject, html });
         } else {
-            const error = new Error('No email provider is configured. Set RESEND_API_KEY and EMAIL_FROM for deploy, or SMTP_* credentials.');
+            const why = [];
+            if (provider === 'unconfigured') {
+                if (!process.env.SMTP_USER) why.push('SMTP_USER missing');
+                if (!process.env.SMTP_PASS) why.push('SMTP_PASS missing');
+                if (!process.env.RESEND_API_KEY) why.push('RESEND_API_KEY missing');
+            }
+            const error = new Error(`No email provider is configured. [Reason: ${why.join(', ') || 'Unknown'}]. Set EMAIL_PROVIDER=smtp and SMTP_* variables in Vercel.`);
             error.code = 'EEMAILCONFIG';
             throw error;
         }
