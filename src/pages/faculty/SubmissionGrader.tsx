@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
-import type { Submission, Assignment, RubricConfig, AssignmentGroup } from '../../lib/api';
+import type { Submission, Assignment, RubricConfig, AssignmentGroup, TestResult } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
