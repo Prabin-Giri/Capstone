@@ -95,6 +95,35 @@ router.get('/documents/:courseId', async (req, res, next) => {
     }
 });
 
+// DELETE /api/uploads/profile-picture/:userId
+router.delete('/profile-picture/:userId', async (req, res, next) => {
+    try {
+        const db = getDb();
+        const userId = req.params.userId;
+
+        // Get current file path to delete it
+        const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [userId]);
+        if (rows.length > 0 && rows[0].profile_picture) {
+            const oldPath = path.join(uploadsDir, rows[0].profile_picture);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
+        }
+
+        // Update user record
+        await db.execute(
+            'UPDATE users SET profile_picture = NULL WHERE id = ?',
+            [userId]
+        );
+
+        res.json({
+            message: 'Profile picture removed successfully'
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // POST /api/uploads/profile-picture/:userId
 router.post('/profile-picture/:userId', upload.single('file'), async (req, res, next) => {
     try {
@@ -103,6 +132,15 @@ router.post('/profile-picture/:userId', upload.single('file'), async (req, res, 
         const db = getDb();
         const userId = req.params.userId;
         const filePath = req.file.filename;
+
+        // Get current file path to delete it (optional: cleanup)
+        const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [userId]);
+        if (rows.length > 0 && rows[0].profile_picture) {
+            const oldPath = path.join(uploadsDir, rows[0].profile_picture);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
+        }
 
         // Update user record
         await db.execute(

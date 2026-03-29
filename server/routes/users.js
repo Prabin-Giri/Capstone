@@ -514,4 +514,68 @@ router.post('/change-password', async (req, res, next) => {
     }
 });
 
+// GET /api/users/:id/groups - Get all groups a user belongs to
+router.get('/:id/groups', async (req, res, next) => {
+    try {
+        const db = getDb();
+        const [rows] = await db.execute(`
+            SELECT g.id, g.name, g.assignment_id, a.course_id, a.title as assignment_title, c.name as course_name 
+            FROM group_members gm
+            JOIN assignment_groups g ON gm.group_id = g.id
+            JOIN assignments a ON g.assignment_id = a.id
+            JOIN courses c ON a.course_id = c.id
+            WHERE gm.student_id = ?
+        `, [req.params.id]);
+
+        const groups = queryToObjects(rows);
+
+        // Fetch members for each group
+        for (let g of groups) {
+            const [members] = await db.execute(`
+                SELECT u.id, u.name, u.email 
+                FROM group_members gm 
+                JOIN users u ON gm.student_id = u.id 
+                WHERE gm.group_id = ?
+            `, [g.id]);
+            g.members = queryToObjects(members);
+        }
+        
+        res.json(groups);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/users/:id/groups - Get all assignment groups a student belongs to
+router.get('/:id/groups', async (req, res, next) => {
+    try {
+        const db = getDb();
+        const [rows] = await db.execute(`
+            SELECT g.id, g.name, g.assignment_id, a.course_id, a.title AS assignment_title
+            FROM assignment_groups g
+            JOIN group_members gm ON g.id = gm.group_id
+            JOIN assignments a ON g.assignment_id = a.id
+            WHERE gm.student_id = ?
+        `, [req.params.id]);
+        
+        // Fetch all members for each group
+        const result = [];
+        for (const group of queryToObjects(rows)) {
+            const [members] = await db.execute(`
+                SELECT u.id, u.name, u.email, u.profile_picture
+                FROM group_members gm
+                JOIN users u ON gm.student_id = u.id
+                WHERE gm.group_id = ?
+            `, [group.id]);
+            result.push({
+                ...group,
+                members: queryToObjects(members)
+            });
+        }
+        res.json(result);
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;

@@ -1,3 +1,1047 @@
 /* Your grading UI changes for SubmissionGrader.css */
 
 /* Updated styles for Submission Grader UI */
+.grader-container {
+    display: flex;
+    height: calc(100vh - var(--header-height, 60px));
+    overflow: hidden;
+    background: var(--bg-body);
+    position: relative;
+}
+
+.grader-loading {
+    padding: 32px;
+    color: var(--text-secondary);
+}
+
+/* ── Sidebars (shared) ──────────────────────────────────────── */
+.grader-sidebar {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    min-height: 0;
+    overflow: visible;
+}
+
+.grader-sidebar-left {
+    border-right: 1px solid var(--border-color);
+}
+
+.grader-sidebar-left.collapsed {
+    width: 0 !important;
+    border-right: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.grader-sidebar-right.collapsed {
+    width: 0 !important;
+    border-left: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.grader-sidebar-left.collapsed .sidebar-resize-handle-v,
+.grader-sidebar-right.collapsed .sidebar-resize-handle-v {
+    display: none;
+}
+
+/* Toggle & Expand Buttons */
+.sidebar-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-toggle-btn:hover {
+    background: var(--light-grey);
+    color: var(--primary-color);
+}
+
+.sidebar-expand-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-color);
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-expand-btn:hover {
+    background: var(--light-grey);
+}
+
+.sidebar-expand-btn.left {
+    margin-right: 12px;
+    margin-left: -6px;
+}
+
+.sidebar-expand-btn.right {
+    margin-left: 12px;
+    margin-right: -6px;
+}
+
+.expand-btn-text {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    line-height: 1;
+}
+
+@media (max-width: 900px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+.grader-sidebar-right {
+    border-left: 1px solid var(--border-color);
+}
+
+/* Drag resize handle */
+.sidebar-resize-handle-v {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    cursor: e-resize;   /* left sidebar expands rightward */
+    z-index: 10;
+    background: transparent;
+    transition: background 0.15s;
+}
+
+.sidebar-resize-handle-v:hover,
+.sidebar-resize-handle-v:active {
+    background: var(--primary-color);
+}
+
+.sidebar-resize-handle-right {
+    left: 0;
+    right: auto;
+    cursor: w-resize;   /* right sidebar expands leftward */
+}
+
+/* ── Left sidebar content ───────────────────────────────────── */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.sidebar-header-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+}
+
+.sidebar-header-count {
+    background: var(--light-grey);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* TA notice: names hidden by instructor */
+.anon-hidden-notice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    flex-shrink: 0;
+}
+
+/* Anonymous grading toggle */
+.anon-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.anon-toggle-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.anon-toggle-track {
+    position: relative;
+    width: 30px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--border-color);
+    flex-shrink: 0;
+    transition: background 0.18s;
+}
+
+.anon-toggle-checkbox:checked + .anon-toggle-track {
+    background: var(--primary-color);
+}
+
+.anon-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.18s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+.anon-toggle-checkbox:checked + .anon-toggle-track .anon-toggle-thumb {
+    transform: translateX(14px);
+}
+
+.anon-toggle-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.anon-toggle:hover .anon-toggle-label {
+    color: var(--primary-text);
+}
+
+
+.sidebar-search {
+    position: relative;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.sidebar-search-icon {
+    position: absolute;
+    left: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+
+.sidebar-search-input {
+    width: 100%;
+    padding: 5px 8px 5px 28px;
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: var(--text-primary);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.sidebar-search-input:focus {
+    border-color: var(--primary-color);
+}
+
+.student-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+}
+
+/* Premium Scrollbar Styling */
+.student-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+.student-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.student-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.student-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+.student-list-empty {
+    padding: 16px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-align: center;
+}
+
+.student-list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border-left: 3px solid transparent;
+}
+
+.student-list-item:hover {
+    background: var(--light-grey);
+}
+
+.student-list-item.active {
+    background: var(--light-grey);
+    border-left-color: var(--primary-color);
+}
+
+.student-list-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.student-list-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.student-list-id {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.student-grade-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.student-grade-badge.graded {
+    background: rgba(22, 163, 74, 0.1);
+    color: #16a34a;
+}
+
+.student-grade-badge.pending {
+    background: var(--light-grey);
+    color: var(--text-tertiary);
+}
+
+/* ── Middle panel ───────────────────────────────────────────── */
+.grader-panel-middle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--bg-body);
+    padding-top: 0;
+    padding-bottom: 100px;
+}
+
+.grader-panel-middle::-webkit-scrollbar {
+    width: 6px;
+}
+
+.grader-panel-middle::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grader-panel-middle::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.grader-panel-middle::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* Switching state — dim content while new student loads */
+.grader-panel-middle.switching,
+.grader-sidebar-right.switching {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+/* Student header strip */
+.grader-student-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 28px 14px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.grader-student-avatar {
+    border: 2px solid var(--bg-surface);
+    box-shadow: var(--shadow-md);
+    flex-shrink: 0;
+}
+
+.grader-header-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.grader-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.grader-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--primary-text);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.student-nav-btns {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.student-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--primary-text);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    padding: 0;
+}
+
+.student-nav-btn:hover:not(:disabled) {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.student-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.student-nav-counter {
+    font-size: 12px;
+    color: var(--secondary-text);
+    min-width: 36px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.meta-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.meta-separator {
+    width: 1px;
+    height: 22px;
+    background: var(--border-color);
+}
+
+.meta-label {
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.meta-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+/* Submissions section */
+.submissions-section {
+    padding: 20px 28px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.submission-attempt-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.attempt-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.attempt-date-inline {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+}
+
+/* File boxes */
+.file-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.file-name {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.file-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Preview area */
+.preview-area {
+    padding: 16px 28px 28px;
+    flex: 1;
+}
+
+.preview-placeholder {
+    padding: 3rem 2rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.875rem;
+    border: 2px dashed var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.preview-frame {
+    width: 100%;
+    height: 600px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+}
+
+.code-preview-container {
+    width: 100%;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+/* ── Right sidebar grading content ──────────────────────────── */
+.grading-sidebar-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.grading-sidebar-content::-webkit-scrollbar {
+    width: 5px;
+}
+
+.grading-sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grading-sidebar-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+
+.grader-form-title {
+    margin-bottom: 14px;
+}
+
+/* Rubric */
+.rubric-card {
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.rubric-header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rubric-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 3px 0;
+}
+
+.rubric-subtitle {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin: 0;
+}
+
+.rubric-section-label {
+    background: var(--light-grey);
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.rubric-table-wrapper {
+    overflow-x: auto;
+}
+
+.rubric-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.rubric-table th {
+    background: var(--light-grey);
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--primary-text);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.rubric-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.rubric-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rubric-score-input {
+    width: 60px;
+    padding: 3px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 12px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.rubric-score-input:focus {
+    border-color: var(--primary-color);
+}
+
+.rubric-summary {
+    padding: 10px 14px;
+    background: var(--light-grey);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Grading form */
+.grading-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.autograde-result-box {
+    background: rgba(127, 29, 29, 0.07);
+    border: 1px solid rgba(127, 29, 29, 0.25);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.autograde-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary-text);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.autograde-score {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ── Loading / Spinner ──────────────────────────────────────── */
+.loading-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--light-grey);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Modals ─────────────────────────────────────────────────── */
+.attempt-selector-modal {
+    max-width: 500px !important;
+}
+
+.attempt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.attempt-selection-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--light-grey);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.attempt-selection-item:hover {
+    border-color: var(--primary-color);
+}
+
+.attempt-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.attempt-number {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.attempt-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* ── Drawer close button (hidden on desktop) ─────────────────── */
+.drawer-close-btn {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.drawer-close-btn:hover {
+    background: var(--light-grey);
+    color: var(--text-primary);
+}
+
+/* Grading sidebar titlebar (shows close btn on mobile) */
+.grading-sidebar-titlebar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+/* Mobile toolbar (hidden on desktop) */
+.mobile-drawer-toolbar {
+    display: none;
+}
+
+/* Backdrop (hidden on desktop) */
+.drawer-backdrop {
+    display: none;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .grader-container {
+        height: calc(100vh - var(--header-height, 60px));
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* Sidebars become fixed full-height drawers */
+    .grader-sidebar {
+        position: fixed !important;
+        top: 0;
+        bottom: 0;
+        z-index: 2100;
+        width: 82vw !important;
+        max-width: 320px !important;
+        height: 100dvh;
+        overflow-y: auto;
+        border: none !important;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+        transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .grader-sidebar-left {
+        left: 0;
+        transform: translateX(-110%);
+        border-right: 1px solid var(--border-color) !important;
+    }
+
+    .grader-sidebar-right {
+        right: 0;
+        transform: translateX(110%);
+        border-left: 1px solid var(--border-color) !important;
+    }
+
+    .grader-sidebar.drawer-open {
+        transform: translateX(0) !important;
+    }
+
+    /* Hide resize handles on mobile */
+    .sidebar-resize-handle-v {
+        display: none;
+    }
+
+    /* Backdrop */
+    .drawer-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 2099;
+        backdrop-filter: blur(2px);
+    }
+
+    /* Mobile toolbar */
+    .mobile-drawer-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .mobile-drawer-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--light-grey);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .mobile-drawer-btn:hover,
+    .mobile-drawer-btn:active {
+        background: rgba(127, 29, 29, 0.08);
+        border-color: var(--primary-color);
+        color: var(--primary-text);
+    }
+
+    /* Show close buttons inside drawers */
+    .drawer-close-btn {
+        display: flex;
+    }
+
+    .grading-sidebar-titlebar {
+        display: flex;
+    }
+
+    /* Middle fills viewport */
+    .grader-panel-middle {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    /* Student header — compact on mobile */
+    .grader-student-header {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .grader-title {
+        font-size: 1.1rem;
+    }
+
+    .meta-bar {
+        gap: 10px;
+    }
+
+    .meta-separator {
+        height: 16px;
+    }
+
+    .meta-value {
+        font-size: 0.78rem;
+    }
+
+    .file-box { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .file-actions { width: 100%; }
+}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, UPLOADS_BASE } from '../../lib/api';
-import type { TestCase, RubricConfig } from '../../lib/api';
+import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, UPLOADS_BASE } from '../../lib/api';
+import type { TestCase, RubricConfig, User } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
@@ -26,6 +26,8 @@ const AssignmentWizard: React.FC = () => {
         starter_code_path: '',
         test_case_file_path: '',
         type: 'individual' as 'individual' | 'group',
+        group_submission_type: 'one_for_all' as 'one_for_all' | 'individual',
+        max_group_members: '',
         late_penalty_enabled: false,
         late_penalty_type: 'per_day' as 'per_day' | 'per_hour' | 'fixed',
         late_penalty_value: '10' as string | number,
@@ -36,6 +38,8 @@ const AssignmentWizard: React.FC = () => {
     const [starterCodeFiles, setStarterCodeFiles] = useState<File[]>([]);
     const [testCaseFile, setTestCaseFile] = useState<File | null>(null);
     const [testCases, setTestCases] = useState<(Omit<Partial<TestCase>, 'points'> & { points?: number | string })[]>([]);
+    const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
+    const [assignmentGroups, setAssignmentGroups] = useState<{ id: string; name: string; students: string[] }[]>([]);
     const [loading, setLoading] = useState(isEditing);
     const [saving, setSaving] = useState(false);
     const [rubric, setRubric] = useState<RubricConfig>({
@@ -52,11 +56,16 @@ const AssignmentWizard: React.FC = () => {
     const API_BASE = `${UPLOADS_BASE}/api`;
 
     useEffect(() => {
+        if (courseId) {
+            getEnrolledStudents(courseId).then(setEnrolledStudents).catch(() => console.error('Failed to load students'));
+        }
+
         if (isEditing && assignmentId) {
             Promise.all([
                 getAssignment(assignmentId),
-                getTestCases(assignmentId)
-            ]).then(([data, cases]) => {
+                getTestCases(assignmentId),
+                getAssignmentGroups(assignmentId).catch(() => [])
+            ]).then(([data, cases, groups]) => {
                 const dateObj = new Date(data.due_date);
                 setFormData({
                     title: data.title,
@@ -69,6 +78,8 @@ const AssignmentWizard: React.FC = () => {
                     starter_code_path: data.starter_code_path || '',
                     test_case_file_path: data.test_case_file_path || '',
                     type: data.type || 'individual',
+                    group_submission_type: data.group_submission_type || 'one_for_all',
+                    max_group_members: data.max_group_members ? String(data.max_group_members) : '',
                     late_penalty_enabled: !!(data.late_penalty_enabled === true || data.late_penalty_enabled === 1),
                     late_penalty_type: (data.late_penalty_type as 'per_day' | 'per_hour' | 'fixed') || 'per_day',
                     late_penalty_value: data.late_penalty_value != null ? data.late_penalty_value : 10,
@@ -84,6 +95,13 @@ const AssignmentWizard: React.FC = () => {
                     }
                 }
                 setTestCases(cases.map(tc => ({ ...tc, points: tc.points })));
+                if (groups && groups.length > 0) {
+                    setAssignmentGroups(groups.map(g => ({
+                        id: g.id,
+                        name: g.name,
+                        students: g.students.map(s => s.id)
+                    })));
+                }
 
                 // Load rubric configuration if present
                 if (data.rubric_config) {
@@ -184,6 +202,20 @@ const AssignmentWizard: React.FC = () => {
         e.preventDefault();
         setSaving(true);
         try {
+            if (formData.type === 'group') {
+                const invalidGroup = assignmentGroups.find(g => g.students.length < 2);
+                if (invalidGroup) {
+                    await showDialog({
+                        title: 'Invalid Group',
+                        message: `Group "${invalidGroup.name}" has ${invalidGroup.students.length} members. A group must have at least 2 members to be formed. Please add more students or remove the group.`,
+                        type: 'alert',
+                        confirmText: 'OK',
+                    });
+                    setSaving(false);
+                    return;
+                }
+            }
+
             let starterCodePath = formData.starter_code_path;
             let testCaseFilePath = formData.test_case_file_path;
 
@@ -222,7 +254,9 @@ const AssignmentWizard: React.FC = () => {
                 due_date: combinedDateTime,
                 starter_code_path: starterCodePath,
                 test_case_file_path: testCaseFilePath,
-                rubric_config: rubricConfigPayload
+                rubric_config: rubricConfigPayload,
+                max_group_members: formData.type === 'group' && formData.max_group_members ? Number(formData.max_group_members) : null,
+                groups: formData.type === 'group' ? assignmentGroups : undefined
             };
             const { due_time, ...finalPayload } = payload;
 
@@ -415,6 +449,174 @@ const AssignmentWizard: React.FC = () => {
                         </select>
                     </div>
                 </div>
+
+                {formData.type === 'group' && (
+                    <div className="test-cases-section" style={{ borderTop: 'none', paddingTop: 0, marginTop: '1rem' }}>
+                        <div className="section-header-wizard">
+                            <h2 className="section-title-wizard">Group Configuration</h2>
+                        </div>
+                        
+                        <div className="test-case-item glass-card" style={{ marginBottom: '2rem' }}>
+                            <div className="tc-grid">
+                                <div className="form-group">
+                                    <label className="tc-label">Max Group Members</label>
+                                    <input
+                                        type="number"
+                                        min="2"
+                                        className="tc-input"
+                                        value={formData.max_group_members}
+                                        placeholder="e.g. 4"
+                                        onChange={e => setFormData({ ...formData, max_group_members: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="tc-label">Submission Policy</label>
+                                    <select
+                                        className="form-select"
+                                        style={{ height: '100%', borderRadius: 'var(--radius-md)' }}
+                                        value={formData.group_submission_type}
+                                        onChange={e => setFormData({ ...formData, group_submission_type: e.target.value as any })}
+                                    >
+                                        <option value="one_for_all">One submission per group</option>
+                                        <option value="individual">Individual submissions required</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginTop: '1.5rem' }}>
+                            <div className="section-header-wizard">
+                                <h2 className="section-title-wizard">Manage Groups</h2>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => {
+                                        const newGroup = { id: `grp-${Date.now()}`, name: `Group ${assignmentGroups.length + 1}`, students: [] };
+                                        setAssignmentGroups([...assignmentGroups, newGroup]);
+                                    }}
+                                >
+                                    <Plus size={16} /> Add Group
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => {
+                                        const max = parseInt(formData.max_group_members as string) || 2;
+                                        const unassigned = enrolledStudents.filter(s => !assignmentGroups.some(g => g.students.includes(s.id)));
+                                        if (unassigned.length === 0) return;
+
+                                        const shuffled = [...unassigned].sort(() => 0.5 - Math.random());
+                                        const newGroups = [...assignmentGroups];
+
+                                        // Fill existing groups that aren't full first
+                                        let studentIndex = 0;
+                                        for (let group of newGroups) {
+                                            while (group.students.length < max && studentIndex < shuffled.length) {
+                                                group.students.push(shuffled[studentIndex].id);
+                                                studentIndex++;
+                                            }
+                                        }
+
+                                        // If there are still unassigned students, create new groups for them evenly
+                                        const remainingStudents = shuffled.slice(studentIndex);
+                                        if (remainingStudents.length > 0) {
+                                            const numNewGroups = Math.ceil(remainingStudents.length / max);
+                                            const startingIndex = newGroups.length;
+
+                                            for (let i = 0; i < numNewGroups; i++) {
+                                                newGroups.push({ id: `grp-${Date.now()}-${i}`, name: `Group ${startingIndex + i + 1}`, students: [] });
+                                            }
+
+                                            remainingStudents.forEach((student, idx) => {
+                                                const groupIdx = startingIndex + (idx % numNewGroups);
+                                                newGroups[groupIdx].students.push(student.id);
+                                            });
+                                        }
+                                        setAssignmentGroups(newGroups);
+                                    }}
+                                >
+                                    Randomly Assign
+                                </Button>
+                            </div>
+                            <div className="groups-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                                {assignmentGroups.map((group, groupIndex) => (
+                                    <div key={group.id} className="group-card" style={{ padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-primary)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <input
+                                                type="text"
+                                                value={group.name}
+                                                className="form-input"
+                                                style={{ width: '150px', padding: '0.25rem 0.5rem', fontWeight: 'bold' }}
+                                                onChange={e => {
+                                                    const newGroups = [...assignmentGroups];
+                                                    newGroups[groupIndex].name = e.target.value;
+                                                    setAssignmentGroups(newGroups);
+                                                }}
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                type="button"
+                                                className="text-red-500 hover:bg-red-500/10 border-transparent hover:border-red-500/20"
+                                                onClick={() => {
+                                                    setAssignmentGroups(assignmentGroups.filter((_, i) => i !== groupIndex));
+                                                }}
+                                            >
+                                                <Trash2 size={16} />
+                                            </Button>
+                                        </div>
+                                        <div className="group-students">
+                                            {group.students.map(studentId => {
+                                                const student = enrolledStudents.find(s => s.id === studentId);
+                                                return (
+                                                    <div key={studentId} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0.5rem', background: 'var(--bg-secondary)', marginBottom: '0.25rem', borderRadius: '0.25rem', border: '1px solid var(--border)', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '0.875rem' }}>{student?.name || studentId}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={e => {
+                                                                e.preventDefault();
+                                                                const newGroups = [...assignmentGroups];
+                                                                newGroups[groupIndex].students = newGroups[groupIndex].students.filter(id => id !== studentId);
+                                                                setAssignmentGroups(newGroups);
+                                                            }}
+                                                            style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' }}
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                            <select
+                                                className="form-select"
+                                                style={{ padding: '0.25rem', fontSize: '0.875rem', marginTop: '0.5rem' }}
+                                                value=""
+                                                onChange={e => {
+                                                    if (!e.target.value) return;
+                                                    const newGroups = [...assignmentGroups];
+                                                    if (!newGroups[groupIndex].students.includes(e.target.value)) {
+                                                        newGroups[groupIndex].students.push(e.target.value);
+                                                    }
+                                                    setAssignmentGroups(newGroups);
+                                                }}
+                                            >
+                                                <option value="">+ Add student</option>
+                                                {enrolledStudents
+                                                    .filter(s => !assignmentGroups.some(g => g.students.includes(s.id)))
+                                                    .map(s => (
+                                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                                    ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Rubric configuration */}
                 <div className="form-group">
@@ -675,7 +877,9 @@ const AssignmentWizard: React.FC = () => {
                             <option value="python">Python</option>
                             <option value="java">Java</option>
                             <option value="cpp">C++</option>
+                            <option value="c">C</option>
                             <option value="javascript">JavaScript</option>
+                            <option value="typescript">TypeScript</option>
                         </select>
                     </div>
                 </div>

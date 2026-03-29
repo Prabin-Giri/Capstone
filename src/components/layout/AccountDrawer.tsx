@@ -25,7 +25,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
 
     // Editing States
     const [editingFields, setEditingFields] = useState<{ avatar: boolean }>({ avatar: false });
-    const [pendingAvatar, setPendingAvatar] = useState<{ blob: Blob; url: string } | null>(null);
+    const [pendingAvatar, setPendingAvatar] = useState<{ blob: Blob | null; url: string } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [fontSize, setFontSize] = useState<number>(() => parseInt(localStorage.getItem('app-font-size') || '100'));
 
@@ -135,6 +135,11 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
 
     const onCropComplete = (_: Area, croppedAreaPixels: Area) => {
         setCroppedAreaPixels(croppedAreaPixels);
+    };    const handleRemovePhoto = () => {
+        if (pendingAvatar) URL.revokeObjectURL(pendingAvatar.url);
+        setPendingAvatar({ blob: null, url: '' });
+        setEditingFields(prev => ({ ...prev, avatar: true }));
+        closePhotoModal();
     };
 
 
@@ -159,22 +164,35 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         try {
             const updates: Partial<UserSession> = {};
 
-            // 1. Upload new avatar if pending
+            // 1. Handle avatar changes (Upload or Remove)
             if (editingFields.avatar && pendingAvatar) {
-                const formData = new FormData();
-                formData.append('file', pendingAvatar.blob, 'profile.jpg');
+                if (pendingAvatar.blob) {
+                    // UPLOAD
+                    const formData = new FormData();
+                    formData.append('file', pendingAvatar.blob, 'profile.jpg');
 
-                const uploadResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${userData.id}`, {
-                    method: 'POST',
-                    body: formData
-                });
+                    const uploadResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${userData.id}`, {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                if (!uploadResponse.ok) throw new Error('Avatar upload failed');
-                const uploadResult = await uploadResponse.json();
-                updates.profilePicture = uploadResult.filePath;
+                    if (!uploadResponse.ok) throw new Error('Avatar upload failed');
+                    const uploadResult = await uploadResponse.json();
+                    updates.profilePicture = uploadResult.filePath;
+                } else {
+                    // REMOVE
+                    const deleteResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${userData.id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!deleteResponse.ok) throw new Error('Failed to remove avatar');
+                    updates.profilePicture = undefined; // Clears it from UserSession
+                }
 
                 // Cleanup local blob URL
-                URL.revokeObjectURL(pendingAvatar.url);
+                if (pendingAvatar.url) {
+                    URL.revokeObjectURL(pendingAvatar.url);
+                }
                 setPendingAvatar(null);
             }
 
@@ -440,6 +458,18 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                                         style={{ display: 'none' }}
                                     />
                                 </button>
+                                {(userData?.profilePicture || (pendingAvatar && pendingAvatar.blob === null)) && (
+                                    <button 
+                                        className="photo-opt-btn danger-opt" 
+                                        onClick={handleRemovePhoto}
+                                    >
+                                        <div className="opt-icon danger"><X size={24} /></div>
+                                        <div className="opt-label">
+                                            <h4>Remove current photo</h4>
+                                            <p>Revert to default initials</p>
+                                        </div>
+                                    </button>
+                                )}
                             </div>
                         )}
 

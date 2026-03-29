@@ -314,6 +314,10 @@
     color: var(--secondary-color, #FDB913);
 }
 
+.inbox-action-btn.archived {
+    color: var(--primary-color);
+}
+
 /* ============ Messages thread ============ */
 .inbox-messages {
     flex: 1;

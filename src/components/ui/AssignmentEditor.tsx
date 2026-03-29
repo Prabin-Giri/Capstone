@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor, { useMonaco } from '@monaco-editor/react';
-import { Play, FileText, Folder, Plus, Upload, CheckCircle, XCircle, Terminal, X, GripHorizontal, PanelBottomOpen, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, FileText, Folder, Plus, Upload, CheckCircle, XCircle, Terminal, X, GripHorizontal, PanelBottomOpen, Maximize2, Minimize2, Edit2, Trash2 as TrashIcon } from 'lucide-react';
 import './AssignmentEditor.css';
 import { showDialog } from './Dialog';
+import { getValidExtensions } from '../../lib/utils';
 import type { TestResult } from '../../lib/api';
 
 export interface EditorFile {
@@ -78,6 +79,12 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     const [isCreatingFile, setIsCreatingFile] = useState(false);
     const [newFileName, setNewFileName] = useState('');
     const newFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Explorer Context Menu & Rename state
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, fileId: string } | null>(null);
+    const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+    const [renamingFileName, setRenamingFileName] = useState('');
+    const renameInputRef = useRef<HTMLInputElement>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +170,13 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
         }
     }, [monaco, editorTheme]);
 
+    // Close context menu on click elsewhere
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+
     const activeFile = activeFileId ? (files.find(f => f.id === activeFileId) ?? null) : null;
 
     const handleEditorChange = (value: string | undefined) => {
@@ -176,15 +190,16 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     };
 
     const confirmNewFile = () => {
-        if (!newFileName.trim()) {
+        const name = newFileName.trim();
+        if (!name) {
             setIsCreatingFile(false);
             return;
         }
         const newFile: EditorFile = {
             id: Date.now().toString(),
-            name: newFileName.trim(),
+            name: name,
             content: '',
-            language: getLanguageFromFilename(newFileName.trim(), language)
+            language: getLanguageFromFilename(name, language)
         };
         setFiles([...files, newFile]);
         setOpenFileIds(prev => [...prev, newFile.id]);
@@ -265,8 +280,54 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     };
 
     const handleFileClick = (id: string) => {
+        if (renamingFileId) return; // Don't switch files if renaming
         if (!openFileIds.includes(id)) setOpenFileIds(prev => [...prev, id]);
         setActiveFileId(id);
+    };
+
+    // --- Context Menu & Rename Handlers ---
+    const handleContextMenu = (e: React.MouseEvent, fileId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY, fileId });
+    };
+
+    const startRename = (fileId: string) => {
+        const f = files.find(f => f.id === fileId);
+        if (!f || f.isStarter) return;
+        setRenamingFileId(fileId);
+        setRenamingFileName(f.name);
+        setContextMenu(null);
+        setTimeout(() => renameInputRef.current?.focus(), 50);
+    };
+
+    const confirmRename = () => {
+        if (!renamingFileId) return;
+        const newName = renamingFileName.trim();
+        if (!newName) {
+            setRenamingFileId(null);
+            return;
+        }
+
+        const updatedFiles = files.map(f => {
+            if (f.id === renamingFileId) {
+                return { 
+                    ...f, 
+                    name: newName,
+                    language: getLanguageFromFilename(newName, language)
+                };
+            }
+            return f;
+        });
+        
+        setFiles(updatedFiles);
+        setRenamingFileId(null);
+        setRenamingFileName('');
+    };
+
+    const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') confirmRename();
+        else if (e.key === 'Escape') setRenamingFileId(null);
     };
 
     // Sidebar resizing
@@ -422,7 +483,13 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                             <div className="sidebar-actions">
                                 <button onClick={handleAddFileClick} title="New File"><Plus size={15} /></button>
                                 <button onClick={handleFileUploadClick} title="Upload File"><Upload size={15} /></button>
-                                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} multiple />
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    style={{ display: 'none' }} 
+                                    onChange={handleFileUpload} 
+                                    multiple 
+                                />
                             </div>
                         </div>
                         <div className="sidebar-files-label">PROJECT</div>
@@ -442,15 +509,29 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                     />
                                 </div>
                             )}
-                            {files.map(f => (
+                             {files.map(f => (
                                 <div
                                     key={f.id}
                                     className={`file-item ${f.id === activeFileId ? 'active' : ''}`}
                                     onClick={() => handleFileClick(f.id)}
+                                    onContextMenu={(e) => handleContextMenu(e, f.id)}
                                 >
                                     <FileText size={14} className="file-icon" />
-                                    <span className="file-name">{f.name}</span>
-                                    {!f.isStarter && (
+                                    {renamingFileId === f.id ? (
+                                        <input
+                                            ref={renameInputRef}
+                                            type="text"
+                                            className="rename-input"
+                                            value={renamingFileName}
+                                            onChange={e => setRenamingFileName(e.target.value)}
+                                            onBlur={confirmRename}
+                                            onKeyDown={handleRenameKeyDown}
+                                            onClick={e => e.stopPropagation()}
+                                        />
+                                    ) : (
+                                        <span className="file-name">{f.name}</span>
+                                    )}
+                                    {!f.isStarter && renamingFileId !== f.id && (
                                         <button className="file-delete-btn" onClick={(e) => handleDeleteFile(e, f.id)}>
                                             <X size={13} />
                                         </button>
@@ -458,6 +539,40 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                 </div>
                             ))}
                         </div>
+                        {contextMenu && (
+                            <div 
+                                className="explorer-context-menu"
+                                style={{ top: contextMenu.y, left: contextMenu.x }}
+                                onClick={e => e.stopPropagation()}
+                            >
+                                {(() => {
+                                    const targetFile = files.find(f => f.id === contextMenu.fileId);
+                                    const canRename = targetFile && !targetFile.isStarter;
+                                    return (
+                                        <>
+                                            <div 
+                                                className={`context-menu-item ${!canRename ? 'disabled' : ''}`}
+                                                onClick={() => canRename && startRename(contextMenu.fileId)}
+                                            >
+                                                <Edit2 size={13} /> Rename
+                                            </div>
+                                            <div 
+                                                className={`context-menu-item danger ${targetFile?.isStarter ? 'disabled' : ''}`}
+                                                onClick={(e) => !targetFile?.isStarter && handleDeleteFile(e as any, contextMenu.fileId)}
+                                            >
+                                                <TrashIcon size={13} /> Delete
+                                            </div>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
+                        {getValidExtensions(language).length > 0 && (
+                            <div className="sidebar-footer-hint">
+                                <div className="hint-label">REQUIRED TYPE</div>
+                                <div className="hint-value">.{getValidExtensions(language).join(' / .')}</div>
+                            </div>
+                        )}
                     </div>
                 )}
 
