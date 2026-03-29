@@ -73,11 +73,16 @@ router.post('/signup', async (req, res, next) => {
             [id, normalizedName, normalizedEmail, password, role, verified, role === 'student' ? normalizedStudentId : null, verificationToken, otp, expires]
         );
 
-        // Send verification email (don't fail signup if email fails)
+        // Send verification email (don't fail signup if email fails, but log it)
         try {
             await sendVerificationEmail(normalizedEmail, normalizedName, verificationToken, otp);
         } catch (emailErr) {
-            console.error('Failed to send verification email:', emailErr.message);
+            console.error('VERIFICATION EMAIL ERROR [Signup]:', {
+                code: emailErr.code,
+                message: emailErr.message,
+                stack: emailErr.stack,
+                email: normalizedEmail
+            });
         }
 
         res.status(201).json({ id, name: normalizedName, email: normalizedEmail, role, profile_picture: null, verified: verified === 1, email_verified: false });
@@ -210,6 +215,34 @@ router.get('/dev-email-logs', async (req, res) => {
     return res.json({ logs: getRecentEmailLogs(normalizedEmail) });
 });
 
+// POST /api/users/test-smtp - Send a simple test email to diagnostic credentials
+router.post('/test-smtp', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: 'Target email is required' });
+        }
+
+        // Import deliverEmail directly if needed, but we used sendVerificationEmail as a proxy here
+        // Using a custom test for speed and detailed reporting
+        console.log('DIAGNOSTIC: Attempting test SMTP email to:', email);
+        console.log('DIAGNOSTIC: SMTP_HOST:', process.env.SMTP_HOST || 'smtp.gmail.com');
+        console.log('DIAGNOSTIC: SMTP_PORT:', process.env.SMTP_PORT || '587');
+        console.log('DIAGNOSTIC: SMTP_USER:', process.env.SMTP_USER);
+
+        await sendVerificationEmail(email, 'Test User', 'test-token', '123456');
+        res.json({ success: true, message: `Email sent to ${email}. Check your inbox and Vercel logs.` });
+    } catch (err) {
+        console.error('DIAGNOSTIC SMTP FAILURE:', err);
+        res.status(500).json({ 
+            success: false, 
+            error: err.message, 
+            code: err.code,
+            details: 'Check Vercel console logs for the full SMTP handshake.'
+        });
+    }
+});
+
 // POST /api/users/resend-verification - Resend verification email
 router.post('/resend-verification', async (req, res, next) => {
     try {
@@ -251,7 +284,12 @@ router.post('/resend-verification', async (req, res, next) => {
         try {
             await sendVerificationEmail(normalizedEmail, user.name, verificationToken, otp);
         } catch (emailErr) {
-            console.error('Failed to resend verification email:', emailErr.message);
+            console.error('VERIFICATION EMAIL ERROR [Resend]:', {
+                code: emailErr.code,
+                message: emailErr.message,
+                stack: emailErr.stack,
+                email: normalizedEmail
+            });
             return res.status(500).json({ error: emailErr.message || 'Failed to send verification email. Please try again.' });
         }
 
