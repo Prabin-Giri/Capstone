@@ -197,8 +197,8 @@ const AssignmentDetails: React.FC = () => {
                 const codeExts = new Set(['py','java','js','ts','jsx','tsx','php','c','cpp','h','txt','md','json','xml','html','css']);
                 newFiles = await Promise.all(
                     Object.values(zip.files)
-                        .filter(f => !f.dir && codeExts.has(f.name.split('.').pop()?.toLowerCase() ?? ''))
-                        .map(async (f) => {
+                        .filter((f: JSZip.JSZipObject) => !f.dir && codeExts.has(f.name.split('.').pop()?.toLowerCase() ?? ''))
+                        .map(async (f: JSZip.JSZipObject) => {
                             const content = await f.async('string');
                             const name = f.name.split('/').pop() || f.name;
                             return { id: `starter-${Date.now()}-${f.name}`, name, content, language: getLanguageFromFilename(name, assignment?.language || 'python') } as EditorFile;
