@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
 let _smtpTransporter = null;
-const emailLogStore = [];
 
 function generateToken() {
     return crypto.randomBytes(32).toString('hex');
@@ -29,10 +28,10 @@ function getEmailProvider() {
     if (configuredProvider === 'auto') {
         if (hasResendConfig()) return 'resend';
         if (!hasPlaceholderSmtpConfig()) return 'smtp';
-        return process.env.NODE_ENV === 'production' ? 'unconfigured' : 'log';
+        return 'unconfigured';
     }
 
-    if (configuredProvider === 'resend' || configuredProvider === 'smtp' || configuredProvider === 'log') {
+    if (configuredProvider === 'resend' || configuredProvider === 'smtp') {
         return configuredProvider;
     }
 
@@ -113,31 +112,6 @@ function normalizeMailError(error) {
     return wrapped;
 }
 
-function recordEmailLog({ provider, from, to, subject, debug }) {
-    emailLogStore.unshift({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        provider,
-        from,
-        to: String(to || '').trim().toLowerCase(),
-        subject,
-        otp: debug && debug.otp ? String(debug.otp) : null,
-        link: debug && debug.link ? String(debug.link) : null,
-        createdAt: new Date().toISOString(),
-    });
-
-    if (emailLogStore.length > 25) {
-        emailLogStore.length = 25;
-    }
-}
-
-function getRecentEmailLogs(email) {
-    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const logs = normalizedEmail
-        ? emailLogStore.filter((entry) => entry.to === normalizedEmail)
-        : emailLogStore;
-
-    return logs.slice(0, 10);
-}
 
 function getSmtpTransporter() {
     if (hasPlaceholderSmtpConfig()) {
@@ -202,19 +176,14 @@ async function sendViaResend({ from, to, subject, html }) {
     return { provider: 'resend' };
 }
 
-async function sendViaLog({ to, subject, debug }) {
-    console.log('\n[AutoGrade email:log]');
-    console.log(`To: ${to}`);
-    console.log(`Subject: ${subject}`);
-    if (debug && debug.otp) console.log(`OTP: ${debug.otp}`);
-    if (debug && debug.link) console.log(`Link: ${debug.link}`);
-    console.log('[AutoGrade email:log] End\n');
-    return { provider: 'log' };
-}
 
 async function deliverEmail({ to, subject, html, debug }) {
     const provider = getEmailProvider();
     const from = getFromAddress(provider);
+    console.log(`[AutoGrade Email Delivery] Using provider: ${provider} to: ${to}`);
+    if (provider === 'smtp') {
+        console.log(`[AutoGrade SMTP Config] Host: ${process.env.SMTP_HOST || 'smtp.gmail.com'}, User: ${process.env.SMTP_USER}`);
+    }
 
     try {
         let result;
@@ -222,21 +191,11 @@ async function deliverEmail({ to, subject, html, debug }) {
             result = await sendViaSmtp({ from, to, subject, html });
         } else if (provider === 'resend') {
             result = await sendViaResend({ from, to, subject, html });
-        } else if (provider === 'log') {
-            result = await sendViaLog({ to, subject, debug });
         } else {
             const error = new Error('No email provider is configured. Set RESEND_API_KEY and EMAIL_FROM for deploy, or SMTP_* credentials.');
             error.code = 'EEMAILCONFIG';
             throw error;
         }
-
-        recordEmailLog({
-            provider: result.provider,
-            from,
-            to,
-            subject,
-            debug,
-        });
 
         return result;
     } catch (error) {
@@ -333,4 +292,4 @@ async function sendPasswordResetEmail(toEmail, userName, token) {
     });
 }
 
-module.exports = { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail, getRecentEmailLogs };
+module.exports = { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail };

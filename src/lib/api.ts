@@ -763,21 +763,6 @@ export async function resendVerificationEmail(email: string): Promise<{ message:
     });
 }
 
-export interface DevEmailLog {
-    id: string;
-    provider: string;
-    from: string;
-    to: string;
-    subject: string;
-    otp: string | null;
-    link: string | null;
-    createdAt: string;
-}
-
-export async function getDevEmailLogs(email: string): Promise<{ logs: DevEmailLog[] }> {
-    return apiFetch<{ logs: DevEmailLog[] }>(`/users/dev-email-logs?email=${encodeURIComponent(email)}`);
-}
-
 // ============ Password Reset ============
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {

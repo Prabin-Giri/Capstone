@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb, queryToObjects, queryOne } = require('../db');
-const { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail, getRecentEmailLogs } = require('../email');
+const { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail } = require('../email');
 
 function validatePassword(password) {
     if (typeof password !== 'string' || password.length < 8) {
@@ -199,20 +199,6 @@ router.get('/verify-email-token', async (req, res, next) => {
     } catch (err) {
         next(err);
     }
-});
-
-// GET /api/users/dev-email-logs - Dev-only access to recent in-memory email logs
-router.get('/dev-email-logs', async (req, res) => {
-    if (process.env.NODE_ENV === 'production') {
-        return res.status(404).json({ error: 'Not found' });
-    }
-
-    const normalizedEmail = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
-    if (!normalizedEmail) {
-        return res.status(400).json({ error: 'Email is required' });
-    }
-
-    return res.json({ logs: getRecentEmailLogs(normalizedEmail) });
 });
 
 // POST /api/users/test-smtp - Send a simple test email to diagnostic credentials

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Loader, Mail, RefreshCw, TerminalSquare, X } from 'lucide-react';
-import { getDevEmailLogs, type DevEmailLog, verifyEmailByOtp, verifyEmailByToken, resendVerificationEmail } from '../../lib/api';
+import { CheckCircle, Loader, Mail } from 'lucide-react';
+import { verifyEmailByOtp, verifyEmailByToken, resendVerificationEmail } from '../../lib/api';
 import { getSession, updateUser, redirectToDashboard } from '../../lib/auth';
 import './Login.css';
 import './VerifyEmail.css';
@@ -17,12 +17,7 @@ const VerifyEmail: React.FC = () => {
     const [success, setSuccess] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [tokenVerifying, setTokenVerifying] = useState(!!token);
-    const [devLogsOpen, setDevLogsOpen] = useState(false);
-    const [devLogs, setDevLogs] = useState<DevEmailLog[]>([]);
-    const [devLogsLoading, setDevLogsLoading] = useState(false);
-    const [devLogsError, setDevLogsError] = useState('');
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-    const isDev = import.meta.env.DEV;
 
     // Auto-verify via token from email link
     useEffect(() => {
@@ -127,36 +122,9 @@ const VerifyEmail: React.FC = () => {
             await resendVerificationEmail(session.email);
             setResendCooldown(60);
             setError('');
-            if (isDev) {
-                void loadDevLogs();
-            }
         } catch (err: any) {
             setError(err.message || 'Failed to resend verification email');
         }
-    };
-
-    const loadDevLogs = useCallback(async () => {
-        if (!session?.email || !isDev) return;
-        setDevLogsLoading(true);
-        setDevLogsError('');
-        try {
-            const data = await getDevEmailLogs(session.email);
-            setDevLogs(data.logs);
-        } catch (err: any) {
-            setDevLogsError(err.message || 'Failed to load dev logs');
-        } finally {
-            setDevLogsLoading(false);
-        }
-    }, [isDev, session?.email]);
-
-    useEffect(() => {
-        if (!devLogsOpen || !isDev) return;
-        void loadDevLogs();
-    }, [devLogsOpen, isDev, loadDevLogs]);
-
-    const applyOtpFromLog = (otpValue: string | null) => {
-        if (!otpValue) return;
-        setOtp(otpValue.slice(0, 6).split(''));
     };
 
     if (!session) return null;
@@ -179,8 +147,6 @@ const VerifyEmail: React.FC = () => {
             </div>
         );
     }
-
-    const latestLog = devLogs[0];
 
     return (
         <div className="login-container">
@@ -241,12 +207,6 @@ const VerifyEmail: React.FC = () => {
                                 </button>
                             </div>
 
-                            {isDev && (
-                                <p style={{ color: '#6b7280', fontSize: '0.74rem', textAlign: 'center', marginTop: '0.5rem' }}>
-                                    Local development can use log mode. If no email provider is configured, check the server console for the OTP.
-                                </p>
-                            )}
-
                             <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
                                 <Link to="/login" className="back-link-inline" style={{ fontSize: '0.78rem' }}>
                                     Back to Login
@@ -263,64 +223,6 @@ const VerifyEmail: React.FC = () => {
                 </div>
             </div>
 
-            {isDev && (
-                <>
-                    <button
-                        type="button"
-                        className="dev-log-toggle"
-                        onClick={() => setDevLogsOpen((open) => !open)}
-                    >
-                        <TerminalSquare size={16} />
-                        {devLogsOpen ? 'Hide Logs' : 'Dev Logs'}
-                    </button>
-
-                    {devLogsOpen && (
-                        <div className="dev-log-panel">
-                            <div className="dev-log-panel-header">
-                                <div>
-                                    <strong>Dev Email Logs</strong>
-                                    <div className="dev-log-panel-subtitle">{session.email}</div>
-                                </div>
-                                <div className="dev-log-panel-actions">
-                                    <button type="button" className="dev-log-icon-btn" onClick={() => void loadDevLogs()} aria-label="Refresh logs">
-                                        <RefreshCw size={14} />
-                                    </button>
-                                    <button type="button" className="dev-log-icon-btn" onClick={() => setDevLogsOpen(false)} aria-label="Close logs">
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {devLogsLoading && <p className="dev-log-message">Loading logs...</p>}
-                            {!devLogsLoading && devLogsError && <p className="dev-log-message dev-log-error">{devLogsError}</p>}
-                            {!devLogsLoading && !devLogsError && devLogs.length === 0 && (
-                                <p className="dev-log-message">No dev email logs yet. Trigger signup or resend.</p>
-                            )}
-
-                            {!devLogsLoading && !devLogsError && latestLog && (
-                                <div className="dev-log-card">
-                                    <div className="dev-log-row"><span>Provider</span><strong>{latestLog.provider}</strong></div>
-                                    <div className="dev-log-row"><span>Sent</span><strong>{new Date(latestLog.createdAt).toLocaleTimeString()}</strong></div>
-                                    {latestLog.otp && (
-                                        <div className="dev-log-otp-block">
-                                            <span>Latest OTP</span>
-                                            <code>{latestLog.otp}</code>
-                                            <button type="button" className="dev-log-use-btn" onClick={() => applyOtpFromLog(latestLog.otp)}>
-                                                Use this OTP
-                                            </button>
-                                        </div>
-                                    )}
-                                    {latestLog.link && (
-                                        <a href={latestLog.link} className="dev-log-link" target="_blank" rel="noreferrer">
-                                            Open verification link
-                                        </a>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </>
-            )}
         </div>
     );
 };
