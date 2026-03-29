@@ -226,6 +226,34 @@ router.get('/diag/env', async (req, res) => {
         TIMESTAMP: new Date().toISOString()
     };
 
+    // Test Database Connectivity
+    try {
+        const { getDb, isMySQL } = require('../db');
+        const db = getDb();
+        if (isMySQL) {
+            const [rows] = await db.execute('SELECT 1 as "health"');
+            config.DATABASE = {
+                status: 'CONNECTED',
+                type: 'MySQL',
+                health: rows[0].health
+            };
+        } else {
+            config.DATABASE = {
+                status: 'CONNECTED',
+                type: 'SQLite'
+            };
+        }
+    } catch (dbErr) {
+        config.DATABASE = {
+            status: 'FAILED',
+            error: dbErr.message,
+            code: dbErr.code,
+            errno: dbErr.errno,
+            sqlState: dbErr.sqlState,
+            hint: 'If ETIMEDOUT, check AWS RDS Security Group. If EACCESS, check password.'
+        };
+    }
+
     res.json(config);
 });
 

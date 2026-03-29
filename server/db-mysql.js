@@ -259,10 +259,13 @@ const CREATE_TABLES = [
 ];
 
 async function initDb() {
-    const config = getConfig();
-    const poolConfig = buildPoolConfig(config);
-    activePoolConfig = poolConfig;
+    if (pool) return;
 
+    const config = getConfig();
+    activePoolConfig = buildPoolConfig(config);
+    const host = activePoolConfig.host || activePoolConfig.uri;
+    console.log(`[AutoGrade DB] Initializing MySQL pool for host: ${host}`);
+    
     // When using MYSQL_* vars, create the database if it doesn't exist (no manual step needed)
     if (typeof config === 'object' && config.database) {
         const dbName = config.database;
@@ -275,10 +278,21 @@ async function initDb() {
         }
     }
 
-    pool = mysql.createPool(poolConfig);
+    pool = mysql.createPool(activePoolConfig);
 
-    for (const sql of CREATE_TABLES) {
-        await pool.execute(sql);
+    try {
+        console.log('[AutoGrade DB] Testing connection...');
+        await pool.execute('SELECT 1');
+        console.log('[AutoGrade DB] Connection successful.');
+
+        for (const tableSql of CREATE_TABLES) {
+            await pool.execute(tableSql);
+        }
+        console.log('[AutoGrade DB] Tables initialized.');
+    } catch (error) {
+        console.error('[AutoGrade DB] Initialization FAILED:', error.message);
+        console.error('[AutoGrade DB] Error Code:', error.code);
+        // Do not rethrow, let the app start but it will fail on queries which we catch in diag
     }
 
     // Ensure rubric_config column exists even on older databases
@@ -314,18 +328,6 @@ async function initDb() {
     // Ensure assignments.hide_student_names exists (blind grading for GAs)
     try {
         await pool.execute('ALTER TABLE assignments ADD COLUMN hide_student_names TINYINT DEFAULT 0');
-    } catch (e) {
-        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
-    }
-    // Ensure users.email_verified exists (DEFAULT 1 so existing users are grandfathered)
-    try {
-        await pool.execute('ALTER TABLE users ADD COLUMN email_verified TINYINT DEFAULT 1');
-    } catch (e) {
-        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
-    }
-    // Ensure users.email_verification_token exists
-    try {
-        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(255) DEFAULT NULL');
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
