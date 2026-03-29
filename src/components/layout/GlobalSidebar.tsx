@@ -42,7 +42,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
         >
             <div className="global-sidebar-header">
                 <NavLink to={dashboardPath} onClick={onNavigate} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '44px', height: '44px', objectFit: 'contain' }} />
                 </NavLink>
             </div>
 

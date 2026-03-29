@@ -1,6 +1,6 @@
 /* App Shell Layout */
 :root {
-    --global-sidebar-width: 120px;
+    --global-sidebar-width: 72px;
 }
 
 body.no-scroll {
@@ -116,15 +116,15 @@ body.dialog-open .app-body {
     align-items: center;
     gap: 4px;
     padding: 10px 4px;
-    font-size: clamp(0.6rem, 0.7rem, 0.75rem);
+    font-size: clamp(0.42rem, 0.5rem, 0.54rem);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.92);
     border-radius: var(--radius-md);
     text-align: center;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     text-decoration: none;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
     width: 100%;
     overflow: hidden;
 }
@@ -156,6 +156,9 @@ body.dialog-open .app-body {
 /* Sidebar Icons Fix */
 .global-nav-link svg {
     margin-bottom: 4px;
+    stroke: #ffffff;
+    stroke-width: 2.3;
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
 }
 
 /* Course Sidebar */
@@ -495,7 +498,7 @@ body.dialog-open .app-body {
 /* Responsive Layout Adjustments */
 @media (max-width: 1024px) {
     :root {
-        --global-sidebar-width: 80px;
+        --global-sidebar-width: 48px;
     }
 
     .global-sidebar {
