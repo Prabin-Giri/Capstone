@@ -17,6 +17,8 @@ export interface TableColumn {
     name: string;
     type: string;
     pk?: number;
+    COLUMN_KEY?: string;
+    IS_NULLABLE?: string;
 }
 
 export interface TableData {
@@ -100,6 +102,43 @@ export interface AdminAnalytics {
 
 export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     return apiFetch<AdminAnalytics>('/admin/analytics');
+}
+
+export async function deleteAdminUser(userId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+}
+
+export async function updateTableRecord(
+    tableName: string, 
+    pkFields: Record<string, any>, 
+    updates: Record<string, any>
+): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/admin/tables/${encodeURIComponent(tableName)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pkFields, updates }),
+    });
+}
+
+export async function deleteTableRecord(
+    tableName: string, 
+    pkFields: Record<string, any>
+): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/admin/tables/${encodeURIComponent(tableName)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pkFields }),
+    });
+}
+
+export interface EnrollmentRecord {
+    id: string;
+    name: string;
+    created_at: string;
+}
+
+export async function getUserEnrollments(userId: string): Promise<EnrollmentRecord[]> {
+    return apiFetch<EnrollmentRecord[]>(`/admin/users/${encodeURIComponent(userId)}/enrollments`);
 }
 
 // ============ Courses ============
@@ -666,6 +705,7 @@ export interface User {
     role: 'student' | 'faculty' | 'ta' | 'admin';
     profile_picture?: string;
     verified?: boolean;
+    email_verified?: boolean;
     student_id?: string;
 }
 
@@ -679,7 +719,7 @@ export async function loginRequest(email: string, password: string): Promise<Use
     });
 }
 
-export async function signupRequest(data: { name: string; email: string; password: string; role: string; student_id?: string }): Promise<User> {
+export async function signupRequest(data: { name: string; email: string; password: string; student_id?: string }): Promise<User> {
     return apiFetch<User>('/users/signup', {
         method: 'POST',
         headers: {
@@ -691,6 +731,69 @@ export async function signupRequest(data: { name: string; email: string; passwor
 
 export async function checkUserVerified(userId: string): Promise<{ verified: boolean }> {
     return apiFetch<{ verified: boolean }>(`/users/${encodeURIComponent(userId)}/verified`);
+}
+
+export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/users/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, currentPassword, newPassword }),
+    });
+}
+
+// ============ Email Verification ============
+
+export async function verifyEmailByOtp(email: string, otp: string): Promise<User> {
+    return apiFetch<User>('/users/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
+    });
+}
+
+export async function verifyEmailByToken(token: string): Promise<User> {
+    return apiFetch<User>(`/users/verify-email-token?token=${encodeURIComponent(token)}`);
+}
+
+export async function resendVerificationEmail(email: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/users/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+}
+
+export interface DevEmailLog {
+    id: string;
+    provider: string;
+    from: string;
+    to: string;
+    subject: string;
+    otp: string | null;
+    link: string | null;
+    createdAt: string;
+}
+
+export async function getDevEmailLogs(email: string): Promise<{ logs: DevEmailLog[] }> {
+    return apiFetch<{ logs: DevEmailLog[] }>(`/users/dev-email-logs?email=${encodeURIComponent(email)}`);
+}
+
+// ============ Password Reset ============
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/users/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword }),
+    });
 }
 
 export interface PlagiarismResult {
@@ -739,4 +842,108 @@ export async function runAutograde(submissionId: number, dryRun = false): Promis
     return apiFetch<Submission>(url, {
         method: 'POST',
     });
+}
+
+// ============ Messaging / Inbox ============
+
+export interface MessageContact {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    profile_picture?: string;
+}
+
+export interface ConversationMessage {
+    id: number;
+    conversation_id: number;
+    sender_id: string;
+    sender_name: string;
+    sender_picture?: string;
+    body: string;
+    created_at: string;
+}
+
+export interface Conversation {
+    id: number;
+    course_id: string;
+    course_name?: string;
+    subject: string;
+    created_by: string;
+    created_by_name?: string;
+    created_at: string;
+    updated_at: string;
+    is_starred: number;
+    is_archived: number;
+    last_read_at: string | null;
+    last_message: { body: string; created_at: string; sender_name: string } | null;
+    unread_count: number;
+    participants: { id: string; name: string; profile_picture?: string }[];
+}
+
+export async function getContacts(userId: string, courseId?: string): Promise<MessageContact[]> {
+    const params = new URLSearchParams({ userId });
+    if (courseId) params.set('courseId', courseId);
+    return apiFetch<MessageContact[]>(`/messages/contacts?${params}`);
+}
+
+export async function getConversations(userId: string, filter?: string): Promise<Conversation[]> {
+    const params = new URLSearchParams({ userId });
+    if (filter) params.set('filter', filter);
+    return apiFetch<Conversation[]>(`/messages/conversations?${params}`);
+}
+
+export async function createConversation(data: {
+    courseId: string;
+    subject: string;
+    createdBy: string;
+    recipientIds: string[];
+    body: string;
+}): Promise<{ id: number; message: string }> {
+    return apiFetch<{ id: number; message: string }>('/messages/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+}
+
+export async function getConversationMessages(conversationId: number, userId: string): Promise<ConversationMessage[]> {
+    return apiFetch<ConversationMessage[]>(`/messages/conversations/${conversationId}/messages?userId=${userId}`);
+}
+
+export async function replyToConversation(conversationId: number, senderId: string, body: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/messages/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId, body }),
+    });
+}
+
+export async function toggleStar(conversationId: number, userId: string, starred: boolean): Promise<void> {
+    await apiFetch<{ message: string }>(`/messages/conversations/${conversationId}/star`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, starred }),
+    });
+}
+
+export async function toggleArchive(conversationId: number, userId: string, archived: boolean): Promise<void> {
+    await apiFetch<{ message: string }>(`/messages/conversations/${conversationId}/archive`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, archived }),
+    });
+}
+
+export async function deleteConversation(conversationId: number, userId: string): Promise<void> {
+    await apiFetch<{ message: string }>(`/messages/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+    });
+}
+
+export async function getUnreadCount(userId: string): Promise<number> {
+    const data = await apiFetch<{ count: number }>(`/messages/unread-count?userId=${userId}`);
+    return data.count;
 }

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
-import { getAdminUsers, type AdminUser } from '../../lib/api';
-import { ChevronLeft, Search, Users } from 'lucide-react';
+import { getAdminUsers, deleteAdminUser, type AdminUser } from '../../lib/api';
+import { ChevronLeft, Search, Users, Trash2 } from 'lucide-react';
 import UserAvatar from '../../components/ui/UserAvatar';
 
 const UserManagement: React.FC = () => {
@@ -10,20 +10,34 @@ const UserManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
+    const loadUsers = async () => {
+        setLoading(true);
+        try {
+            const data = await getAdminUsers();
+            setUsers(data);
+        } catch {
+            setUsers([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const data = await getAdminUsers();
-                if (!cancelled) setUsers(data);
-            } catch {
-                if (!cancelled) setUsers([]);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        })();
-        return () => { cancelled = true; };
+        loadUsers();
     }, []);
+
+    const handleDeleteUser = async (userId: string, userName: string) => {
+        if (!window.confirm(`Are you sure you want to delete the account for ${userName || userId}? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            await deleteAdminUser(userId);
+            await loadUsers();
+        } catch (err: any) {
+            alert(err.message || 'Failed to delete user');
+        }
+    };
 
     const filtered = users.filter(
         u =>
@@ -89,7 +103,8 @@ const UserManagement: React.FC = () => {
                                         <th className="pb-3 pr-4 font-medium">ID</th>
                                         <th className="pb-3 pr-4 font-medium">Role</th>
                                         <th className="pb-3 pr-4 font-medium">Verified</th>
-                                        <th className="pb-3 font-medium">Created</th>
+                                        <th className="pb-3 pr-4 font-medium">Created</th>
+                                        <th className="pb-3 font-medium text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -105,11 +120,22 @@ const UserManagement: React.FC = () => {
                                             <td className="py-3 pr-4 text-slate-400 font-mono text-xs">{u.id}</td>
                                             <td className="py-3 pr-4">{roleBadge(u.role)}</td>
                                             <td className="py-3 pr-4">
-                                                {u.role === 'faculty'
-                                                    ? (u.verified ? <span className="text-emerald-400">Yes</span> : <span className="text-amber-400">Pending</span>)
-                                                    : '—'}
+                                                {u.verified ? (
+                                                    <span className="text-emerald-400">Yes</span>
+                                                ) : (
+                                                    <span className="text-amber-400">Pending</span>
+                                                )}
                                             </td>
-                                            <td className="py-3 text-slate-500 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                                            <td className="py-3 pr-4 text-slate-500 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                                            <td className="py-3 text-right">
+                                                <button
+                                                    onClick={() => handleDeleteUser(u.id, u.name ?? u.id)}
+                                                    className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
+                                                    title="Delete User"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

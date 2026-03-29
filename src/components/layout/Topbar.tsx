@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Bell, Search, Menu, Moon, Sun, Monitor } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Bell, Menu, Moon, Sun, Monitor } from 'lucide-react';
+import { getUser } from '../../lib/auth';
+import { getUnreadCount } from '../../lib/api';
 import './Layout.css';
 
 interface TopbarProps {
@@ -49,7 +51,10 @@ const getNextThemeMode = (current: ThemeMode): ThemeMode => {
 
 const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
     const location = useLocation();
+    const navigate = useNavigate();
     const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+    const [unreadCount, setUnreadCount] = useState(0);
+    const user = getUser();
 
     useEffect(() => {
         const syncTheme = () => {
@@ -116,6 +121,19 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         }
     };
 
+    // Poll unread message count + listen for instant refresh
+    useEffect(() => {
+        if (!user?.id) return;
+        const fetchCount = () => {
+            getUnreadCount(user.id).then(setUnreadCount).catch(() => {});
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 30000);
+        const handleInboxRead = () => fetchCount();
+        window.addEventListener('inbox-read', handleInboxRead);
+        return () => { clearInterval(interval); window.removeEventListener('inbox-read', handleInboxRead); };
+    }, [user?.id]);
+
     const getPageTitle = () => {
         const path = location.pathname;
         if (path.includes('/calendar')) return 'Calendar';
@@ -151,10 +169,15 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                     {themeIcon}
                     <span className="theme-toggle-label">{themeLabel}</span>
                 </button>
-                <div className="icon-group" style={{ display: 'flex', color: 'var(--text-secondary)' }}>
-                    <Search size={20} className="cursor-pointer hover:text-primary" />
-                    <Bell size={20} className="cursor-pointer hover:text-primary" />
-                </div>
+                <button
+                    className="topbar-bell-btn"
+                    onClick={() => navigate('/inbox')}
+                    title="Inbox"
+                    aria-label={`Inbox${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                >
+                    <Bell size={20} />
+                    {unreadCount > 0 && <span className="topbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+                </button>
             </div>
         </header>
     );

@@ -30,6 +30,88 @@
     border-right: 1px solid var(--border-color);
 }
 
+.grader-sidebar-left.collapsed {
+    width: 0 !important;
+    border-right: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.grader-sidebar-right.collapsed {
+    width: 0 !important;
+    border-left: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.grader-sidebar-left.collapsed .sidebar-resize-handle-v,
+.grader-sidebar-right.collapsed .sidebar-resize-handle-v {
+    display: none;
+}
+
+/* Toggle & Expand Buttons */
+.sidebar-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-toggle-btn:hover {
+    background: var(--light-grey);
+    color: var(--primary-color);
+}
+
+.sidebar-expand-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-color);
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-expand-btn:hover {
+    background: var(--light-grey);
+}
+
+.sidebar-expand-btn.left {
+    margin-right: 12px;
+    margin-left: -6px;
+}
+
+.sidebar-expand-btn.right {
+    margin-left: 12px;
+    margin-right: -6px;
+}
+
+.expand-btn-text {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    line-height: 1;
+}
+
+@media (max-width: 900px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
+
 .grader-sidebar-right {
     border-left: 1px solid var(--border-color);
 }
@@ -200,6 +282,25 @@
     padding: 6px 0;
 }
 
+/* Premium Scrollbar Styling */
+.student-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+.student-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.student-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.student-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
 .student-list-empty {
     padding: 16px;
     font-size: 12px;
@@ -281,6 +382,25 @@
     flex-direction: column;
     overflow-y: auto;
     background: var(--bg-body);
+    padding-top: 60px;
+    padding-bottom: 400px;
+}
+
+.grader-panel-middle::-webkit-scrollbar {
+    width: 6px;
+}
+
+.grader-panel-middle::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grader-panel-middle::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.grader-panel-middle::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
 }
 
 /* Switching state — dim content while new student loads */
@@ -502,6 +622,19 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+}
+
+.grading-sidebar-content::-webkit-scrollbar {
+    width: 5px;
+}
+
+.grading-sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grading-sidebar-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
 }
 
 .section-title {

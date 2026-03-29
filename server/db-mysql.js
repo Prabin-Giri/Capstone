@@ -5,6 +5,7 @@
 const mysql = require('mysql2/promise');
 
 let pool = null;
+let activePoolConfig = null;
 
 function getConfig() {
     if (process.env.DATABASE_URL) {
@@ -30,6 +31,65 @@ function getConfig() {
         config.ssl = { rejectUnauthorized };
     }
     return config;
+}
+
+function buildPoolConfig(config) {
+    if (typeof config === 'string') {
+        return config;
+    }
+
+    return {
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+        connectTimeout: parseInt(process.env.MYSQL_CONNECT_TIMEOUT || '10000', 10),
+        ...config,
+    };
+}
+
+function isRetryableConnectionError(error) {
+    const code = error && error.code;
+    const message = String((error && error.message) || '');
+
+    return code === 'ECONNRESET'
+        || code === 'PROTOCOL_CONNECTION_LOST'
+        || code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'
+        || code === 'EPIPE'
+        || code === 'ETIMEDOUT'
+        || /ECONNRESET|Connection lost|closed state/i.test(message);
+}
+
+async function recreatePool() {
+    const previousPool = pool;
+    pool = mysql.createPool(activePoolConfig);
+
+    if (previousPool) {
+        try {
+            await previousPool.end();
+        } catch (_) {
+            // Ignore errors while replacing a broken pool.
+        }
+    }
+}
+
+async function runWithReconnect(method, sql, params = [], attempt = 0) {
+    if (!pool) {
+        throw new Error('Database not initialized');
+    }
+
+    try {
+        return await pool[method](sql, params);
+    } catch (error) {
+        if (attempt > 0 || !isRetryableConnectionError(error)) {
+            throw error;
+        }
+
+        console.error(`MySQL ${method} failed with ${error.code || error.message}. Recreating pool and retrying once.`);
+        await recreatePool();
+        return runWithReconnect(method, sql, params, attempt + 1);
+    }
 }
 
 const CREATE_TABLES = [
@@ -166,11 +226,42 @@ const CREATE_TABLES = [
         FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
         FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS conversations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        course_id VARCHAR(255) NOT NULL,
+        subject VARCHAR(500) NOT NULL,
+        created_by VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS conversation_participants (
+        conversation_id INT NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        last_read_at DATETIME DEFAULT NULL,
+        is_starred TINYINT DEFAULT 0,
+        is_archived TINYINT DEFAULT 0,
+        is_deleted TINYINT DEFAULT 0,
+        PRIMARY KEY (conversation_id, user_id),
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        conversation_id INT NOT NULL,
+        sender_id VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
 ];
 
 async function initDb() {
     const config = getConfig();
-    const poolConfig = typeof config === 'string' ? { uri: config } : config;
+    const poolConfig = buildPoolConfig(config);
+    activePoolConfig = poolConfig;
 
     // When using MYSQL_* vars, create the database if it doesn't exist (no manual step needed)
     if (typeof config === 'object' && config.database) {
@@ -226,6 +317,42 @@ async function initDb() {
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
+    // Ensure users.email_verified exists (DEFAULT 1 so existing users are grandfathered)
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verified TINYINT DEFAULT 1');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.email_verification_token exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(255) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.email_verification_otp exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_otp VARCHAR(6) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.email_verification_expires exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_expires DATETIME DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.password_reset_token exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.password_reset_expires exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN password_reset_expires DATETIME DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
 
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;
@@ -252,18 +379,26 @@ async function initDb() {
 }
 
 function getDb() {
-    return pool;
+    return {
+        execute(sql, params = []) {
+            return runWithReconnect('execute', sql, params);
+        },
+        query(sql, params = []) {
+            return runWithReconnect('query', sql, params);
+        },
+        end() {
+            return pool ? pool.end() : Promise.resolve();
+        },
+    };
 }
 
 async function query(sql, params = []) {
-    if (!pool) throw new Error('Database not initialized');
-    const [rows] = await pool.execute(sql, params);
+    const [rows] = await runWithReconnect('execute', sql, params);
     return Array.isArray(rows) ? rows : [];
 }
 
 async function run(sql, params = []) {
-    if (!pool) throw new Error('Database not initialized');
-    await pool.execute(sql, params);
+    await runWithReconnect('execute', sql, params);
 }
 
 async function saveDb() {

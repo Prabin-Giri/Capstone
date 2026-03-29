@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
-import { getCourseGrades, getSubmissions, type GradebookData } from '../../lib/api';
-import { ChevronLeft, BarChart2, X, ExternalLink } from 'lucide-react';
+import { getCourseGrades, getSubmissions, unenrollStudent, type GradebookData } from '../../lib/api';
+import { ChevronLeft, BarChart2, X, ExternalLink, Trash2 } from 'lucide-react';
 import './FacultyStudentListView.css';
 
 const FacultyStudentListView: React.FC = () => {
@@ -15,6 +15,8 @@ const FacultyStudentListView: React.FC = () => {
     const basePath = useMemo(() => {
         return pathname.startsWith('/ta') ? `/ta/courses/${courseId}` : `/faculty/courses/${courseId}`;
     }, [pathname, courseId]);
+
+    const isTA = pathname.startsWith('/ta');
 
     useEffect(() => {
         if (courseId) {
@@ -121,6 +123,20 @@ const FacultyStudentListView: React.FC = () => {
         }
     };
 
+    const handleUnenrollStudent = async (studentId: string, studentName: string) => {
+        if (!courseId) return;
+        const confirmed = window.confirm(`Are you sure you want to unenroll ${studentName} from this course? This action cannot be undone.`);
+        if (!confirmed) return;
+
+        try {
+            await unenrollStudent(courseId, studentId);
+            await loadData();
+        } catch (err) {
+            console.error('Failed to unenroll student', err);
+            alert('Failed to unenroll student. Please try again.');
+        }
+    };
+
     const report = generateStudentReport();
 
     return (
@@ -173,13 +189,25 @@ const FacultyStudentListView: React.FC = () => {
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.id}</td>
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.email}</td>
                                 <td style={{ textAlign: 'right' }}>
-                                    <button 
-                                        className="view-grades-btn"
-                                        onClick={() => setSelectedStudentId(student.id)}
-                                    >
-                                        <BarChart2 size={16} />
-                                        View Grades
-                                    </button>
+                                    <div className="student-actions-cell">
+                                        <button 
+                                            className="view-grades-btn"
+                                            onClick={() => setSelectedStudentId(student.id)}
+                                            title="View student grades"
+                                        >
+                                            <BarChart2 size={16} />
+                                            View Grades
+                                        </button>
+                                        {!isTA && (
+                                            <button 
+                                                className="unenroll-btn"
+                                                onClick={() => handleUnenrollStudent(student.id, student.name)}
+                                                title="Unenroll student"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}

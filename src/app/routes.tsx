@@ -3,6 +3,9 @@ import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/layout/ProtectedRoute';
 import Login from '../pages/auth/Login';
 import SignUp from '../pages/auth/SignUp';
+import VerifyEmail from '../pages/auth/VerifyEmail';
+import ForgotPassword from '../pages/auth/ForgotPassword';
+import ResetPassword from '../pages/auth/ResetPassword';
 import StudentDashboard from '../pages/student/StudentDashboard';
 import Calendar from '../pages/student/Calendar';
 import ClassAssignments from '../pages/student/ClassAssignments';
@@ -28,6 +31,7 @@ import StudentInsights from '../pages/admin/StudentInsights';
 import FacultyManagement from '../pages/admin/FacultyManagement';
 import AppAnalytics from '../pages/admin/AppAnalytics';
 import PendingDisclaimer from '../pages/faculty/PendingDisclaimer';
+import Inbox from '../pages/Inbox';
 
 export const router = createBrowserRouter([
     {
@@ -43,6 +47,18 @@ export const router = createBrowserRouter([
         element: <SignUp />,
     },
     {
+        path: '/verify-email',
+        element: <VerifyEmail />,
+    },
+    {
+        path: '/forgot-password',
+        element: <ForgotPassword />,
+    },
+    {
+        path: '/reset-password',
+        element: <ResetPassword />,
+    },
+    {
         path: '/',
         element: <AppShell />,
         errorElement: <NotFound />,
@@ -50,6 +66,10 @@ export const router = createBrowserRouter([
             {
                 path: 'calendar',
                 element: <Calendar />
+            },
+            {
+                path: 'inbox',
+                element: <Inbox />
             },
             {
                 path: 'student',

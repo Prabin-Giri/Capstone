@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { User, Mail, Shield, ChevronRight, LogOut, ChevronLeft, Settings, Bell, Lock, Camera, Check, X, ALargeSmall } from 'lucide-react';
+import { User, Mail, Shield, ChevronRight, LogOut, ChevronLeft, Settings, Lock, Camera, Check, X, ALargeSmall, Eye, EyeOff } from 'lucide-react';
 import { getUser, logout, updateUser, type UserSession } from '../../lib/auth';
-import { UPLOADS_BASE } from '../../lib/api';
+import { UPLOADS_BASE, changePassword } from '../../lib/api';
 import Cropper, { type Area } from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImage';
 import UserAvatar from '../ui/UserAvatar';
@@ -271,14 +271,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                     <ChevronRight size={16} />
                 </button>
                 <div className="drawer-divider-small" />
-                <button className="drawer-nav-btn disabled" title="Coming Soon">
-                    <div className="nav-btn-left">
-                        <Bell size={18} />
-                        <span>Notifications</span>
-                    </div>
-                    <ChevronRight size={16} />
-                </button>
-                <button className="drawer-nav-btn disabled" title="Coming Soon">
+                <button className="drawer-nav-btn" onClick={() => setCurrentView('security')}>
                     <div className="nav-btn-left">
                         <Lock size={18} />
                         <span>Security</span>
@@ -493,6 +486,142 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         );
     };
 
+    const [currentPw, setCurrentPw] = useState('');
+    const [newPw, setNewPw] = useState('');
+    const [confirmPw, setConfirmPw] = useState('');
+    const [pwError, setPwError] = useState('');
+    const [pwSuccess, setPwSuccess] = useState('');
+    const [pwSaving, setPwSaving] = useState(false);
+    const [showPasswords, setShowPasswords] = useState(false);
+
+    const validatePassword = (pw: string): string | null => {
+        if (pw.length < 8) return 'Password must be at least 8 characters';
+        if (!/[a-zA-Z]/.test(pw)) return 'Password must contain at least one letter';
+        if (!/[0-9]/.test(pw)) return 'Password must contain at least one number';
+        if (!/[^a-zA-Z0-9]/.test(pw)) return 'Password must contain at least one special character';
+        return null;
+    };
+
+    const handleChangePassword = async () => {
+        setPwError('');
+        setPwSuccess('');
+        if (!currentPw || !newPw || !confirmPw) { setPwError('All fields are required'); return; }
+        const validationErr = validatePassword(newPw);
+        if (validationErr) { setPwError(validationErr); return; }
+        if (newPw !== confirmPw) { setPwError('New password and confirm password do not match'); return; }
+        if (!userData?.id) return;
+        setPwSaving(true);
+        try {
+            await changePassword(userData.id, currentPw, newPw);
+            setPwSuccess('Password changed successfully');
+            setCurrentPw(''); setNewPw(''); setConfirmPw('');
+            setShowPasswords(false);
+        } catch (e: any) {
+            setPwError(e.message || 'Failed to change password');
+        } finally {
+            setPwSaving(false);
+        }
+    };
+
+    const renderSecurityView = () => (
+        <div className="account-drawer-content">
+            <div className="mobile-swipe-area" onTouchStart={handleTouchStart} />
+            <div className="mobile-drag-handle" />
+            <header className="subview-header">
+                <div className="subview-header-left">
+                    <button className="back-btn" onClick={() => { setCurrentView('main'); setPwError(''); setPwSuccess(''); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }}>
+                        <ChevronLeft size={20} />
+                    </button>
+                    <h3>Security</h3>
+                </div>
+            </header>
+
+            <div className="drawer-section" style={{ padding: '1.25rem' }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-primary)' }}>Change Password</h4>
+
+                {pwError && <div style={{ color: 'var(--danger-color)', fontSize: '0.82rem', marginBottom: '0.5rem', fontWeight: 500 }}>{pwError}</div>}
+                {pwSuccess && <div style={{ color: 'var(--success-color)', fontSize: '0.82rem', marginBottom: '0.75rem', padding: '0.5rem 0.75rem', background: 'var(--success-bg)', borderRadius: '8px' }}>{pwSuccess}</div>}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Current Password</label>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type={showPasswords ? 'text' : 'password'}
+                                value={currentPw}
+                                onChange={e => setCurrentPw(e.target.value)}
+                                placeholder="Enter current password"
+                                style={{ width: '100%', padding: '0.5rem 2.5rem 0.5rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                            <button type="button" onClick={() => setShowPasswords(!showPasswords)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '2px', display: 'flex' }}>
+                                {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>New Password</label>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type={showPasswords ? 'text' : 'password'}
+                                value={newPw}
+                                onChange={e => setNewPw(e.target.value)}
+                                placeholder="Letters, numbers & special characters"
+                                style={{ width: '100%', padding: '0.5rem 2.5rem 0.5rem 0.75rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                            <button type="button" onClick={() => setShowPasswords(!showPasswords)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '2px', display: 'flex' }}>
+                                {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                        {newPw && (() => {
+                            const checks = [
+                                { label: '8+ characters', pass: newPw.length >= 8 },
+                                { label: 'A letter', pass: /[a-zA-Z]/.test(newPw) },
+                                { label: 'A number', pass: /[0-9]/.test(newPw) },
+                                { label: 'A special character', pass: /[^a-zA-Z0-9]/.test(newPw) },
+                            ];
+                            return (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginTop: '4px' }}>
+                                    {checks.map(c => (
+                                        <span key={c.label} style={{ fontSize: '0.7rem', color: c.pass ? 'var(--success-color)' : 'var(--text-tertiary)' }}>
+                                            {c.pass ? '\u2713' : '\u2022'} {c.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Confirm New Password</label>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type={showPasswords ? 'text' : 'password'}
+                                value={confirmPw}
+                                onChange={e => setConfirmPw(e.target.value)}
+                                placeholder="Re-enter new password"
+                                style={{ width: '100%', padding: '0.5rem 2.5rem 0.5rem 0.75rem', border: `1px solid ${confirmPw && confirmPw !== newPw ? 'var(--danger-color)' : 'var(--border-color)'}`, borderRadius: '8px', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                                onKeyDown={e => { if (e.key === 'Enter') handleChangePassword(); }}
+                            />
+                            <button type="button" onClick={() => setShowPasswords(!showPasswords)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '2px', display: 'flex' }}>
+                                {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                        {confirmPw && confirmPw !== newPw && (
+                            <span style={{ fontSize: '0.72rem', color: 'var(--danger-color)' }}>Passwords do not match</span>
+                        )}
+                    </div>
+                    <button
+                        className="btn btn-primary"
+                        style={{ marginTop: '0.5rem', width: '100%' }}
+                        onClick={handleChangePassword}
+                        disabled={pwSaving}
+                    >
+                        {pwSaving ? 'Saving...' : 'Update Password'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     const drawerStyle = isOpen && window.innerWidth <= 768 ? {
         transform: `translateY(${dragOffset}px)`,
         transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -502,6 +631,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         switch (currentView) {
             case 'edit': return renderEditProfile();
             case 'settings': return renderSettingsView();
+            case 'security': return renderSecurityView();
             default: return renderMainView();
         }
     };

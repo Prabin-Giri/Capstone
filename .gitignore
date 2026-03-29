@@ -34,3 +34,4 @@ server/*.db
 server/*.sqlite
 server/*-backup.js
 .vite/
+autograde.db

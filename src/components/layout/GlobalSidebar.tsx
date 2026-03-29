@@ -95,10 +95,14 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
 
                 <div className="global-nav-divider" />
 
-                <span className="global-nav-link disabled" title="Coming Soon">
+                <NavLink
+                    to="/inbox"
+                    onClick={onNavigate}
+                    className={({ isActive }) => `global-nav-link ${isActive && !isAccountOpen ? 'active' : ''}`}
+                >
                     <Mail size={24} />
                     <span className="global-nav-text">Inbox</span>
-                </span>
+                </NavLink>
 
                 <div style={{ flex: 1 }} />
 

@@ -35,6 +35,7 @@ const Login: React.FC = () => {
                 role: user.role as any,
                 profilePicture: user.profile_picture,
                 verified,
+                emailVerified: user.email_verified !== false,
             });
         } catch (err: any) {
             setError(err.message || 'Login failed. Please check your credentials.');

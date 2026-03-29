@@ -140,9 +140,10 @@ function getRunCommand(language, entryFileName, { runArgs = [], javaMainClass = 
  * @param {string} [opts.outputFileName2] - Optional second output file to read (returned as outputFileContent2)
  * @param {string[]} [opts.runArgs] - CLI arguments to pass to the program (e.g. ["input.txt", "output.txt"])
  * @param {string} [opts.javaMainClass] - For Java, main class name (e.g. "LoadShipping"); overrides inference from filename
+ * @param {string} [opts.overrideFileName] - Optional: use this filename in the work directory (e.g. "sample_submission.java")
  * @returns {Promise<{ stdout, stderr, exitCode, timedOut, outputFileContent?, outputFileContent2? }>}
  */
-async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = config.runTimeoutMs, inputFile, outputFileName, outputFileName2, runArgs, javaMainClass, runMode = 'program' }) {
+async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = config.runTimeoutMs, inputFile, outputFileName, outputFileName2, runArgs, javaMainClass, runMode = 'program', overrideFileName }) {
     const stat = fs.statSync(sourceFilePath);
     const isDir = stat.isDirectory();
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograde-'));
@@ -162,7 +163,7 @@ async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = confi
             }
             entryFileName = inferEntryFile(workDir, language);
         } else {
-            entryFileName = path.basename(sourceFilePath);
+            entryFileName = overrideFileName || path.basename(sourceFilePath);
             fs.copyFileSync(sourceFilePath, path.join(workDir, entryFileName));
         }
 

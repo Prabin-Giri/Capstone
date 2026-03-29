@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 import UserAvatar from '../../components/ui/UserAvatar';
-import { CheckCircle, Clock, Search, Users, ClipboardList, X } from 'lucide-react';
+import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 
 import './SubmissionGrader.css';
 import { showDialog } from '../../components/ui/Dialog';
@@ -48,14 +48,40 @@ const SubmissionGrader: React.FC = () => {
     const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
     const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
 
-    // Sidebar widths — sized to fit content, drag right/left to expand only
+    // Sidebar states initialized from localStorage for persistence across student switches
+    const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() => {
+        return localStorage.getItem('grader_left_collapsed') === 'true';
+    });
+    const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(() => {
+        return localStorage.getItem('grader_right_collapsed') === 'true';
+    });
+
+    // Sidebar widths — initialized from localStorage
     const LEFT_MIN = 240;
     const RIGHT_MIN = 300;
-    const [leftWidth, setLeftWidth] = useState(LEFT_MIN);
-    const [rightWidth, setRightWidth] = useState(RIGHT_MIN);
+    const [leftWidth, setLeftWidth] = useState(() => {
+        const saved = localStorage.getItem('grader_left_width');
+        return saved ? parseInt(saved) : LEFT_MIN;
+    });
+    const [rightWidth, setRightWidth] = useState(() => {
+        const saved = localStorage.getItem('grader_right_width');
+        return saved ? parseInt(saved) : RIGHT_MIN;
+    });
+
     const [isResizingLeft, setIsResizingLeft] = useState(false);
     const [isResizingRight, setIsResizingRight] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Persistence helpers
+    const toggleLeftSidebar = (val: boolean) => {
+        setIsLeftSidebarCollapsed(val);
+        localStorage.setItem('grader_left_collapsed', String(val));
+    };
+
+    const toggleRightSidebar = (val: boolean) => {
+        setIsRightSidebarCollapsed(val);
+        localStorage.setItem('grader_right_collapsed', String(val));
+    };
 
     useEffect(() => {
         loadData();
@@ -83,10 +109,13 @@ const SubmissionGrader: React.FC = () => {
             const left = containerRef.current.getBoundingClientRect().left;
             setLeftWidth(Math.max(LEFT_MIN, Math.min(e.clientX - left, 520)));
         };
-        const onUp = () => setIsResizingLeft(false);
+        const onUp = () => {
+            setIsResizingLeft(false);
+            localStorage.setItem('grader_left_width', String(leftWidth));
+        };
         if (isResizingLeft) { document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp); }
         return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-    }, [isResizingLeft]);
+    }, [isResizingLeft, leftWidth]);
 
     // Right sidebar resize (expand only — min = RIGHT_MIN)
     useEffect(() => {
@@ -95,10 +124,13 @@ const SubmissionGrader: React.FC = () => {
             const right = containerRef.current.getBoundingClientRect().right;
             setRightWidth(Math.max(RIGHT_MIN, Math.min(right - e.clientX, 580)));
         };
-        const onUp = () => setIsResizingRight(false);
+        const onUp = () => {
+            setIsResizingRight(false);
+            localStorage.setItem('grader_right_width', String(rightWidth));
+        };
         if (isResizingRight) { document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp); }
         return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-    }, [isResizingRight]);
+    }, [isResizingRight, rightWidth]);
 
     // Called when user clicks a student — instantly paints UI with known data, fetches rest in background
     function switchToStudent(s: Submission) {
@@ -378,11 +410,12 @@ const SubmissionGrader: React.FC = () => {
             )}
 
             {/* ── LEFT SIDEBAR: Student List ───────────────── */}
-            <div className={`grader-sidebar grader-sidebar-left${leftDrawerOpen ? ' drawer-open' : ''}`} style={{ width: leftWidth }}>
+            <div className={`grader-sidebar grader-sidebar-left${leftDrawerOpen ? ' drawer-open' : ''}${isLeftSidebarCollapsed ? ' collapsed' : ''}`} style={{ width: isLeftSidebarCollapsed ? 0 : leftWidth }}>
                 <div className="sidebar-header">
                     <span className="sidebar-header-title">Students</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className="sidebar-header-count">{allStudentSubmissions.length}</span>
+                        <button className="sidebar-header-count">{allStudentSubmissions.length}</button>
+                        <button className="sidebar-toggle-btn desktop-only" onClick={() => toggleLeftSidebar(true)} title="Collapse Student List"><PanelLeftClose size={16} /></button>
                         <button className="drawer-close-btn" onClick={() => setLeftDrawerOpen(false)}><X size={15} /></button>
                     </div>
                 </div>
@@ -460,6 +493,16 @@ const SubmissionGrader: React.FC = () => {
 
                 {/* Student header */}
                 <div className="grader-student-header">
+                    {isLeftSidebarCollapsed && (
+                        <button 
+                            className="sidebar-expand-btn desktop-only left" 
+                            onClick={() => toggleLeftSidebar(false)}
+                            title="Expand Student List"
+                        >
+                            <PanelLeftOpen size={20} />
+                            <span className="expand-btn-text">View Student List</span>
+                        </button>
+                    )}
                     <UserAvatar
                         user={hideNames ? { name: anonLabel(submission.student_id) } : { name: submission.student_name, profilePicture: submission.student_profile_picture }}
                         size={52}
@@ -483,6 +526,16 @@ const SubmissionGrader: React.FC = () => {
                                     title={nextStudent ? `Next: ${nextStudent.student_name}` : 'No next student'}
                                 >&#8250;</button>
                             </div>
+                            {isRightSidebarCollapsed && (
+                                <button 
+                                    className="sidebar-expand-btn desktop-only right" 
+                                    onClick={() => toggleRightSidebar(false)}
+                                    title="Expand Grading Summary"
+                                >
+                                    <PanelRightOpen size={20} />
+                                    <span className="expand-btn-text">View Grading</span>
+                                </button>
+                            )}
                         </div>
                         <div className="meta-bar">
                             {!hideNames && <>
@@ -571,12 +624,15 @@ const SubmissionGrader: React.FC = () => {
             </div>
 
             {/* ── RIGHT SIDEBAR: Grading ────────────────────── */}
-            <div className={`grader-sidebar grader-sidebar-right${rightDrawerOpen ? ' drawer-open' : ''}${switching ? ' switching' : ''}`} style={{ width: rightWidth }}>
+            <div className={`grader-sidebar grader-sidebar-right${rightDrawerOpen ? ' drawer-open' : ''}${isRightSidebarCollapsed ? ' collapsed' : ''}${switching ? ' switching' : ''}`} style={{ width: isRightSidebarCollapsed ? 0 : rightWidth }}>
                 <div className="sidebar-resize-handle-v sidebar-resize-handle-right" onMouseDown={() => setIsResizingRight(true)} />
 
                 <div className="grading-sidebar-content">
                         <div className="grading-sidebar-titlebar">
-                            <h2 className="section-title grader-form-title" style={{ margin: 0 }}>Grading</h2>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <h2 className="section-title grader-form-title" style={{ margin: 0 }}>Grading</h2>
+                                <button className="sidebar-toggle-btn desktop-only" onClick={() => toggleRightSidebar(true)} title="Collapse Grading"><PanelRightClose size={16} /></button>
+                            </div>
                             <button className="drawer-close-btn" onClick={() => setRightDrawerOpen(false)}><X size={15} /></button>
                         </div>
 

@@ -16,6 +16,7 @@ export interface UserSession {
     role: AuthRole;
     profilePicture?: string;
     verified?: boolean;
+    emailVerified?: boolean;
 }
 
 export const updateUser = (updates: Partial<UserSession>) => {
@@ -43,6 +44,26 @@ export const getUser = (): UserSession | null => {
 };
 export const login = (user: UserSession) => {
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+
+    // If email not verified, redirect to verification page
+    if (user.emailVerified === false) {
+        window.location.href = '/verify-email';
+        return;
+    }
+
+    if (user.role === AUTH_ROLES.ADMIN) {
+        window.location.href = '/admin';
+    } else if (user.role === AUTH_ROLES.FACULTY) {
+        window.location.href = user.verified ? '/faculty' : '/faculty/pending';
+    } else if (user.role === AUTH_ROLES.TA) {
+        window.location.href = '/student';
+    } else {
+        window.location.href = '/student';
+    }
+};
+
+/** Redirect to the appropriate dashboard based on role + verified status (skips email check). */
+export const redirectToDashboard = (user: UserSession) => {
     if (user.role === AUTH_ROLES.ADMIN) {
         window.location.href = '/admin';
     } else if (user.role === AUTH_ROLES.FACULTY) {

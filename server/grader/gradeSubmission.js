@@ -130,7 +130,7 @@ async function gradeSubmission(submissionId, opts = {}) {
         return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
     }
 
-    const language = assignment.language || 'python';
+    const language = (assignment.language || 'python').toLowerCase() === 'node' ? 'javascript' : (assignment.language || 'python').toLowerCase();
     const allowPartial = assignment.allow_partial === 1 || assignment.allow_partial === true;
     const partialPct = Number(assignment.partial_pct) || config.defaultPartialCreditPercent;
 
@@ -139,6 +139,22 @@ async function gradeSubmission(submissionId, opts = {}) {
     const maxPossible = testCases.reduce((s, tc) => s + (Number(tc.points) || 0), 0);
 
     const javaMainClass = assignment.java_main_class && String(assignment.java_main_class).trim() ? String(assignment.java_main_class).trim() : null;
+
+    // --- Java Class Name Extraction: Extract main class name to ensure filename matches for javac ---
+    let javaOverrideFileName = null;
+    if (language === 'java') {
+        try {
+            const content = fs.readFileSync(sourcePath, 'utf8');
+            const classMatch = content.match(/public\s+class\s+(\w+)/);
+            if (classMatch) {
+                javaOverrideFileName = classMatch[1] + '.java';
+                console.log(`[gradeSubmission] Extracted Java class name: ${classMatch[1]}, using file name: ${javaOverrideFileName}`);
+            }
+        } catch (e) {
+            console.error('[gradeSubmission] Failed to read submission for Java class extraction:', e);
+        }
+    }
+
     const runMode = (assignment.run_mode || 'program').toLowerCase();
     const isFunctionMode = runMode === 'function';
 
@@ -176,6 +192,7 @@ async function gradeSubmission(submissionId, opts = {}) {
             stdin: effectiveStdin,
             timeoutMs: config.runTimeoutMs,
             runMode: isFunctionMode ? 'function' : 'program',
+            overrideFileName: javaOverrideFileName || undefined
         };
         if (!isFunctionMode) {
             runOpts.runArgs = runArgs.length ? runArgs : undefined;

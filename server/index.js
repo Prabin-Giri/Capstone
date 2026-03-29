@@ -13,9 +13,18 @@ const testCasesRouter = require('./routes/testCases');
 const usersRouter = require('./routes/users');
 const graderRouter = require('./routes/grader');
 const adminRouter = require('./routes/admin');
+const messagesRouter = require('./routes/messages');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+function toClientErrorMessage(err) {
+    const message = String((err && err.message) || '');
+    if ((err && err.code === 'ECONNRESET') || /ECONNRESET/i.test(message)) {
+        return 'Database connection was interrupted. Please try again.';
+    }
+    return message || 'Internal server error';
+}
 
 // Middleware
 app.use(cors());
@@ -39,6 +48,7 @@ app.use('/api/test-cases', testCasesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/grader', graderRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/messages', messagesRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -48,7 +58,7 @@ app.get('/api/health', (req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    res.status(500).json({ error: toClientErrorMessage(err) });
 });
 
 // Initialize database then start server

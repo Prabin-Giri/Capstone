@@ -156,4 +156,72 @@ router.get('/analytics', async (req, res) => {
     }
 });
 
+// DELETE /api/admin/users/:id - Delete a user account (Admin only)
+router.delete('/users/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        await db.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+        res.json({ message: 'User deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PATCH /api/admin/tables/:tableName - Update a record in a table (Admin only)
+router.patch('/tables/:tableName', async (req, res) => {
+    const { tableName } = req.params;
+    const { pkFields, updates } = req.body;
+    const safeTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    if (safeTable !== tableName) return res.status(400).json({ error: 'Invalid table name' });
+
+    try {
+        const db = getDb();
+        const setClauses = Object.keys(updates).map(k => `\`${k}\` = ?`).join(', ');
+        const whereClauses = Object.keys(pkFields).map(k => `\`${k}\` = ?`).join(' AND ');
+        const params = [...Object.values(updates), ...Object.values(pkFields)];
+
+        const sql = `UPDATE \`${safeTable}\` SET ${setClauses} WHERE ${whereClauses}`;
+        await db.execute(sql, params);
+        res.json({ message: 'Record updated successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/admin/tables/:tableName - Delete a record in a table (Admin only)
+router.delete('/tables/:tableName', async (req, res) => {
+    const { tableName } = req.params;
+    const { pkFields } = req.body;
+    const safeTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    if (safeTable !== tableName) return res.status(400).json({ error: 'Invalid table name' });
+
+    try {
+        const db = getDb();
+        const whereClauses = Object.keys(pkFields).map(k => `\`${k}\` = ?`).join(' AND ');
+        const params = Object.values(pkFields);
+
+        const sql = `DELETE FROM \`${safeTable}\` WHERE ${whereClauses}`;
+        await db.execute(sql, params);
+        res.json({ message: 'Record deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/admin/users/:id/enrollments - List student enrollments (Admin only)
+router.get('/users/:id/enrollments', async (req, res) => {
+    const studentId = req.params.id;
+    try {
+        const db = getDb();
+        const [rows] = await db.execute(`
+            SELECT c.id, c.name, ce.created_at FROM courses c
+            JOIN course_enrollments ce ON c.id = ce.course_id
+            WHERE ce.student_id = ?
+        `, [studentId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

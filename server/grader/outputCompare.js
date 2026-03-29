@@ -11,14 +11,7 @@
 function normalize(s, opts = {}) {
     if (s == null) return '';
     let out = String(s);
-    if (opts.ignoreTrailingNewline !== false) {
-        out = out.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        if (out.endsWith('\n')) out = out.slice(0, -1);
-    }
-    if (opts.trimLines) {
-        out = out.split('\n').map(line => line.trimEnd()).join('\n');
-    }
-    return out.trimEnd ? out.trimEnd() : out.replace(/\s+$/, '');
+    return out.trim();
 }
 
 /**
