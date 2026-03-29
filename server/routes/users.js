@@ -201,6 +201,34 @@ router.get('/verify-email-token', async (req, res, next) => {
     }
 });
 
+// GET /api/users/diag/env - Censors secrets but confirms if Vercel is reading the SMTP/Email env vars
+router.get('/diag/env', async (req, res) => {
+    const mask = (val) => {
+        if (!val) return 'MISSING';
+        if (typeof val !== 'string') return 'PRESENT (Not a string)';
+        if (val.length <= 4) return 'PRESENT (Too short)';
+        return `${val.slice(0, 2)}***${val.slice(-2)} (Length: ${val.length})`;
+    };
+
+    const config = {
+        NODE_ENV: process.env.NODE_ENV,
+        EMAIL_PROVIDER: process.env.EMAIL_PROVIDER || 'auto',
+        SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+        SMTP_PORT: process.env.SMTP_PORT || '587',
+        SMTP_SECURE: process.env.SMTP_SECURE || 'false',
+        SMTP_USER: mask(process.env.SMTP_USER),
+        SMTP_PASS: mask(process.env.SMTP_PASS),
+        SMTP_FROM: mask(process.env.SMTP_FROM),
+        RESEND_API_KEY: mask(process.env.RESEND_API_KEY),
+        EMAIL_FROM: mask(process.env.EMAIL_FROM),
+        FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+        MYSQL_HOST: mask(process.env.MYSQL_HOST),
+        TIMESTAMP: new Date().toISOString()
+    };
+
+    res.json(config);
+});
+
 // POST /api/users/test-smtp - Send a simple test email to diagnostic credentials
 router.post('/test-smtp', async (req, res) => {
     try {
