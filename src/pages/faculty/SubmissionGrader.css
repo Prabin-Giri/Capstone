@@ -1,7 +1,6 @@
-/* ============================================================
-   Submission Grader — 3-panel layout
-   ============================================================ */
+/* Your grading UI changes for SubmissionGrader.css */
 
+/* Updated styles for Submission Grader UI */
 .grader-container {
     display: flex;
     height: calc(100vh - var(--header-height, 60px));

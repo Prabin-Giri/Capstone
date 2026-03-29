@@ -1,8 +1,6 @@
-/* App Shell Layout */
-:root {
-    --global-sidebar-width: 120px;
-}
+/* Your grading UI changes for Layout.css */
 
+/* Updated styles for grading UI */
 body.no-scroll {
     overflow: hidden !important;
 }

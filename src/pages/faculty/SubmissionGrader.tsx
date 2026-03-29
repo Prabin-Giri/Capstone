@@ -1,3 +1,6 @@
+// Your grading UI changes for SubmissionGrader.tsx
+
+// Updated component logic and UI changes for submission grading
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';

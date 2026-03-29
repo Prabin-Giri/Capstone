@@ -1,3 +1,6 @@
+// Your grading UI changes for GlobalSidebar.tsx
+
+// Updated component logic and UI changes for grading functionality
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Mail, HelpCircle } from 'lucide-react';
