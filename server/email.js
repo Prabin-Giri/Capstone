@@ -155,6 +155,9 @@ function getSmtpTransporter() {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
+            // Enable detailed logging for production diagnostics
+            logger: true,
+            debug: true,
         });
     }
 
