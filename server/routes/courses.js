@@ -514,6 +514,11 @@ router.delete('/:id/enroll/:studentId', async (req, res, next) => {
             'DELETE FROM course_enrollments WHERE course_id = ? AND student_id = ?',
             [courseId, studentId]
         );
+        // Also remove from course_tas if they were assigned as a TA
+        await db.execute(
+            'DELETE FROM course_tas WHERE course_id = ? AND ta_id = ?',
+            [courseId, studentId]
+        );
         res.json({ message: 'Student unenrolled successfully' });
     } catch (err) {
         next(err);

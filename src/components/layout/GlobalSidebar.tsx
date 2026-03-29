@@ -1,9 +1,9 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle, User } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
-import { UPLOADS_BASE } from '../../lib/api';
 import { cancelDialog } from '../ui/Dialog';
+import UserAvatar from '../ui/UserAvatar';
 import './Layout.css';
 
 interface GlobalSidebarProps {
@@ -11,9 +11,11 @@ interface GlobalSidebarProps {
     onNavigate: () => void;
     onToggleAccount: () => void;
     isAccountOpen?: boolean;
+    onOpenSupport: () => void;
+    unreadCount?: number;
 }
 
-const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen }) => {
+const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen, onOpenSupport, unreadCount = 0 }) => {
     const role = getRole();
     const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
     const [userData, setUserData] = React.useState(getUser());
@@ -55,21 +57,11 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     className={`global-nav-link ${isAccountOpen ? 'active' : ''}`}
                     style={{ cursor: 'pointer' }}
                 >
-                    {userData?.profilePicture ? (
-                        <img
-                            src={`${UPLOADS_BASE}/uploads/${userData.profilePicture}`}
-                            alt="Account"
-                            style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                objectFit: 'cover',
-                                marginBottom: '4px'
-                            }}
-                        />
-                    ) : (
-                        <User size={32} />
-                    )}
+                    <UserAvatar 
+                        user={userData || { name: 'U' }} 
+                        size={32} 
+                        className="global-nav-avatar"
+                    />
                     <span className="global-nav-text">Account</span>
                 </button>
 
@@ -100,16 +92,25 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     onClick={onNavigate}
                     className={({ isActive }) => `global-nav-link ${isActive && !isAccountOpen ? 'active' : ''}`}
                 >
-                    <Mail size={24} />
+                    <span className="nav-icon-wrapper">
+                        <Mail size={24} />
+                        {unreadCount > 0 && (
+                            <span className="nav-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                        )}
+                    </span>
                     <span className="global-nav-text">Inbox</span>
                 </NavLink>
 
                 <div style={{ flex: 1 }} />
 
-                <span className="global-nav-link disabled" title="Coming Soon">
+                <button 
+                    className="global-nav-link" 
+                    onClick={onOpenSupport}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
                     <HelpCircle size={24} />
                     <span className="global-nav-text">Help</span>
-                </span>
+                </button>
             </nav>
         </aside>
     );

@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryToObjects, queryOne } = require('../db');
+const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 
 // GET /api/assignments - Get all assignments
 router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT * FROM assignments ORDER BY due_date');
+        const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
+        const result = await db.execute(`SELECT *, ${timeField('due_date')} AS due_date FROM assignments ORDER BY due_date`);
         res.json(queryToObjects(result));
     } catch (err) {
         next(err);
@@ -17,7 +18,8 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT * FROM assignments WHERE id = ?', [req.params.id]);
+        const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
+        const result = await db.execute(`SELECT *, ${timeField('due_date')} AS due_date, ${timeField('created_at')} AS created_at, ${timeField('updated_at')} AS updated_at FROM assignments WHERE id = ?`, [req.params.id]);
         const assignment = queryOne(result);
 
         if (!assignment) {
@@ -43,6 +45,9 @@ router.post('/', async (req, res, next) => {
             starter_code_path,
             test_case_file_path = null,
             type = 'individual',
+            group_submission_type = 'one_for_all',
+            max_group_members = null,
+            groups = [],
             late_penalty_enabled,
             late_penalty_type,
             late_penalty_value,
@@ -66,9 +71,26 @@ router.post('/', async (req, res, next) => {
         const lateCap = late_penalty_cap != null ? Number(late_penalty_cap) : 50;
 
         await db.execute(
-            'INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap, rubric_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type, lateEnabled ? 1 : 0, lateType, lateValue, lateCap, rubric_config || null]
+            'INSERT INTO assignments (id, course_id, title, description, due_date, status, points, language, starter_code_path, test_case_file_path, type, group_submission_type, max_group_members, late_penalty_enabled, late_penalty_type, late_penalty_value, late_penalty_cap, rubric_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, course_id, title, description, mysqlDueDate, status, points, language, starter_code_path, test_case_file_path, type, group_submission_type, max_group_members, lateEnabled ? 1 : 0, lateType, lateValue, lateCap, rubric_config || null]
         );
+
+        // Save groups if provided
+        if (type === 'group' && Array.isArray(groups)) {
+            for (const group of groups) {
+                const groupId = group.id || id + '-grp-' + Math.random().toString(36).substr(2, 9);
+                await db.execute('INSERT INTO assignment_groups (id, assignment_id, name) VALUES (?, ?, ?)', [groupId, id, group.name]);
+                if (Array.isArray(group.students)) {
+                    for (const studentId of group.students) {
+                        try {
+                            await db.execute('INSERT INTO group_members (group_id, student_id) VALUES (?, ?)', [groupId, studentId]);
+                        } catch (e) {
+                            console.error('Failed to add group member', e);
+                        }
+                    }
+                }
+            }
+        }
 
         res.status(201).json({
             id,
@@ -106,6 +128,9 @@ router.put('/:id', async (req, res, next) => {
             starter_code_path,
             test_case_file_path,
             type,
+            group_submission_type,
+            max_group_members,
+            groups,
             late_penalty_enabled,
             late_penalty_type,
             late_penalty_value,
@@ -132,6 +157,8 @@ router.put('/:id', async (req, res, next) => {
         if (starter_code_path !== undefined) { updates.push('starter_code_path = ?'); values.push(starter_code_path); }
         if (test_case_file_path !== undefined) { updates.push('test_case_file_path = ?'); values.push(test_case_file_path); }
         if (type !== undefined) { updates.push('type = ?'); values.push(type); }
+        if (group_submission_type !== undefined) { updates.push('group_submission_type = ?'); values.push(group_submission_type); }
+        if (max_group_members !== undefined) { updates.push('max_group_members = ?'); values.push(max_group_members); }
         if (late_penalty_enabled !== undefined) { updates.push('late_penalty_enabled = ?'); values.push(late_penalty_enabled === true || late_penalty_enabled === 1 || late_penalty_enabled === '1' ? 1 : 0); }
         if (late_penalty_type !== undefined) { updates.push('late_penalty_type = ?'); values.push(late_penalty_type); }
         if (late_penalty_value !== undefined) { updates.push('late_penalty_value = ?'); values.push(Number(late_penalty_value)); }
@@ -139,12 +166,29 @@ router.put('/:id', async (req, res, next) => {
         if (rubric_config !== undefined) { updates.push('rubric_config = ?'); values.push(rubric_config); }
         if (hide_student_names !== undefined) { updates.push('hide_student_names = ?'); values.push(hide_student_names === true || hide_student_names === 1 || hide_student_names === '1' ? 1 : 0); }
 
-        if (updates.length === 0) {
-            return res.status(400).json({ error: 'No fields to update' });
+        if (updates.length > 0) {
+            values.push(id);
+            await db.execute(`UPDATE assignments SET ${updates.join(', ')} WHERE id = ?`, values);
         }
 
-        values.push(id);
-        await db.execute(`UPDATE assignments SET ${updates.join(', ')} WHERE id = ?`, values);
+        // Update groups if provided
+        if (groups && Array.isArray(groups)) {
+            // Re-create groups: simple method is delete and insert
+            await db.execute('DELETE FROM assignment_groups WHERE assignment_id = ?', [id]);
+            for (const group of groups) {
+                const groupId = group.id || id + '-grp-' + Math.random().toString(36).substr(2, 9);
+                await db.execute('INSERT INTO assignment_groups (id, assignment_id, name) VALUES (?, ?, ?)', [groupId, id, group.name]);
+                if (Array.isArray(group.students)) {
+                    for (const studentId of group.students) {
+                        try {
+                            await db.execute('INSERT INTO group_members (group_id, student_id) VALUES (?, ?)', [groupId, studentId]);
+                        } catch (e) {
+                            console.error('Failed to add group member', e);
+                        }
+                    }
+                }
+            }
+        }
 
         res.json({ message: 'Assignment updated successfully' });
     } catch (err) {
@@ -163,7 +207,44 @@ router.delete('/:id', async (req, res, next) => {
     }
 });
 
+// GET /api/assignments/:id/groups - Get groups for assignment
+router.get('/:id/groups', async (req, res, next) => {
+    try {
+        const db = getDb();
+        const [groups] = await db.execute('SELECT * FROM assignment_groups WHERE assignment_id = ? ORDER BY name', [req.params.id]);
+        
+        // Fetch members for each group
+        const result = [];
+        for (const group of groupToObjects(groups)) {
+            const [members] = await db.execute(`
+                SELECT u.id, u.name, u.email, u.profile_picture 
+                FROM group_members gm 
+                JOIN users u ON gm.student_id = u.id 
+                WHERE gm.group_id = ?
+            `, [group.id]);
+            
+            result.push({
+                ...group,
+                students: queryToObjects(members)
+            });
+        }
+        res.json(result);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Helper for object conversion
+function groupToObjects(result) {
+    if (!result) return [];
+    if (Array.isArray(result)) {
+        return Array.isArray(result[0]) ? result[0] : result;
+    }
+    return [];
+}
+
 // GET /api/assignments/:id/grades/export - Export single assignment grades as CSV
+
 router.get('/:id/grades/export', async (req, res, next) => {
     try {
         const db = getDb();
@@ -595,6 +676,45 @@ router.post('/:id/autograde', async (req, res, next) => {
             average: gradedCount > 0 ? Math.round(totalGrades / gradedCount) : 0
         });
 
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/assignments/:id/grade-group/:groupId - Grade an entire group
+router.post('/:id/grade-group/:groupId', async (req, res, next) => {
+    try {
+        const { grade, feedback, status = 'graded' } = req.body;
+        const assignmentId = req.params.id;
+        const groupId = req.params.groupId;
+        const db = getDb();
+
+        // 1. Get all students in the group
+        const [members] = await db.execute('SELECT student_id FROM group_members WHERE group_id = ?', [groupId]);
+        if (!members || members.length === 0) {
+            return res.status(404).json({ error: 'Group has no members or does not exist' });
+        }
+        const studentIds = members.map(m => m.student_id);
+
+        // 2. Update their latest submissions for this assignment
+        let updateCount = 0;
+        for (const studentId of studentIds) {
+            // Find latest submission
+            const [rows] = await db.execute('SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY submitted_at DESC LIMIT 1', [assignmentId, studentId]);
+            if (rows && rows.length > 0) {
+                const subId = rows[0].id;
+                await db.execute('UPDATE submissions SET grade = ?, feedback = ?, status = ? WHERE id = ?', [grade, feedback, status, subId]);
+                updateCount++;
+            } else {
+                // If they have no submission, we might insert an empty graded submission or just skip.
+                // We'll insert an empty placeholder so they see the grade.
+                await db.execute("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, grade, feedback, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [assignmentId, studentId, 'Group Submission', '[]', grade, feedback, status]);
+                updateCount++;
+            }
+        }
+
+        res.json({ message: `Successfully graded ${updateCount} group members.` });
     } catch (err) {
         next(err);
     }

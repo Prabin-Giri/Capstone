@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Mail, Send, Star, Archive, Trash2, ArrowLeft, X, Pencil, Search } from 'lucide-react';
+import { Mail, Send, Star, Archive, Trash2, ArrowLeft, X, Pencil, Search, UserPlus } from 'lucide-react';
 import { getUser } from '../lib/auth';
 import {
     getCourses,
@@ -11,8 +11,12 @@ import {
     toggleStar,
     toggleArchive,
     deleteConversation,
+    getUserGroups,
+    addParticipant,
 } from '../lib/api';
-import type { Course, Conversation, ConversationMessage, MessageContact } from '../lib/api';
+import type { Course, Conversation, ConversationMessage, MessageContact, UserGroup } from '../lib/api';
+import { parseUTC } from '../lib/utils';
+import { showDialog } from '../components/ui/Dialog';
 import './Inbox.css';
 
 type InboxFilter = 'inbox' | 'unread' | 'starred' | 'sent' | 'archived';
@@ -40,6 +44,7 @@ const Inbox: React.FC = () => {
     const [replyText, setReplyText] = useState('');
     const [sending, setSending] = useState(false);
     const [showCompose, setShowCompose] = useState(false);
+    const [showParticipants, setShowParticipants] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -121,26 +126,53 @@ const Inbox: React.FC = () => {
 
     async function handleStar(conv: Conversation, e: React.MouseEvent) {
         e.stopPropagation();
-        const newVal = !conv.is_starred;
+        const newVal = conv.is_starred ? 0 : 1;
         try {
-            await toggleStar(conv.id, userId, newVal);
-            setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, is_starred: newVal ? 1 : 0 } : c));
-            if (activeConv?.id === conv.id) setActiveConv({ ...activeConv, is_starred: newVal ? 1 : 0 });
-        } catch { /* empty */ }
+            await toggleStar(conv.id, userId, newVal === 1);
+            setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, is_starred: newVal } : c));
+            if (activeConv?.id === conv.id) setActiveConv({ ...activeConv, is_starred: newVal });
+        } catch (err) {
+            console.error('Failed to toggle star', err);
+        }
     }
 
     async function handleArchive() {
         if (!activeConv) return;
+        const isCurrentlyArchived = !!activeConv.is_archived;
+        
+        // Confirmation for archiving (but not necessarily for unarchiving)
+        if (!isCurrentlyArchived) {
+            const confirmed = await showDialog({
+                title: 'Archive Conversation',
+                message: 'Are you sure you want to archive this conversation? It will be moved out of your main inbox.',
+                confirmText: 'Archive',
+                cancelText: 'Cancel'
+            });
+            if (!confirmed) return;
+        }
+
         try {
-            await toggleArchive(activeConv.id, userId, !activeConv.is_archived);
+            await toggleArchive(activeConv.id, userId, !isCurrentlyArchived);
             setActiveConv(null);
             setDetailOpen(false);
             loadConversations();
-        } catch { /* empty */ }
+        } catch (err) {
+            console.error('Failed to toggle archive', err);
+            await showDialog({ title: 'Error', message: 'Failed to update archive status.', confirmText: 'OK' });
+        }
     }
 
     async function handleDelete() {
         if (!activeConv) return;
+        const confirmed = await showDialog({
+            title: 'Delete Conversation',
+            message: 'Are you sure you want to delete this conversation? This action cannot be undone for you.',
+            type: 'danger',
+            confirmText: 'Delete',
+            cancelText: 'Cancel'
+        });
+        if (!confirmed) return;
+        
         try {
             await deleteConversation(activeConv.id, userId);
             setActiveConv(null);
@@ -150,7 +182,7 @@ const Inbox: React.FC = () => {
     }
 
     function formatTime(dateStr: string) {
-        const d = new Date(dateStr);
+        const d = parseUTC(dateStr);
         const now = new Date();
         const diffMs = now.getTime() - d.getTime();
         const diffDays = Math.floor(diffMs / 86400000);
@@ -249,8 +281,12 @@ const Inbox: React.FC = () => {
                                         )}
                                         <div className="inbox-conv-meta">
                                             {conv.course_name && <span className="inbox-conv-course-badge">{conv.course_name}</span>}
-                                            <span className={`inbox-conv-star ${conv.is_starred ? 'starred' : ''}`} onClick={e => handleStar(conv, e)}>
-                                                <Star size={13} fill={conv.is_starred ? 'currentColor' : 'none'} />
+                                            <span 
+                                                className={`inbox-conv-star ${conv.is_starred ? 'starred' : ''}`} 
+                                                onClick={e => handleStar(conv, e)}
+                                                title={conv.is_starred ? "Unstar" : "Star"}
+                                            >
+                                                <Star size={16} fill={conv.is_starred ? "currentColor" : "none"} />
                                             </span>
                                             {isUnread && <span className="inbox-unread-dot" />}
                                         </div>
@@ -281,11 +317,22 @@ const Inbox: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="inbox-detail-actions">
-                                    <button className={`inbox-action-btn ${activeConv.is_starred ? 'starred' : ''}`} title="Star" onClick={e => handleStar(activeConv, e)}>
-                                        <Star size={16} fill={activeConv.is_starred ? 'currentColor' : 'none'} />
+                                    <button className="inbox-action-btn" title="Manage Participants" onClick={() => setShowParticipants(true)}>
+                                        <UserPlus size={16} />
                                     </button>
-                                    <button className="inbox-action-btn" title="Archive" onClick={handleArchive}>
-                                        <Archive size={16} />
+                                    <button 
+                                        className={`inbox-action-btn ${activeConv.is_starred ? 'starred' : ''}`} 
+                                        title={activeConv.is_starred ? "Unstar" : "Star"} 
+                                        onClick={e => handleStar(activeConv, e)}
+                                    >
+                                        <Star size={18} fill={activeConv.is_starred ? "currentColor" : "none"} />
+                                    </button>
+                                    <button 
+                                        className={`inbox-action-btn ${activeConv.is_archived ? 'archived' : ''}`} 
+                                        title={activeConv.is_archived ? "Unarchive" : "Archive"} 
+                                        onClick={handleArchive}
+                                    >
+                                        <Archive size={18} fill={activeConv.is_archived ? "currentColor" : "none"} />
                                     </button>
                                     <button className="inbox-action-btn" title="Delete" onClick={handleDelete}>
                                         <Trash2 size={16} />
@@ -304,7 +351,7 @@ const Inbox: React.FC = () => {
                                         <div className="inbox-msg-content">
                                             <div className="inbox-msg-sender">{msg.sender_name}</div>
                                             <div className="inbox-msg-body">{msg.body}</div>
-                                            <div className="inbox-msg-time">{new Date(msg.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                                            <div className="inbox-msg-time">{parseUTC(msg.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -338,6 +385,24 @@ const Inbox: React.FC = () => {
                     onSent={() => { setShowCompose(false); loadConversations(); }}
                 />
             )}
+
+            {/* Participants Modal */}
+            {showParticipants && activeConv && (
+                <ParticipantsModal
+                    userId={userId}
+                    conversation={activeConv}
+                    onClose={() => setShowParticipants(false)}
+                    onAdded={() => {
+                        loadConversations();
+                        // Refresh active conversation specifically
+                        (async () => {
+                            const data = await getConversations(userId);
+                            const updated = data.find(c => c.id === activeConv.id);
+                            if (updated) setActiveConv(updated);
+                        })();
+                    }}
+                />
+            )}
         </div>
     );
 };
@@ -362,15 +427,21 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ userId, courses, onClose, o
     const [sending, setSending] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+
     useEffect(() => {
         if (!courseId) return;
         (async () => {
             try {
-                const c = await getContacts(userId, courseId);
+                const [c, g] = await Promise.all([
+                    getContacts(userId, courseId),
+                    getUserGroups(userId)
+                ]);
                 setContacts(c);
+                setUserGroups(g.filter(group => group.course_id === courseId));
             } catch { /* empty */ }
         })();
-    }, [courseId]);
+    }, [courseId, userId]);
 
     const filteredContacts = contacts.filter(c => {
         if (recipients.find(r => r.id === c.id)) return false;
@@ -395,6 +466,18 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ userId, courses, onClose, o
     function selectAll() {
         const remaining = contacts.filter(c => !recipients.find(r => r.id === c.id));
         setRecipients(prev => [...prev, ...remaining]);
+        setShowDropdown(false);
+    }
+
+    function selectGroup(group: UserGroup) {
+        if (!group.members) return;
+        const newRecipients = group.members
+            .filter(m => m.id !== userId && !recipients.find(r => r.id === m.id))
+            .map(m => ({ id: m.id, name: m.name, email: m.email, role: 'student' as const, profile_picture: undefined }));
+        
+        if (newRecipients.length > 0) {
+            setRecipients(prev => [...prev, ...newRecipients]);
+        }
         setShowDropdown(false);
     }
 
@@ -459,7 +542,16 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ userId, courses, onClose, o
                                         Select all ({contacts.length})
                                     </button>
                                 )}
-                                {filteredContacts.length === 0 ? (
+                                {userGroups.map(g => (
+                                    <div key={g.id} className="inbox-recipient-option" style={{ backgroundColor: 'var(--bg-surface)' }} onMouseDown={e => { e.preventDefault(); selectGroup(g); }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, minWidth: 0 }}>
+                                            <span style={{ fontWeight: 600 }}>Group: {g.name}</span>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.assignment_title}</span>
+                                        </div>
+                                        <span className="role-badge" style={{ backgroundColor: 'rgba(128, 0, 0, 0.1)', color: 'var(--primary)' }}>group</span>
+                                    </div>
+                                ))}
+                                {filteredContacts.length === 0 && userGroups.length === 0 ? (
                                     <div style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>No contacts found</div>
                                 ) : (
                                     filteredContacts.slice(0, 20).map(c => (
@@ -496,6 +588,99 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ userId, courses, onClose, o
                     >
                         {sending ? 'Sending...' : 'Send'}
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ============ Participants Modal ============ */
+
+interface ParticipantsModalProps {
+    userId: string;
+    conversation: Conversation;
+    onClose: () => void;
+    onAdded: () => void;
+}
+
+const ParticipantsModal: React.FC<ParticipantsModalProps> = ({ userId, conversation, onClose, onAdded }) => {
+    const [contacts, setContacts] = useState<MessageContact[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [adding, setAdding] = useState<string | null>(null);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const c = await getContacts(userId, conversation.course_id);
+                setContacts(c);
+            } catch { /* empty */ } finally {
+                setLoading(false);
+            }
+        })();
+    }, [userId, conversation.course_id]);
+
+    const currentIds = new Set(conversation.participants.map(p => p.id));
+    // Filter available contacts: those not in current active participants
+    const available = contacts.filter(c => !currentIds.has(c.id));
+
+    async function handleAdd(contactId: string) {
+        setAdding(contactId);
+        try {
+            await addParticipant(conversation.id, contactId);
+            onAdded();
+        } catch (e) {
+            console.error('Failed to add participant', e);
+        } finally {
+            setAdding(null);
+        }
+    }
+
+    return (
+        <div className="inbox-compose-overlay" onClick={onClose}>
+            <div className="inbox-compose-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                <div className="inbox-compose-header">
+                    <h2>Manage Participants</h2>
+                    <button className="inbox-compose-close" onClick={onClose}><X size={20} /></button>
+                </div>
+                <div className="inbox-compose-body" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Current Members ({conversation.participants.length})</h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {conversation.participants.map(p => (
+                                <div key={p.id} className="inbox-recipient-chip" style={{ margin: 0 }}>
+                                    {p.name} {p.id === userId && '(You)'}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                        <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Add to Conversation</h4>
+                        {loading ? (
+                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>Loading contacts...</div>
+                        ) : available.length === 0 ? (
+                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No more contacts available for this course</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {available.map(c => (
+                                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', background: 'var(--bg-surface)', borderRadius: '8px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</span>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{c.role}</span>
+                                        </div>
+                                        <button 
+                                            className="btn btn-primary" 
+                                            style={{ padding: '4px 12px', fontSize: '0.75rem' }}
+                                            disabled={adding === c.id}
+                                            onClick={() => handleAdd(c.id)}
+                                        >
+                                            {adding === c.id ? 'Adding...' : 'Add'}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

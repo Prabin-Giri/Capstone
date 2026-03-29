@@ -136,8 +136,25 @@ const CREATE_TABLES = [
         java_main_class VARCHAR(255),
         run_mode VARCHAR(50) DEFAULT 'program',
         type VARCHAR(50) DEFAULT 'individual',
+        group_submission_type VARCHAR(50) DEFAULT 'one_for_all',
+        max_group_members INT DEFAULT NULL,
         rubric_config TEXT,
         FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS assignment_groups (
+        id VARCHAR(255) PRIMARY KEY,
+        assignment_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS group_members (
+        group_id VARCHAR(255) NOT NULL,
+        student_id VARCHAR(255) NOT NULL,
+        PRIMARY KEY (group_id, student_id),
+        FOREIGN KEY (group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS submissions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -228,12 +245,12 @@ const CREATE_TABLES = [
     )`,
     `CREATE TABLE IF NOT EXISTS conversations (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        course_id VARCHAR(255) NOT NULL,
+        course_id VARCHAR(255) DEFAULT NULL,
         subject VARCHAR(500) NOT NULL,
         created_by VARCHAR(255) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS conversation_participants (
@@ -295,6 +312,18 @@ async function initDb() {
         // Do not rethrow, let the app start but it will fail on queries which we catch in diag
     }
 
+    // Migration: Ensure conversations.course_id is nullable (for support messages)
+    try {
+        // Check if column is already nullable to avoid repeated execution
+        const [columns] = await pool.execute('SHOW COLUMNS FROM conversations LIKE "course_id"');
+        if (columns && columns.length > 0 && columns[0].Null === 'NO') {
+            console.log('Migrating conversations.course_id to be NULLABLE...');
+            await pool.execute('ALTER TABLE conversations MODIFY course_id VARCHAR(255) NULL');
+        }
+    } catch (err) {
+        console.error('Migration failed for conversations table (MySQL):', err.message);
+    }
+
     // Ensure rubric_config column exists even on older databases
     try {
         await pool.execute('ALTER TABLE assignments ADD COLUMN rubric_config TEXT');
@@ -352,6 +381,18 @@ async function initDb() {
     // Ensure users.password_reset_expires exists
     try {
         await pool.execute('ALTER TABLE users ADD COLUMN password_reset_expires DATETIME DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure assignments.group_submission_type exists
+    try {
+        await pool.execute('ALTER TABLE assignments ADD COLUMN group_submission_type VARCHAR(50) DEFAULT "one_for_all"');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure assignments.max_group_members exists
+    try {
+        await pool.execute('ALTER TABLE assignments ADD COLUMN max_group_members INT DEFAULT NULL');
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }

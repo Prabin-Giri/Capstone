@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { getDb, queryToObjects, queryOne } = require('../db');
+const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -29,7 +29,8 @@ router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.query;
-        let sql = 'SELECT submissions.*, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1';
+        const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
+        let sql = `SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1`;
         const params = [];
 
         if (assignment_id) {
@@ -53,7 +54,8 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT submissions.*, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE submissions.id = ?', [req.params.id]);
+        const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
+        const result = await db.execute(`SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE submissions.id = ?`, [req.params.id]);
         const row = queryOne(result);
         if (!row) {
             return res.status(404).json({ error: 'Submission not found' });
@@ -85,11 +87,35 @@ router.post('/', upload.array('files'), async (req, res, next) => {
         const file_name = `${req.files.length} file${req.files.length > 1 ? 's' : ''}`;
         const file_path = JSON.stringify(filesData);
 
-        // Always insert new submission to track multiple attempts
-        await db.execute("INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
-            [assignment_id, student_id, file_name, file_path]);
+        // Check if assignment is group one_for_all
+        const [aRows] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignment_id]);
+        const assignment = aRows[0];
+        
+        let targetStudentIds = [student_id];
+        
+        if (assignment && assignment.type === 'group' && assignment.group_submission_type === 'one_for_all') {
+            // Find student's group for this assignment
+            const [gRows] = await db.execute(`
+                SELECT student_id FROM group_members
+                WHERE group_id IN (
+                    SELECT group_id FROM group_members
+                    JOIN assignment_groups ON group_members.group_id = assignment_groups.id
+                    WHERE assignment_groups.assignment_id = ? AND group_members.student_id = ?
+                )
+            `, [assignment_id, student_id]);
+            
+            if (gRows && gRows.length > 0) {
+                targetStudentIds = gRows.map(r => r.student_id);
+            }
+        }
 
-        // Return the *newly inserted* submission
+        // Always insert new submission for all targeted students to track multiple attempts identically for the group
+        for (const tid of targetStudentIds) {
+            await db.execute("INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
+                [assignment_id, tid, file_name, file_path]);
+        }
+
+        // Return the *newly inserted* submission for the original student
         const [rows] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
             [assignment_id, student_id]);
         res.status(201).json(rows[0]);

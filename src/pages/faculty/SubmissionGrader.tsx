@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests } from '../../lib/api';
-import type { Submission, Assignment, RubricConfig } from '../../lib/api';
+import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
+import type { Submission, Assignment, RubricConfig, AssignmentGroup } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
@@ -10,7 +10,7 @@ import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, Pa
 
 import './SubmissionGrader.css';
 import { showDialog } from '../../components/ui/Dialog';
-import { getCommentChar, getLanguageFromFilename } from '../../lib/utils';
+import { getCommentChar, getLanguageFromFilename, parseUTC } from '../../lib/utils';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -43,6 +43,10 @@ const SubmissionGrader: React.FC = () => {
     // Anonymous grading — TA context detected from URL (same as basePath logic)
     const _isTA = basePath === '/ta';
     const [hideNames, setHideNames] = useState(false);
+
+    // Group Grading State
+    const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
+    const [gradeByGroup, setGradeByGroup] = useState(() => localStorage.getItem('grader_group_mode') === 'true');
 
     // Mobile drawers
     const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
@@ -163,18 +167,21 @@ const SubmissionGrader: React.FC = () => {
         try {
             const knownStudent = allStudentSubmissions.find(s => s.id === parseInt(submissionId));
 
-            const [subData, assignData, historyData] = await Promise.all([
+            const [subData, assignData, historyData, groupsData] = await Promise.all([
                 // On switch we already have basic data — still fetch full record for auto_grade etc.
                 getSubmission(parseInt(submissionId)),
                 assignment ? Promise.resolve(assignment) : getAssignment(assignmentId),
                 knownStudent
                     ? getSubmissions({ assignment_id: assignmentId, student_id: knownStudent.student_id })
                     : Promise.resolve([] as typeof allSubmissions),
+                getAssignmentGroups(assignmentId).catch(() => [] as AssignmentGroup[])
             ]);
 
             const resolvedHistory = historyData.length > 0
                 ? historyData
                 : await getSubmissions({ assignment_id: assignmentId, student_id: subData.student_id });
+
+            setAssignmentGroups(groupsData || []);
 
             setSubmission(subData);
             setAssignment(assignData);
@@ -367,7 +374,16 @@ const SubmissionGrader: React.FC = () => {
             return;
         }
         try {
-            await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
+            if (gradeByGroup && assignment?.type === 'group' && submission) {
+                const studentGroup = assignmentGroups.find(g => g.students.some(s => s.id === submission.student_id));
+                if (studentGroup) {
+                    await gradeAssignmentGroup(assignment.id, studentGroup.id, { grade: enteredGrade !== undefined ? enteredGrade : 0, feedback, status: 'graded' });
+                } else {
+                    await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
+                }
+            } else {
+                await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
+            }
             navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`);
         } catch (err) {
             console.error(err);
@@ -441,37 +457,102 @@ const SubmissionGrader: React.FC = () => {
                     </div>
                 )}
 
+                {assignment?.type === 'group' && (
+                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-secondary)' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Grade by Group</span>
+                        <label className="switch" style={{ margin: 0, scale: '0.8' }}>
+                            <input
+                                type="checkbox"
+                                checked={gradeByGroup}
+                                onChange={e => {
+                                    setGradeByGroup(e.target.checked);
+                                    localStorage.setItem('grader_group_mode', String(e.target.checked));
+                                }}
+                            />
+                            <span className="slider round"></span>
+                        </label>
+                    </div>
+                )}
+
                 <div className="student-list">
-                    {filteredStudents.length === 0 && (
-                        <div className="student-list-empty">No students found</div>
+                    {gradeByGroup && assignment?.type === 'group' ? (
+                        <>
+                            {assignmentGroups.length === 0 && (
+                                <div className="student-list-empty">No groups found</div>
+                            )}
+                            {assignmentGroups.map(group => {
+                                const groupStudents = filteredStudents.filter(s => group.students.some(gStud => gStud.id === s.student_id));
+                                if (groupStudents.length === 0) return null;
+                                return (
+                                    <div key={group.id} className="group-section">
+                                        <div style={{ padding: '0.35rem 1rem', backgroundColor: 'rgba(0,0,0,0.03)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>
+                                            {group.name}
+                                        </div>
+                                        {groupStudents.map(s => {
+                                            const isActive = s.id === parseInt(submissionId || '0');
+                                            const isGraded = s.grade !== null && s.grade !== undefined;
+                                            const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
+                                            return (
+                                                <div
+                                                    key={s.id}
+                                                    className={`student-list-item ${isActive ? 'active' : ''}`}
+                                                    onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
+                                                >
+                                                    <UserAvatar
+                                                        user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
+                                                        size={34}
+                                                    />
+                                                    <div className="student-list-info">
+                                                        <span className="student-list-name">{displayName}</span>
+                                                        {!hideNames && <span className="student-list-id">{s.student_id}</span>}
+                                                    </div>
+                                                    <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
+                                                        {isGraded
+                                                            ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
+                                                            : <><Clock size={11} />Pending</>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </>
+                    ) : (
+                        <>
+                            {filteredStudents.length === 0 && (
+                                <div className="student-list-empty">No students found</div>
+                            )}
+                            {filteredStudents.map(s => {
+                                const isActive = s.id === parseInt(submissionId || '0');
+                                const isGraded = s.grade !== null && s.grade !== undefined;
+                                const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
+                                return (
+                                    <div
+                                        key={s.id}
+                                        className={`student-list-item ${isActive ? 'active' : ''}`}
+                                        onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
+                                    >
+                                        <UserAvatar
+                                            user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
+                                            size={34}
+                                        />
+                                        <div className="student-list-info">
+                                            <span className="student-list-name">{displayName}</span>
+                                            {!hideNames && <span className="student-list-id">{s.student_id}</span>}
+                                        </div>
+                                        <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
+                                            {isGraded
+                                                ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
+                                                : <><Clock size={11} />Pending</>
+                                            }
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </>
                     )}
-                    {filteredStudents.map(s => {
-                        const isActive = s.id === parseInt(submissionId || '0');
-                        const isGraded = s.grade !== null && s.grade !== undefined;
-                        const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
-                        return (
-                            <div
-                                key={s.id}
-                                className={`student-list-item ${isActive ? 'active' : ''}`}
-                                onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
-                            >
-                                <UserAvatar
-                                    user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
-                                    size={34}
-                                />
-                                <div className="student-list-info">
-                                    <span className="student-list-name">{displayName}</span>
-                                    {!hideNames && <span className="student-list-id">{s.student_id}</span>}
-                                </div>
-                                <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
-                                    {isGraded
-                                        ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
-                                        : <><Clock size={11} />Pending</>
-                                    }
-                                </div>
-                            </div>
-                        );
-                    })}
                 </div>
 
                 <div className="sidebar-resize-handle-v" onMouseDown={() => setIsResizingLeft(true)} />
@@ -553,7 +634,7 @@ const SubmissionGrader: React.FC = () => {
                             <div className="meta-item">
                                 <span className="meta-label">Submitted</span>
                                 <span className="meta-value">
-                                    {new Date(submission.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                    {parseUTC(submission.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                                 </span>
                             </div>
                             <div className="meta-separator" />
@@ -571,7 +652,7 @@ const SubmissionGrader: React.FC = () => {
                         <div key={sub.id} className="submission-attempt-group">
                             <div className="attempt-label">
                                 Attempt {allSubmissions.length - idx}
-                                <span className="attempt-date-inline">{new Date(sub.submitted_at).toLocaleString()}</span>
+                                <span className="attempt-date-inline">{parseUTC(sub.submitted_at).toLocaleString()}</span>
                             </div>
                             {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => {
                                 const url = getFileUrl(f.path);
