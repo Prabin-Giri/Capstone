@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, matchPath, useLocation } from 'react-router-dom';
 import GlobalSidebar from './GlobalSidebar';
 import AccountDrawer from './AccountDrawer';
 import CourseSidebar from './CourseSidebar';
 import Breadcrumbs from './Breadcrumbs';
 import Topbar from './Topbar';
-import { LayoutDashboard, Calendar, User, HelpCircle } from 'lucide-react';
-import { getRole, AUTH_ROLES } from '../../lib/auth';
+import { LayoutDashboard, Calendar, User, HelpCircle, Mail } from 'lucide-react';
+import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
+import { getUnreadCount } from '../../lib/api';
+import HelpDrawer from './HelpDrawer';
 import './Layout.css';
 
 const AppShell: React.FC = () => {
@@ -15,12 +17,25 @@ const AppShell: React.FC = () => {
     const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [isAccountOpen, setIsAccountOpen] = useState(false);
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const user = getUser();
 
     const toggleSidebar = () => setIsMobileSidebarOpen(!isMobileSidebarOpen);
     const closeSidebar = () => setIsMobileSidebarOpen(false);
 
-    const toggleAccount = () => setIsAccountOpen(!isAccountOpen);
+    const toggleAccount = () => {
+        setIsAccountOpen(!isAccountOpen);
+        setIsHelpOpen(false); // Close other drawer if it's open
+    };
     const closeAccount = () => setIsAccountOpen(false);
+
+    const toggleHelp = () => {
+        setIsHelpOpen(!isHelpOpen);
+        setIsAccountOpen(false); // Close other drawer if it's open
+        setIsMobileSidebarOpen(false);
+    };
+    const closeHelp = () => setIsHelpOpen(false);
 
     // Sidebar Swipe Gesture Logic
     const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -49,15 +64,30 @@ const AppShell: React.FC = () => {
         setTouchStart(null);
     };
 
+    // Poll unread message count (mirrors Topbar bell logic)
+    useEffect(() => {
+        if (!user?.id) return;
+        const fetchCount = () => {
+            getUnreadCount(user.id).then(setUnreadCount).catch(() => {});
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 30000);
+        window.addEventListener('inbox-read', fetchCount);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('inbox-read', fetchCount);
+        };
+    }, [user?.id]);
+
     // Lock body scroll and handle background interactions
     useEffect(() => {
-        if (isAccountOpen || isMobileSidebarOpen) {
+        if (isAccountOpen || isMobileSidebarOpen || isHelpOpen) {
             document.body.classList.add('no-scroll');
         } else {
             document.body.classList.remove('no-scroll');
         }
         return () => document.body.classList.remove('no-scroll');
-    }, [isAccountOpen, isMobileSidebarOpen]);
+    }, [isAccountOpen, isMobileSidebarOpen, isHelpOpen]);
 
     const courseMatch =
         matchPath({ path: '/student/courses/:courseId/*', end: false }, location.pathname) ||
@@ -67,11 +97,12 @@ const AppShell: React.FC = () => {
     const handleNavigate = () => {
         setIsMobileSidebarOpen(false);
         setIsAccountOpen(false);
+        setIsHelpOpen(false);
     };
 
     return (
         <div
-            className={`app-shell ${isMobileSidebarOpen ? 'sidebar-open' : ''} ${isAccountOpen ? 'account-drawer-active' : ''}`}
+            className={`app-shell ${isMobileSidebarOpen ? 'sidebar-open' : ''} ${isAccountOpen ? 'account-drawer-active' : ''} ${isHelpOpen ? 'help-drawer-active' : ''}`}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -83,11 +114,18 @@ const AppShell: React.FC = () => {
                 onNavigate={handleNavigate}
                 onToggleAccount={toggleAccount}
                 isAccountOpen={isAccountOpen}
+                onOpenSupport={toggleHelp}
+                unreadCount={unreadCount}
             />
 
             <AccountDrawer
                 isOpen={isAccountOpen}
                 onClose={closeAccount}
+            />
+
+            <HelpDrawer
+                isOpen={isHelpOpen}
+                onClose={closeHelp}
             />
 
             <div className="app-body">
@@ -132,7 +170,23 @@ const AppShell: React.FC = () => {
                     <Calendar size={20} />
                     <span>Calendar</span>
                 </NavLink>
-                <button className="mobile-nav-link disabled" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                <NavLink
+                    to="/inbox"
+                    className={({ isActive }) => `mobile-nav-link ${isActive && !isAccountOpen ? 'active' : ''}`}
+                    onClick={handleNavigate}
+                >
+                    <span className="nav-icon-wrapper">
+                        <Mail size={20} />
+                        {unreadCount > 0 && (
+                            <span className="nav-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                        )}
+                    </span>
+                    <span>Inbox</span>
+                </NavLink>
+                <button 
+                    className={`mobile-nav-link ${isHelpOpen ? 'active' : ''}`}
+                    onClick={toggleHelp}
+                >
                     <HelpCircle size={20} />
                     <span>Help</span>
                 </button>
@@ -147,5 +201,6 @@ const AppShell: React.FC = () => {
         </div>
     );
 };
+
 
 export default AppShell;

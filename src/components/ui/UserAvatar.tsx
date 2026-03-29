@@ -25,7 +25,8 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40, className = ''
     };
 
     if (profilePic && !imgError) {
-        const imageUrl = profilePic.startsWith('http') 
+        const isDataOrBlob = profilePic.startsWith('data:') || profilePic.startsWith('blob:');
+        const imageUrl = (profilePic.startsWith('http') || isDataOrBlob)
             ? profilePic 
             : `${UPLOADS_BASE}/uploads/${profilePic}`;
             

@@ -272,6 +272,8 @@ export interface Assignment {
     starter_code_path?: string;
     test_case_file_path?: string;
     type?: 'individual' | 'group';
+    group_submission_type?: 'one_for_all' | 'individual';
+    max_group_members?: number | null;
     created_at?: string;
     /** Faculty-configured: apply penalty when submitted after due_date (uses submission submitted_at) */
     late_penalty_enabled?: boolean | number;
@@ -281,6 +283,28 @@ export interface Assignment {
     rubric_config?: RubricConfig | string | null;
     /** Faculty-only: when 1, GAs see "Student 1 / 2 / …" instead of real names */
     hide_student_names?: number | boolean;
+}
+
+export interface AssignmentGroup {
+    id: string;
+    assignment_id: string;
+    name: string;
+    students: {
+        id: string;
+        name: string;
+        email: string;
+        profile_picture?: string;
+    }[];
+}
+
+export interface UserGroup {
+    id: string;
+    name: string;
+    assignment_id: string;
+    course_id: string;
+    assignment_title: string;
+    course_name: string;
+    members?: { id: string; name: string; email: string }[];
 }
 
 export async function getAssignments(): Promise<Assignment[]> {
@@ -357,8 +381,8 @@ export async function searchTAs(query: string): Promise<User[]> {
     return apiFetch<User[]>(`/users/search?role=ta&q=${encodeURIComponent(query)}`);
 }
 
-export async function createAssignment(assignment: Omit<Assignment, 'id' | 'created_at'> & { id?: string }): Promise<Assignment> {
-    return apiFetch<Assignment>('/assignments', {
+export async function createAssignment(assignment: Partial<Assignment> & { groups?: any[] }): Promise<{ id: string }> {
+    return apiFetch<{ id: string }>('/assignments', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -367,13 +391,31 @@ export async function createAssignment(assignment: Omit<Assignment, 'id' | 'crea
     });
 }
 
-export async function updateAssignment(id: string, updates: Partial<Assignment>): Promise<{ message: string }> {
+export async function updateAssignment(id: string, assignment: Partial<Assignment> & { groups?: any[] }): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/assignments/${id}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(assignment),
+    });
+}
+
+export async function getAssignmentGroups(assignmentId: string): Promise<AssignmentGroup[]> {
+    return apiFetch<AssignmentGroup[]>(`/assignments/${assignmentId}/groups`);
+}
+
+export async function gradeAssignmentGroup(
+    assignmentId: string,
+    groupId: string,
+    payload: { grade: number; feedback: string; status?: string }
+): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/assignments/${assignmentId}/grade-group/${groupId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
     });
 }
 
@@ -763,6 +805,20 @@ export async function resendVerificationEmail(email: string): Promise<{ message:
     });
 }
 
+export async function unassignTodos(courseId: string, studentId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/todos/unassign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId, studentId }),
+    });
+}
+
+export async function getUserGroups(userId: string): Promise<UserGroup[]> {
+    return apiFetch<UserGroup[]>(`/users/${encodeURIComponent(userId)}/groups`);
+}
+
+// ============ Real-time / Notifications ============
+
 // ============ Password Reset ============
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
@@ -879,7 +935,7 @@ export async function getConversations(userId: string, filter?: string): Promise
 }
 
 export async function createConversation(data: {
-    courseId: string;
+    courseId?: string;
     subject: string;
     createdBy: string;
     recipientIds: string[];
@@ -931,4 +987,16 @@ export async function deleteConversation(conversationId: number, userId: string)
 export async function getUnreadCount(userId: string): Promise<number> {
     const data = await apiFetch<{ count: number }>(`/messages/unread-count?userId=${userId}`);
     return data.count;
+}
+
+export async function addParticipant(conversationId: number, userId: string): Promise<void> {
+    await apiFetch<{ message: string }>(`/messages/conversations/${conversationId}/participants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+    });
+}
+
+export async function getSupportAdmin(): Promise<{ id: string, name: string }> {
+    return apiFetch<{ id: string, name: string }>('/messages/support-admin');
 }

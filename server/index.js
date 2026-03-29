@@ -27,7 +27,11 @@ function toClientErrorMessage(err) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: '*', // Allow all for initial link fix, we can restrict later
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Serve uploaded files statically with explicit CORS headers for cross-origin fetch (Monaco)

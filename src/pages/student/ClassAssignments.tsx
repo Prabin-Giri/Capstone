@@ -208,12 +208,17 @@ const ClassAssignments: React.FC = () => {
                                     className="class-assignment-row"
                                 >
                                     <td className="col-name assignment-name">
-                                        <Link
-                                            to={`/student/courses/${course.id}/assignments/${assignment.id}`}
-                                            className="assignment-link"
-                                        >
-                                            {assignment.title}
-                                        </Link>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Link
+                                                to={`/student/courses/${course.id}/assignments/${assignment.id}`}
+                                                className="assignment-link"
+                                            >
+                                                {assignment.title}
+                                            </Link>
+                                            {assignment.type === 'group' && (
+                                                <span style={{ fontSize: '0.7rem', backgroundColor: 'rgba(128, 0, 0, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Group</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="col-due-date">{dueDate}</td>
                                     <td className="col-status">

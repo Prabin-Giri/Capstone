@@ -253,6 +253,29 @@
     padding: 4px 0;
 }
 
+.sidebar-footer-hint {
+    padding: 12px;
+    border-top: 1px solid var(--ed-border);
+    background: rgba(128, 128, 128, 0.03);
+    flex-shrink: 0;
+}
+
+.hint-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--ed-text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+}
+
+.hint-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-color, #840029);
+    font-family: 'JetBrains Mono', monospace;
+}
+
 .file-item {
     display: flex;
     align-items: center;
@@ -331,6 +354,55 @@
 .new-file-input::placeholder {
     color: var(--ed-text3);
     font-style: italic;
+}
+
+.rename-input {
+    flex: 1;
+    background: var(--ed-bg1);
+    border: 1px solid var(--primary-color, #840029);
+    color: var(--ed-text1);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+/* ── Context Menu ────────────────────────────────────────── */
+.explorer-context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: var(--ed-bg2);
+    border: 1px solid var(--ed-border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    min-width: 140px;
+    padding: 4px 0;
+    user-select: none;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--ed-text1);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.context-menu-item:hover,
+.context-menu-item.danger:hover {
+    background: var(--primary-color, #840029);
+    color: #fff;
+}
+
+.context-menu-item.disabled {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
 }
 
 /* ── Sidebar Resize Handle ─────────────────────────────────── */

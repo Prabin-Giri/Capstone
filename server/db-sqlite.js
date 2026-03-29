@@ -103,6 +103,52 @@ async function initDb() {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS assignment_groups (
+            id TEXT PRIMARY KEY,
+            assignment_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS group_members (
+            group_id TEXT NOT NULL,
+            student_id TEXT NOT NULL,
+            PRIMARY KEY (group_id, student_id),
+            FOREIGN KEY (group_id) REFERENCES assignment_groups(id) ON DELETE CASCADE,
+            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id TEXT DEFAULT NULL,
+            subject TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            is_starred INTEGER DEFAULT 0,
+            is_archived INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS conversation_participants (
+            conversation_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            last_read_at TEXT DEFAULT NULL,
+            is_starred INTEGER DEFAULT 0,
+            is_archived INTEGER DEFAULT 0,
+            PRIMARY KEY (conversation_id, user_id),
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL,
+            sender_id TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+            FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
         )`
     ];
     tables.forEach(sql => db.run(sql));
@@ -114,10 +160,21 @@ async function initDb() {
         'ALTER TABLE courses ADD COLUMN instructor_id TEXT',
         'ALTER TABLE assignments ADD COLUMN test_case_file_path TEXT',
         'ALTER TABLE assignments ADD COLUMN type TEXT DEFAULT "individual"',
+        'ALTER TABLE assignments ADD COLUMN group_submission_type TEXT DEFAULT "one_for_all"',
+        'ALTER TABLE assignments ADD COLUMN max_group_members INTEGER DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN verified INTEGER DEFAULT 1',
         'ALTER TABLE submissions ADD COLUMN feedback TEXT DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN auto_grade REAL DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN auto_feedback TEXT DEFAULT NULL',
+        'ALTER TABLE users ADD COLUMN student_id TEXT DEFAULT NULL',
+        `CREATE TABLE IF NOT EXISTS course_tas (
+            course_id TEXT NOT NULL,
+            ta_id TEXT NOT NULL,
+            permissions TEXT,
+            PRIMARY KEY (course_id, ta_id),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+            FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
     ];
     for (const sql of migrations) {
         try { db.run(sql); } catch (e) {

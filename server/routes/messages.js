@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query, run, getDb } = require('../db');
+const { query, run, getDb, isMySQL } = require('../db');
 
 // ---------- helpers ----------
 
@@ -101,8 +101,12 @@ router.get('/conversations', async (req, res) => {
             where += ' AND cp.is_archived = 0';
         }
 
+        const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
+
         const conversations = await query(
-            `SELECT c.id, c.course_id, c.subject, c.created_by, c.created_at, c.updated_at,
+            `SELECT c.id, c.course_id, c.subject, c.created_by, 
+                    ${timeField('c.created_at')} AS created_at, 
+                    ${timeField('c.updated_at')} AS updated_at,
                     cp.is_starred, cp.is_archived, cp.last_read_at,
                     co.name AS course_name,
                     creator.name AS created_by_name
@@ -117,8 +121,9 @@ router.get('/conversations', async (req, res) => {
 
         // Fetch latest message and participant names for each conversation
         for (const conv of conversations) {
+            const timeFieldMsg = isMySQL ? "DATE_FORMAT(m.created_at, '%Y-%m-%dT%H:%i:%sZ')" : "m.created_at";
             const msgs = await query(
-                `SELECT m.body, m.created_at, u.name AS sender_name
+                `SELECT m.body, ${timeFieldMsg} AS created_at, u.name AS sender_name
                  FROM messages m
                  JOIN users u ON m.sender_id = u.id
                  WHERE m.conversation_id = ?
@@ -153,19 +158,33 @@ router.get('/conversations', async (req, res) => {
     }
 });
 
+// GET /support-admin - Get the first available admin for help requests
+router.get('/support-admin', async (req, res) => {
+    try {
+        const rows = await query(
+            "SELECT id, name FROM users WHERE role = 'admin' LIMIT 1"
+        );
+        if (rows.length === 0) return res.status(404).json({ error: 'No support admin found' });
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('GET /messages/support-admin', err);
+        res.status(500).json({ error: 'Failed to find support admin' });
+    }
+});
+
 // Create a new conversation (compose)
 router.post('/conversations', async (req, res) => {
     try {
         const { courseId, subject, createdBy, recipientIds, body } = req.body;
-        if (!courseId || !subject || !createdBy || !recipientIds || !body) {
-            return res.status(400).json({ error: 'courseId, subject, createdBy, recipientIds[], body are required' });
+        if (!subject || !createdBy || !recipientIds || !body) {
+            return res.status(400).json({ error: 'subject, createdBy, recipientIds[], body are required' });
         }
 
         const pool = getDb();
 
         const [result] = await pool.execute(
             'INSERT INTO conversations (course_id, subject, created_by) VALUES (?, ?, ?)',
-            [courseId, subject, createdBy]
+            [courseId || null, subject, createdBy]
         );
         const convId = result.insertId;
 
@@ -186,7 +205,7 @@ router.post('/conversations', async (req, res) => {
 
         // Update conversation timestamp
         await pool.execute(
-            'UPDATE conversations SET updated_at = NOW() WHERE id = ?',
+            `UPDATE conversations SET updated_at = ${isMySQL ? 'UTC_TIMESTAMP()' : 'CURRENT_TIMESTAMP'} WHERE id = ?`,
             [convId]
         );
 
@@ -205,8 +224,9 @@ router.get('/conversations/:id/messages', async (req, res) => {
         const { id } = req.params;
         const { userId } = req.query;
 
+        const timeFieldMsg = isMySQL ? "DATE_FORMAT(m.created_at, '%Y-%m-%dT%H:%i:%sZ')" : "m.created_at";
         const messages = await query(
-            `SELECT m.id, m.conversation_id, m.sender_id, m.body, m.created_at,
+            `SELECT m.id, m.conversation_id, m.sender_id, m.body, ${timeFieldMsg} AS created_at,
                     u.name AS sender_name, u.profile_picture AS sender_picture
              FROM messages m
              JOIN users u ON m.sender_id = u.id
@@ -246,7 +266,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
         // Touch conversation updated_at
         await pool.execute(
-            'UPDATE conversations SET updated_at = NOW() WHERE id = ?',
+            `UPDATE conversations SET updated_at = ${isMySQL ? 'UTC_TIMESTAMP()' : 'CURRENT_TIMESTAMP'} WHERE id = ?`,
             [id]
         );
 
@@ -327,6 +347,48 @@ router.get('/unread-count', async (req, res) => {
         res.json({ count: rows[0]?.cnt || 0 });
     } catch (err) {
         res.status(500).json({ error: 'Failed to get unread count' });
+    }
+});
+
+// Add a participant to a conversation (or restore if soft-deleted)
+router.post('/conversations/:id/participants', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+
+        const pool = getDb();
+        
+        // Check if already exists (including soft-deleted)
+        const existing = await query(
+            'SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?',
+            [id, userId]
+        );
+
+        if (existing.length > 0) {
+            // Restore participant
+            await pool.execute(
+                'UPDATE conversation_participants SET is_deleted = 0, is_archived = 0, last_read_at = NULL WHERE conversation_id = ? AND user_id = ?',
+                [id, userId]
+            );
+        } else {
+            // Add new participant
+            await pool.execute(
+                'INSERT INTO conversation_participants (conversation_id, user_id, last_read_at) VALUES (?, ?, NULL)',
+                [id, userId]
+            );
+        }
+
+        // Update conversation timestamp so it pops back up for the restored user
+        await pool.execute(
+            `UPDATE conversations SET updated_at = ${isMySQL ? 'UTC_TIMESTAMP()' : 'CURRENT_TIMESTAMP'} WHERE id = ?`,
+            [id]
+        );
+
+        res.json({ message: 'Participant added' });
+    } catch (err) {
+        console.error('POST /messages/conversations/:id/participants', err);
+        res.status(500).json({ error: 'Failed to add participant' });
     }
 });
 

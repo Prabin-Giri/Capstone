@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getSubmission, getFileUrl, getSubmissions, getAssignment } from '../../lib/api';
 import type { Submission, Assignment } from '../../lib/api';
 import { getUser } from '../../lib/auth';
+import { parseUTC } from '../../lib/utils';
 import './SubmissionResults.css';
 
 const SubmissionResults: React.FC = () => {
@@ -112,12 +113,12 @@ const SubmissionResults: React.FC = () => {
                             </tr>
                             <tr>
                                 <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Submitted At:</td>
-                                <td style={{ padding: '8px 0' }}>{new Date(submission.submitted_at).toLocaleString()}</td>
+                                <td style={{ padding: '8px 0' }}>{parseUTC(submission.submitted_at).toLocaleString()}</td>
                             </tr>
                             {submission.updated_at !== submission.submitted_at && (
                                 <tr>
                                     <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Last Updated:</td>
-                                    <td style={{ padding: '8px 0' }}>{new Date(submission.updated_at).toLocaleString()}</td>
+                                    <td style={{ padding: '8px 0' }}>{parseUTC(submission.updated_at).toLocaleString()}</td>
                                 </tr>
                             )}
                             {submission.grade !== null && submission.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') && (
@@ -203,7 +204,7 @@ const SubmissionResults: React.FC = () => {
                                                 )}
                                             </div>
                                             <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                                Submitted: {new Date(sub.submitted_at).toLocaleString()}
+                                                Submitted: {parseUTC(sub.submitted_at).toLocaleString()}
                                             </div>
                                             <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>
                                                 <span style={{ fontWeight: 500 }}>Status:</span>{' '}

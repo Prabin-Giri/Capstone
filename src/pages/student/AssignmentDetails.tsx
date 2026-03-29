@@ -11,7 +11,7 @@ import type { EditorFile } from '../../components/ui/AssignmentEditor';
 
 import { getUser } from '../../lib/auth';
 import { showDialog } from '../../components/ui/Dialog';
-import { getCommentChar, getLanguageFromFilename } from '../../lib/utils';
+import { getCommentChar, getLanguageFromFilename, getValidExtensions, normalizeLanguage, parseUTC } from '../../lib/utils';
 
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
@@ -247,7 +247,10 @@ const AssignmentDetails: React.FC = () => {
         if (!assignment) throw new Error("No assignment loaded");
         setIsRunningTests(true);
         try {
-            const detectedLang = assignment.language || (editorFiles[0] ? getLanguageFromFilename(editorFiles[0].name) : 'python');
+            // Prioritize the language detected from the files over the assignment requirement
+            const fileLang = editorFiles.length > 0 ? getLanguageFromFilename(editorFiles[0].name, '') : '';
+            const detectedLang = normalizeLanguage(fileLang || assignment.language || 'python');
+            
             const comment = getCommentChar(detectedLang);
             const codeToRun = editorFiles.length === 1 ? editorFiles[0].content : editorFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             const data = await runTests(assignment.id, codeToRun, detectedLang);
@@ -267,7 +270,10 @@ const AssignmentDetails: React.FC = () => {
         if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
         setIsRunningTests(true);
         try {
-            const detectedLang = assignment.language || (files[0] ? getLanguageFromFilename(files[0].name) : 'python');
+            // Prioritize the language detected from the files over the assignment requirement
+            const fileLang = files.length > 0 ? getLanguageFromFilename(files[0].name, '') : '';
+            const detectedLang = normalizeLanguage(fileLang || assignment.language || 'python');
+            
             const comment = getCommentChar(detectedLang);
             const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
@@ -287,6 +293,29 @@ const AssignmentDetails: React.FC = () => {
     const handleSubmitAssignment = async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
         if (!assignment || !user || editorFiles.length === 0) return;
+
+        // Validate file extensions if a language is required
+        if (assignment.language) {
+            const validExts = getValidExtensions(assignment.language);
+            if (validExts.length > 0) {
+                const invalidFiles = editorFiles.filter(f => {
+                    const name = f.name.toLowerCase();
+                    // Allow folders (if any) or assume all are files for now
+                    const ext = name.split('.').pop() || '';
+                    return !validExts.includes(ext);
+                });
+
+                if (invalidFiles.length > 0) {
+                    await showDialog({
+                        title: 'Invalid Submission Files',
+                        message: `This assignment requires ${assignment.language} files (.${validExts.join(', .')}). The following files in your workspace are not allowed: ${invalidFiles.map(f => f.name).join(', ')}. Please remove or rename them to submit.`,
+                        type: 'alert',
+                        confirmText: 'OK'
+                    });
+                    return;
+                }
+            }
+        }
 
         const confirmSubmit = await showDialog({
             title: 'Submit Assignment',
@@ -337,8 +366,11 @@ const AssignmentDetails: React.FC = () => {
         <div className="assignment-details">
             <div className="details-header">
                 <div className="details-header-left">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <h1 className="details-title">{assignment.title}</h1>
+                        {assignment.type === 'group' && (
+                            <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(128, 0, 0, 0.1)', color: 'var(--primary)', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 }}>Group Assignment</span>
+                        )}
                         {assignment.language && (
                             <div className="meta-item" style={{ margin: 0, padding: '2px 6px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '8px', flexDirection: 'column', gap: '0px' }}>
                                 <Code size={10} className="meta-icon" style={{ marginBottom: '-1px' }} />
@@ -357,6 +389,13 @@ const AssignmentDetails: React.FC = () => {
                                 <span className="meta-value" style={{ fontSize: '1.25rem' }}>{points}</span>
                             </div>
                         </div>
+                        {assignment.type === 'group' && (
+                            <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '0.5rem', color: '#1d4ed8', fontSize: '0.875rem' }}>
+                                {assignment.group_submission_type === 'one_for_all'
+                                    ? <b>Submission Policy: Any group member's submission will apply to the entire group.</b>
+                                    : <b>Submission Policy: Each group member must submit their own individual file.</b>}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -526,7 +565,7 @@ const AssignmentDetails: React.FC = () => {
                                     <div>
                                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{attemptLabel}</div>
                                         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                            Submitted: {new Date(sub.submitted_at).toLocaleString()}
+                                            Submitted: {parseUTC(sub.submitted_at).toLocaleString()}
                                         </div>
                                         <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>
                                             <span style={{ fontWeight: 500 }}>Status:</span>{' '}
@@ -563,9 +602,16 @@ const AssignmentDetails: React.FC = () => {
                         Assignment is Closed
                     </button>
                 ) : (
-                    <button onClick={handleSubmitAssignment} className="btn btn-primary">
-                        {submission ? 'Resubmit Assignment' : 'Submit Assignment'}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        {assignment.language && getValidExtensions(assignment.language).length > 0 && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                Required file type: <span style={{ color: 'var(--primary-color)', fontFamily: 'monospace' }}>.{getValidExtensions(assignment.language).join(' / .')}</span>
+                            </div>
+                        )}
+                        <button onClick={handleSubmitAssignment} className="btn btn-primary">
+                            {submission ? 'Resubmit Assignment' : 'Submit Assignment'}
+                        </button>
+                    </div>
                 )}
             </div>
         </div>
