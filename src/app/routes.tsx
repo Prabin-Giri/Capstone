@@ -19,6 +19,7 @@ import FacultyAssignmentList from '../pages/faculty/FacultyAssignmentList';
 import FacultyAssignmentDetails from '../pages/faculty/FacultyAssignmentDetails';
 import AssignmentWizard from '../pages/faculty/AssignmentWizard';
 import GradingDashboard from '../pages/faculty/GradingDashboard';
+import PlagScanDashboard from '../components/PlagScanDashboard';
 import SubmissionGrader from '../pages/faculty/SubmissionGrader';
 import NewCourse from '../pages/faculty/NewCourse';
 import CourseGradebook from '../pages/faculty/CourseGradebook';
@@ -102,6 +103,7 @@ export const router = createBrowserRouter([
                     { path: 'courses/:courseId/assignments/:assignmentId/grading/:submissionId', element: <SubmissionGrader /> },
                     { path: 'courses/:courseId/assignments/:assignmentId', element: <FacultyAssignmentDetails /> },
                     { path: 'courses/:courseId/gradebook', element: <CourseGradebook /> },
+                    { path: 'plagscan', element: <PlagScanDashboard /> },
                 ]
             },
             {

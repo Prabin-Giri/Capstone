@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle, User } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle, User, ShieldAlert } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
 import { UPLOADS_BASE } from '../../lib/api';
 import { cancelDialog } from '../ui/Dialog';
@@ -36,6 +36,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
         location.pathname.startsWith('/admin');
 
     const isCalendarActive = location.pathname.startsWith('/calendar');
+    const isPlagScanActive = location.pathname.startsWith('/faculty/plagscan');
 
     return (
         <aside
@@ -109,6 +110,17 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     <Mail size={24} />
                     <span className="global-nav-text">Inbox</span>
                 </NavLink>
+
+                {role === AUTH_ROLES.FACULTY && (
+                    <NavLink
+                        to="/faculty/plagscan"
+                        onClick={onNavigate}
+                        className={() => `global-nav-link ${isPlagScanActive && !isAccountOpen ? 'active' : ''}`}
+                    >
+                        <ShieldAlert size={24} />
+                        <span className="global-nav-text">PlagScan</span>
+                    </NavLink>
+                )}
 
                 <div style={{ flex: 1 }} />
 
