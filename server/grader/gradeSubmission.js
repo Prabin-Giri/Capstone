@@ -36,7 +36,10 @@ function computeLatePenaltyPercent(assignment, submittedAt) {
  * Run auto-grader for a submission: load submission + assignment + test cases,
  * run code in Docker per test, sum points, apply late penalty, write grade/feedback.
  * @param {number} submissionId
- * @param {{ publicOnly?: boolean }} [opts] - If true, only run public tests (e.g. for student "run public tests")
+ * @param {{ publicOnly?: boolean, dryRun?: boolean, testResultsOnly?: boolean }} [opts]
+ * - publicOnly: only run public tests (e.g. student "run public tests")
+ * - dryRun: run tests but do not persist anything
+ * - testResultsOnly: persist auto_grade/auto_feedback; keep status pending (final grade still manual)
  * @returns {Promise<{ grade: number, feedback: string, results: Array, rawScore: number, maxPossible: number, latePenaltyPercent: number }>}
  */
 async function gradeSubmission(submissionId, opts = {}) {
@@ -82,11 +85,19 @@ async function gradeSubmission(submissionId, opts = {}) {
                 try {
                     const result = await gradeWithCustomFile(submission, assignment, graderPath, opts);
                     if (!opts.dryRun) {
-                        await updateSubmissionGrade(submissionId, {
-                            grade: result.grade,
-                            feedback: result.feedback,
-                            status: 'graded'
-                        });
+                        if (opts.testResultsOnly) {
+                            await updateSubmissionGrade(submissionId, {
+                                auto_grade: result.grade,
+                                auto_feedback: result.feedback,
+                                status: 'pending',
+                            });
+                        } else {
+                            await updateSubmissionGrade(submissionId, {
+                                grade: result.grade,
+                                feedback: result.feedback,
+                                status: 'graded',
+                            });
+                        }
                         await saveDb();
                     }
                     return result;
@@ -94,7 +105,15 @@ async function gradeSubmission(submissionId, opts = {}) {
                     console.error('Custom grader failed:', err);
                     const feedback = `Custom grader execution failed: ${err.message}`;
                     if (!opts.dryRun) {
-                        await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'failed' });
+                        if (opts.testResultsOnly) {
+                            await updateSubmissionGrade(submissionId, {
+                                auto_grade: 0,
+                                auto_feedback: feedback,
+                                status: 'pending',
+                            });
+                        } else {
+                            await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'failed' });
+                        }
                         await saveDb();
                     }
                     return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
@@ -126,7 +145,14 @@ async function gradeSubmission(submissionId, opts = {}) {
 
     if (!fs.existsSync(sourcePath)) {
         const feedback = `Submission file not found: ${submission.file_path}`;
-        await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'graded' });
+        if (!opts.dryRun) {
+            if (opts.testResultsOnly) {
+                await updateSubmissionGrade(submissionId, { auto_grade: 0, auto_feedback: feedback, status: 'pending' });
+            } else {
+                await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'graded' });
+            }
+            await saveDb();
+        }
         return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
     }
 
@@ -281,11 +307,20 @@ async function gradeSubmission(submissionId, opts = {}) {
     const feedback = feedbackLines.join('\n');
 
     if (!opts.publicOnly && !opts.dryRun) {
-        await updateSubmissionGrade(submissionId, {
-            auto_grade: Math.round(finalGrade * 100) / 100,
-            auto_feedback: feedback,
-            status: 'graded',
-        });
+        const rounded = Math.round(finalGrade * 100) / 100;
+        if (opts.testResultsOnly) {
+            await updateSubmissionGrade(submissionId, {
+                auto_grade: rounded,
+                auto_feedback: feedback,
+                status: 'pending',
+            });
+        } else {
+            await updateSubmissionGrade(submissionId, {
+                auto_grade: rounded,
+                auto_feedback: feedback,
+                status: 'graded',
+            });
+        }
         await saveDb();
     }
 

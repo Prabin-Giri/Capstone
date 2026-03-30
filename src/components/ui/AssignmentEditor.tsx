@@ -19,7 +19,10 @@ interface AssignmentEditorProps {
     language: string;
     theme: 'dark' | 'light' | 'system';
     onRunTests?: (files: EditorFile[]) => Promise<{ results: TestResult[], log?: string }>;
-    onRunCustomInput?: (files: EditorFile[], stdin: string) => Promise<{ stdout: string, stderr: string | null, exitCode: number, timedOut: boolean }>;
+    onRunCustomInput?: (
+        files: EditorFile[],
+        stdin: string
+    ) => Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }>;
     isRunning: boolean;
     points: number;
     onChange?: (files: EditorFile[]) => void;
@@ -73,7 +76,13 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
 
     // Custom Run State
     const [customStdin, setCustomStdin] = useState('');
-    const [customRunResult, setCustomRunResult] = useState<{ stdout: string, stderr: string | null, exitCode: number, timedOut: boolean } | null>(null);
+    const [customRunResult, setCustomRunResult] = useState<{
+        stdout: string;
+        stderr: string | null;
+        exitCode: number;
+        timedOut: boolean;
+        timeoutMs?: number;
+    } | null>(null);
 
     // Inline file creation state
     const [isCreatingFile, setIsCreatingFile] = useState(false);
@@ -774,7 +783,12 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                                     <>
                                                         {customRunResult.stdout && <div>{customRunResult.stdout}</div>}
                                                         {customRunResult.stderr && <div style={{ color: '#f87171', marginTop: customRunResult.stdout ? '8px' : '0' }}>{customRunResult.stderr}</div>}
-                                                        {customRunResult.timedOut && <div style={{ color: '#f87171', marginTop: '8px' }}>Process timed out after 10 seconds.</div>}
+                                                        {customRunResult.timedOut && (
+                                                            <div style={{ color: '#f87171', marginTop: '8px' }}>
+                                                                Process timed out (limit{' '}
+                                                                {Math.round((customRunResult.timeoutMs ?? 30000) / 1000)}s).
+                                                            </div>
+                                                        )}
                                                         {customRunResult.exitCode !== 0 && !customRunResult.timedOut && (
                                                             <div style={{ color: '#f87171', marginTop: '8px' }}>Exit code: {customRunResult.exitCode}</div>
                                                         )}

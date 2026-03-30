@@ -56,8 +56,25 @@ export interface AdminUser {
     name: string;
     email: string;
     role: string;
-    verified?: number;
+    student_id?: string | null;
+    profile_picture?: string | null;
+    /** Faculty / account approval (admin workflow) */
+    verified?: boolean | number;
+    /** Email verification completed */
+    email_verified?: boolean | number;
     created_at?: string;
+    updated_at?: string;
+    /** Course IDs where user is instructor, enrolled, or TA */
+    linked_course_ids?: string[];
+    courses_teaching?: number;
+    enrollments_count?: number;
+    ta_courses_count?: number;
+    submissions_count?: number;
+    messages_sent?: number;
+    conversation_memberships?: number;
+    group_memberships?: number;
+    todos_count?: number;
+    course_settings_rows?: number;
 }
 
 export async function getAdminUsers(): Promise<AdminUser[]> {
@@ -70,6 +87,8 @@ export interface StudentInsight {
     email: string;
     created_at?: string;
     courses_enrolled: number;
+    /** Course IDs the student is enrolled in (for admin filters). */
+    enrolled_course_ids?: string[];
     submissions_count: number;
     graded_count: number;
 }
@@ -82,13 +101,138 @@ export interface AdminFaculty {
     id: string;
     name: string;
     email: string;
-    verified?: number;
+    verified?: boolean | number;
     created_at?: string;
+    updated_at?: string;
     course_count: number;
+    assignment_count?: number;
+    active_assignments?: number;
+    messages_sent?: number;
+    unique_students?: number;
+    /** Courses this faculty teaches (instructor of record), for filtering */
+    courses_taught?: { id: string; name: string; term: string }[];
+}
+
+export interface AdminFacultyCourse {
+    id: string;
+    name: string;
+    term?: string;
+    is_archived?: number | boolean;
+}
+
+export interface AdminFacultyDetail extends AdminFaculty {
+    courses: AdminFacultyCourse[];
 }
 
 export async function getAdminFaculty(): Promise<AdminFaculty[]> {
     return apiFetch<AdminFaculty[]>('/admin/faculty');
+}
+
+export async function getAdminFacultyDetail(facultyId: string): Promise<AdminFacultyDetail> {
+    return apiFetch<AdminFacultyDetail>(`/admin/faculty/${encodeURIComponent(facultyId)}`);
+}
+
+export async function createAdminFaculty(body: {
+    name: string;
+    email: string;
+    password: string;
+    requireVerification?: boolean;
+}): Promise<{ message: string; id: string; email: string; name: string }> {
+    return apiFetch(`/admin/faculty`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+
+export interface AdminFacultyImportResult {
+    created: { id: string; email: string; name: string }[];
+    errors: { row: number; email: string; error: string }[];
+    message: string;
+}
+
+export async function importAdminFaculty(
+    rows: { name: string; email: string; password?: string }[],
+    defaultPassword?: string
+): Promise<AdminFacultyImportResult> {
+    return apiFetch('/admin/faculty/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows, defaultPassword: defaultPassword || undefined }),
+    });
+}
+
+/** Admin course list row (paginated) */
+export interface AdminCourseRow {
+    id: string;
+    name: string;
+    term: string;
+    created_at?: string;
+    updated_at?: string;
+    is_archived?: boolean;
+    instructor_id?: string | null;
+    instructor_name?: string | null;
+    instructor_email?: string | null;
+    student_count: number;
+    assignment_count: number;
+    ta_count: number;
+    last_assignment_due?: string | null;
+}
+
+export interface AdminCoursesPage {
+    courses: AdminCourseRow[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export async function getAdminCoursesPage(page = 1, limit = 15): Promise<AdminCoursesPage> {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+    return apiFetch<AdminCoursesPage>(`/admin/courses?${params.toString()}`);
+}
+
+export interface AdminCourseDetailStudent {
+    id: string;
+    name: string;
+    email: string;
+    enrolled_at?: string;
+}
+
+export interface AdminCourseDetailAssignment {
+    id: string;
+    title: string;
+    due_date: string;
+    status: string;
+    points?: number;
+    created_at?: string;
+    submissions_count: number;
+}
+
+export interface AdminCourseDetailTa {
+    id: string;
+    name: string;
+    email: string;
+}
+
+export interface AdminCourseDetail {
+    course: AdminCourseRow;
+    students: AdminCourseDetailStudent[];
+    assignments: AdminCourseDetailAssignment[];
+    tas: AdminCourseDetailTa[];
+    stats: {
+        enrollment_count: number;
+        assignment_count: number;
+        submission_count: number;
+        ta_count: number;
+        active_assignments: number;
+    };
+}
+
+export async function getAdminCourseDetail(courseId: string): Promise<AdminCourseDetail> {
+    return apiFetch<AdminCourseDetail>(`/admin/courses/${encodeURIComponent(courseId)}/detail`);
 }
 
 export interface AdminAnalytics {
@@ -106,6 +250,24 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
 
 export async function deleteAdminUser(userId: string): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+}
+
+export type PatchAdminUserBody = {
+    name?: string;
+    email?: string;
+    student_id?: string | null;
+    role?: string;
+};
+
+export async function patchAdminUser(
+    userId: string,
+    body: PatchAdminUserBody
+): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
 }
 
 export async function updateTableRecord(
@@ -718,8 +880,12 @@ export interface TestResult {
     points?: number;
 }
 
-export async function runTests(assignmentId: string, code: string, language: string): Promise<{ results: TestResult[] }> {
-    return apiFetch<{ results: TestResult[] }>(`/assignments/${assignmentId}/test`, {
+export async function runTests(
+    assignmentId: string,
+    code: string,
+    language: string
+): Promise<{ results: TestResult[]; timeoutMs?: number }> {
+    return apiFetch<{ results: TestResult[]; timeoutMs?: number }>(`/assignments/${assignmentId}/test`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -728,14 +894,22 @@ export async function runTests(assignmentId: string, code: string, language: str
     });
 }
 
-export async function runCustomCode(assignmentId: string, code: string, language: string, stdin: string): Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean }> {
-    return apiFetch<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean }>(`/assignments/${assignmentId}/run`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code, language, stdin }),
-    });
+export async function runCustomCode(
+    assignmentId: string,
+    code: string,
+    language: string,
+    stdin: string
+): Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }> {
+    return apiFetch<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }>(
+        `/assignments/${assignmentId}/run`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code, language, stdin }),
+        }
+    );
 }
 
 // ============ Users ============
@@ -878,8 +1052,24 @@ export async function autoGradeAssignment(
     });
 }
 
-export async function runAutograde(submissionId: number, dryRun = false): Promise<Submission> {
-    const url = `/grader/submissions/${submissionId}/run${dryRun ? '?dryRun=1' : ''}`;
+export type RunAutogradeOptions = {
+    /** Run tests but do not write anything to the DB */
+    dryRun?: boolean;
+    /** Save auto_grade / auto_feedback; keep submission pending (no final grade) */
+    testResultsOnly?: boolean;
+};
+
+export async function runAutograde(
+    submissionId: number,
+    dryRunOrOptions: boolean | RunAutogradeOptions = false
+): Promise<Submission> {
+    const opts =
+        typeof dryRunOrOptions === 'boolean' ? { dryRun: dryRunOrOptions } : dryRunOrOptions;
+    const params = new URLSearchParams();
+    if (opts.dryRun) params.set('dryRun', '1');
+    if (opts.testResultsOnly) params.set('testResultsOnly', '1');
+    const qs = params.toString();
+    const url = `/grader/submissions/${submissionId}/run${qs ? `?${qs}` : ''}`;
     return apiFetch<Submission>(url, {
         method: 'POST',
     });

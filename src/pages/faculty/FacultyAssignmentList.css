@@ -8,7 +8,7 @@
 .fal-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: center;
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
     gap: 1rem;
@@ -35,9 +35,51 @@
     box-shadow: 0 4px 12px rgba(132, 0, 41, 0.2);
 }
 
+.page-title {
+    color: var(--primary-color);
+}
+
+.fal-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
 .fal-search-bar {
     position: relative;
-    margin-bottom: 1.5rem;
+    flex: 1;
+}
+
+.fal-sort-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.fal-sort-btn {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.fal-sort-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.fal-sort-btn:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(132, 0, 41, 0.08);
 }
 
 .fal-search-icon {

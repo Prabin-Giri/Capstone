@@ -1,12 +1,9 @@
-// Your grading UI changes for GlobalSidebar.tsx
-
-// Updated component logic and UI changes for grading functionality
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle, User } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
+import { UPLOADS_BASE } from '../../lib/api';
 import { cancelDialog } from '../ui/Dialog';
-import UserAvatar from '../ui/UserAvatar';
 import './Layout.css';
 
 interface GlobalSidebarProps {
@@ -14,13 +11,16 @@ interface GlobalSidebarProps {
     onNavigate: () => void;
     onToggleAccount: () => void;
     isAccountOpen?: boolean;
-    onOpenSupport: () => void;
+    onOpenSupport?: () => void;
     unreadCount?: number;
 }
 
-const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen, onOpenSupport, unreadCount = 0 }) => {
+const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen }) => {
     const role = getRole();
-    const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
+    const dashboardPath =
+        role === AUTH_ROLES.FACULTY ? '/faculty' :
+        role === AUTH_ROLES.ADMIN ? '/admin' :
+        '/student';
     const [userData, setUserData] = React.useState(getUser());
     const location = useLocation();
 
@@ -32,7 +32,8 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
 
     const isDashboardActive = location.pathname.startsWith('/student') ||
         location.pathname.startsWith('/faculty') ||
-        location.pathname.startsWith('/ta');
+        location.pathname.startsWith('/ta') ||
+        location.pathname.startsWith('/admin');
 
     const isCalendarActive = location.pathname.startsWith('/calendar');
 
@@ -47,7 +48,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
         >
             <div className="global-sidebar-header">
                 <NavLink to={dashboardPath} onClick={onNavigate} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '44px', height: '44px', objectFit: 'contain' }} />
                 </NavLink>
             </div>
 
@@ -60,11 +61,21 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     className={`global-nav-link ${isAccountOpen ? 'active' : ''}`}
                     style={{ cursor: 'pointer' }}
                 >
-                    <UserAvatar 
-                        user={userData || { name: 'U' }} 
-                        size={32} 
-                        className="global-nav-avatar"
-                    />
+                    {userData?.profilePicture ? (
+                        <img
+                            src={`${UPLOADS_BASE}/uploads/${userData.profilePicture}`}
+                            alt="Account"
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                marginBottom: '4px'
+                            }}
+                        />
+                    ) : (
+                        <User size={32} />
+                    )}
                     <span className="global-nav-text">Account</span>
                 </button>
 
@@ -95,25 +106,16 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     onClick={onNavigate}
                     className={({ isActive }) => `global-nav-link ${isActive && !isAccountOpen ? 'active' : ''}`}
                 >
-                    <span className="nav-icon-wrapper">
-                        <Mail size={24} />
-                        {unreadCount > 0 && (
-                            <span className="nav-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-                        )}
-                    </span>
+                    <Mail size={24} />
                     <span className="global-nav-text">Inbox</span>
                 </NavLink>
 
                 <div style={{ flex: 1 }} />
 
-                <button 
-                    className="global-nav-link" 
-                    onClick={onOpenSupport}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                >
+                <span className="global-nav-link disabled" title="Coming Soon">
                     <HelpCircle size={24} />
                     <span className="global-nav-text">Help</span>
-                </button>
+                </span>
             </nav>
         </aside>
     );

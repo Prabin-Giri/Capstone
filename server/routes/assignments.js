@@ -392,7 +392,7 @@ router.post('/:id/test', async (req, res, next) => {
             fs.writeFileSync(filePath, code);
 
             const results = [];
-            const timeoutMs = config.runTimeoutMs || 10000;
+            const timeoutMs = config.runTimeoutMs;
 
             for (const tc of testCases) {
                 const pts = tc.points ?? 0;
@@ -439,7 +439,7 @@ router.post('/:id/test', async (req, res, next) => {
             const failed = results.length - passed;
             console.log('[Run Tests]', { assignmentId, total: results.length, passed, failed, results: results.map(r => ({ id: r.id, passed: r.passed, error: r.error || null })) });
 
-            res.json({ results });
+            res.json({ results, timeoutMs: timeoutMs });
         } finally {
             try {
                 fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -490,7 +490,7 @@ router.post('/:id/run', async (req, res, next) => {
 
         try {
             fs.writeFileSync(filePath, code);
-            const timeoutMs = config.runTimeoutMs || 10000;
+            const timeoutMs = config.runTimeoutMs;
 
             const runResult = await runCode({
                 sourceFilePath: filePath,
@@ -508,7 +508,8 @@ router.post('/:id/run', async (req, res, next) => {
                 stdout: actual,
                 stderr: error || null,
                 exitCode: runResult.exitCode,
-                timedOut: runResult.timedOut
+                timedOut: runResult.timedOut,
+                timeoutMs,
             });
 
         } catch (runErr) {

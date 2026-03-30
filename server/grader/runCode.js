@@ -39,6 +39,13 @@ function cleanupRemote(remoteDir, { user, host }) {
     } catch (_) {}
 }
 
+/** Quote one argument for use inside `sh -c '...'` (runArgs / file names from test cases). */
+function quoteShellArg(arg) {
+    const s = String(arg);
+    if (/^[a-zA-Z0-9_./+-]+$/.test(s)) return s;
+    return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
 /** Read file content from the VM via ssh cat. */
 function readRemoteFile(remoteFilePath, { user, host }) {
     const opts = ['-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=10'];
@@ -115,12 +122,12 @@ function getRunCommand(language, entryFileName, { runArgs = [], javaMainClass = 
             return { image, steps: [{ cmd: ['php', entryFileName, ...args] }] };
         case 'java': {
             const mainClass = (javaMainClass && String(javaMainClass).trim()) || entryFileName.replace(/\.java$/i, '') || 'Main';
+            const safeClass = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(mainClass) ? mainClass : 'Main';
+            const tail = args.length ? ' ' + args.map(quoteShellArg).join(' ') : '';
+            // Single container: avoids two Docker cold-starts (often exceeded short timeouts on Windows).
             return {
                 image,
-                steps: [
-                    { cmd: ['sh', '-c', 'javac *.java'] },
-                    { cmd: ['java', mainClass, ...args] },
-                ],
+                steps: [{ cmd: ['sh', '-c', `javac *.java && java ${safeClass}${tail}`] }],
             };
         }
         default:
@@ -197,10 +204,7 @@ async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = confi
             const lang = (language || 'python').toLowerCase();
             image = config.images[lang] || config.images.python;
             if (lang === 'java') {
-                steps = [
-                    { cmd: ['sh', '-c', 'javac *.java'] },
-                    { cmd: ['java', entryFileName] },
-                ];
+                steps = [{ cmd: ['sh', '-c', `javac *.java && java ${entryFileName}`] }];
             } else {
                 steps = [{ cmd: lang === 'python' ? ['python3', entryFileName] : ['node', entryFileName] }];
             }

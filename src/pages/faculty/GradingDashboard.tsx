@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { getAssignment, getSubmissions, getFileUrl, autoGradeAssignment, updateAssignment } from '../../lib/api';
+import { getAssignment, getSubmissions, getFileUrl, updateAssignment, runAutograde } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
-import { BarChart2, Search, Play } from 'lucide-react';
+import { BarChart2, Search, FlaskConical, Brain, PenLine, FileBarChart } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import PlagiarismReportModal from './PlagiarismReportModal';
-import AutoGradingConfigModal from './AutoGradingConfigModal';
 import AlertModal from '../../components/ui/AlertModal';
 import UserAvatar from '../../components/ui/UserAvatar';
 
@@ -27,7 +26,10 @@ const GradingDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [togglingHide, setTogglingHide] = useState(false);
     const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
-    const [showAutoGradeModal, setShowAutoGradeModal] = useState(false);
+    const [showAiDetectionModal, setShowAiDetectionModal] = useState(false);
+    const [runningTestsForAll, setRunningTestsForAll] = useState(false);
+    const [studentSearchInput, setStudentSearchInput] = useState('');
+    const [studentSearchFilter, setStudentSearchFilter] = useState('');
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
 
     useEffect(() => {
@@ -96,53 +98,164 @@ const GradingDashboard: React.FC = () => {
         }
     }
 
-    const handleAutoGrade = async (config: { latePenalty: string; timeout: number }) => {
+    const handleRunTestsForAll = async () => {
         if (!assignmentId) return;
+        const latest = Object.values(groupedSubmissions).map((g) => g[0]).filter(Boolean);
+        if (latest.length === 0) {
+            setAlertConfig({
+                show: true,
+                type: 'info',
+                title: 'No submissions',
+                message: 'There are no submissions to run test cases on.',
+            });
+            return;
+        }
+        setRunningTestsForAll(true);
+        let ok = 0;
+        let failed = 0;
         try {
-            await autoGradeAssignment(assignmentId, config.latePenalty, config.timeout);
-            await loadData(); // Reload to show new grades
-            setAlertConfig({ show: true, type: 'success', title: 'Success', message: 'Autograding completed successfully.' });
+            for (const sub of latest) {
+                try {
+                    await runAutograde(sub.id, { testResultsOnly: true });
+                    ok++;
+                } catch (e) {
+                    console.error(e);
+                    failed++;
+                }
+            }
+            await loadData();
+            setAlertConfig({
+                show: true,
+                type: failed > 0 ? 'info' : 'success',
+                title: 'Test runs finished',
+                message:
+                    failed > 0
+                        ? `Completed with ${ok} success(es) and ${failed} failure(s). Check logs or grade each submission for details.`
+                        : `Test results saved for all ${ok} latest submission(s). Final grades stay pending until you grade each student.`,
+            });
         } catch (err) {
             console.error(err);
-            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Autograding failed. Please check test cases and system logs.' });
+            setAlertConfig({
+                show: true,
+                type: 'error',
+                title: 'Error',
+                message: 'Could not finish running test cases for everyone.',
+            });
+        } finally {
+            setRunningTestsForAll(false);
         }
+    };
+
+    const applyStudentSearch = () => {
+        setStudentSearchFilter(studentSearchInput.trim());
     };
 
     if (loading) return <div className="grading-dashboard-container">Loading...</div>;
     if (!assignment) return <div className="grading-dashboard-container">Assignment not found</div>;
 
+    const searchNeedle = studentSearchFilter.toLowerCase();
+    const allSubmissionGroups = Object.values(groupedSubmissions);
+    const filteredSubmissionGroups = !searchNeedle
+        ? allSubmissionGroups
+        : allSubmissionGroups.filter((group) => {
+            const latest = group[0];
+            const haystack = [
+                latest.student_name,
+                latest.student_id,
+                anonLabel(latest.student_id),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(searchNeedle);
+        });
+
+    const firstGradeSubmissionId = (() => {
+        for (const sid of studentOrder) {
+            const g = groupedSubmissions[sid];
+            if (g?.[0]?.id != null) return g[0].id;
+        }
+        for (const sid of Object.keys(groupedSubmissions).sort()) {
+            const g = groupedSubmissions[sid];
+            if (g?.[0]?.id != null) return g[0].id;
+        }
+        return undefined;
+    })();
+
+    const goToFirstSubmissionGrader = () => {
+        if (firstGradeSubmissionId == null) {
+            setAlertConfig({
+                show: true,
+                type: 'info',
+                title: 'No submissions',
+                message: 'There are no submissions to open in the grader yet.',
+            });
+            return;
+        }
+        navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading/${firstGradeSubmissionId}`);
+    };
+
+    const backToAssignmentHref = isFaculty
+        ? `${basePath}/courses/${courseId}/assignments/${assignmentId}`
+        : `${basePath}/courses/${courseId}`;
+
     return (
         <div className="grading-dashboard-container">
-            <div className="dashboard-header">
-                <div>
-                    <div className="breadcrumb">
-                        <Link to={`${basePath}/courses/${courseId}`}>Back to Course</Link>
-                        <span>/</span>
-                        <span>{assignment.title}</span>
-                    </div>
-                    <h1 className="dashboard-title">Grading Dashboard</h1>
+            <div className="grading-dashboard-top">
+                <div className="grading-back-row">
+                    <Link to={backToAssignmentHref} className="grading-back-link">
+                        {isFaculty ? 'Back to assignment' : 'Back to course'}
+                    </Link>
+                    <span className="grading-context-title">{assignment.title}</span>
                 </div>
                 <div className="action-group">
                     <button
-                        onClick={() => setShowAutoGradeModal(true)}
-                        className="btn-dashboard-action btn-autograde"
+                        type="button"
+                        onClick={goToFirstSubmissionGrader}
+                        disabled={firstGradeSubmissionId == null}
+                        className="btn-dashboard-action btn-grade-entry"
                     >
-                        <Play size={20} />
-                        Auto-Grade All
+                        <PenLine size={18} />
+                        Grade
                     </button>
                     <button
+                        type="button"
+                        onClick={handleRunTestsForAll}
+                        disabled={runningTestsForAll}
+                        className="btn-dashboard-action btn-autograde"
+                    >
+                        <FlaskConical size={18} />
+                        {runningTestsForAll ? 'Running tests…' : 'Run tests for all'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowAiDetectionModal(true)}
+                        className="btn-dashboard-action btn-ai-detection"
+                    >
+                        <Brain size={18} />
+                        AI detection
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setShowPlagiarismModal(true)}
                         className="btn-dashboard-action btn-plagiarism"
                     >
-                        <Search size={20} />
-                        Check Plagiarism
+                        <Search size={18} />
+                        Plagiarism check
                     </button>
                     <Link
                         to={`${basePath}/courses/${courseId}/gradebook`}
                         className="btn-dashboard-action btn-gradebook"
                     >
-                        <BarChart2 size={20} />
-                        View Reports & Gradebook
+                        <BarChart2 size={18} />
+                        Gradebook
+                    </Link>
+                    <Link
+                        to={`${basePath}/courses/${courseId}/gradebook`}
+                        className="btn-dashboard-action btn-report"
+                    >
+                        <FileBarChart size={18} />
+                        Report
                     </Link>
                 </div>
             </div>
@@ -167,6 +280,35 @@ const GradingDashboard: React.FC = () => {
                 </div>
             ) : null}
 
+            <div className="grading-student-search" role="search">
+                <div className="grading-student-search-row">
+                    <input
+                        id="grading-student-search-input"
+                        type="search"
+                        className="grading-student-search-input"
+                        placeholder="Name, ID, or Student #"
+                        aria-label="Search students by name or ID"
+                        value={studentSearchInput}
+                        onChange={(e) => setStudentSearchInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                applyStudentSearch();
+                            }
+                        }}
+                        autoComplete="off"
+                    />
+                    <button
+                        type="button"
+                        className="grading-student-search-btn"
+                        onClick={applyStudentSearch}
+                    >
+                        <Search size={18} aria-hidden />
+                        Search
+                    </button>
+                </div>
+            </div>
+
             <div className="grading-card">
                 <table className="grading-table">
                     <thead>
@@ -186,8 +328,14 @@ const GradingDashboard: React.FC = () => {
                                     No submissions found for this assignment yet.
                                 </td>
                             </tr>
+                        ) : filteredSubmissionGroups.length === 0 ? (
+                            <tr>
+                                <td colSpan={6} className="empty-state">
+                                    No students match your search. Try a different name or ID.
+                                </td>
+                            </tr>
                         ) : (
-                            Object.values(groupedSubmissions).map(group => {
+                            filteredSubmissionGroups.map(group => {
                                 const latestSubmission = group[0]; // First one is latest due to sort
                                 const displayName = hideNames
                                     ? anonLabel(latestSubmission.student_id)
@@ -333,13 +481,32 @@ const GradingDashboard: React.FC = () => {
                 />
             )}
 
-            {/* Auto-Grading Config Modal */}
-            {showAutoGradeModal && assignment && (
-                <AutoGradingConfigModal
-                    assignmentId={assignment.id}
-                    onClose={() => setShowAutoGradeModal(false)}
-                    onStart={handleAutoGrade}
-                />
+            {showAiDetectionModal && (
+                <div className="modal-overlay" onClick={() => setShowAiDetectionModal(false)}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title" style={{ margin: 0 }}>
+                                AI detection
+                            </h3>
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={() => setShowAiDetectionModal(false)}
+                                aria-label="Close"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                AI-assisted work detection for this assignment will be available here. Use plagiarism checks and manual review until this workflow is connected.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Alert Modal */}

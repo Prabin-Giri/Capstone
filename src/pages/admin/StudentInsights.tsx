@@ -1,15 +1,42 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Card } from '../../components/ui/Card';
-import { getStudentInsights, getCourses, enrollStudent, unenrollStudent, getUserEnrollments, type StudentInsight, type Course, type EnrollmentRecord } from '../../lib/api';
-import { ChevronLeft, Search, GraduationCap, Settings, Plus, X, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    getStudentInsights,
+    getCourses,
+    enrollStudent,
+    unenrollStudent,
+    getUserEnrollments,
+    type StudentInsight,
+    type Course,
+    type EnrollmentRecord,
+} from '../../lib/api';
+import { Search, GraduationCap, Plus, X, Trash2 } from 'lucide-react';
+import './StudentInsights.css';
+
+function formatJoined(iso?: string): string {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+    } catch {
+        return '—';
+    }
+}
+
+/** Match a 4-digit year in course term strings like "Spring 2026". */
+function yearFromTerm(term: string): string | null {
+    const m = (term || '').match(/\b(19|20)\d{2}\b/);
+    return m ? m[0] : null;
+}
 
 const StudentInsights: React.FC = () => {
     const [students, setStudents] = useState<StudentInsight[]>([]);
+    const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
-    
-    // Enrollment Modal State
+    const [filterCourseId, setFilterCourseId] = useState('');
+    const [filterTerm, setFilterTerm] = useState('');
+    const [filterYear, setFilterYear] = useState('');
+
     const [selectedStudent, setSelectedStudent] = useState<StudentInsight | null>(null);
     const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([]);
     const [allCourses, setAllCourses] = useState<Course[]>([]);
@@ -18,32 +45,33 @@ const StudentInsights: React.FC = () => {
 
     const loadData = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const data = await getStudentInsights();
+            const [data, courseList] = await Promise.all([getStudentInsights(), getCourses()]);
             setStudents(data);
-        } catch {
+            setCourses(courseList.filter((c) => !c.is_archived));
+        } catch (e: unknown) {
             setStudents([]);
+            setCourses([]);
+            setError(e instanceof Error ? e.message : 'Could not load student insights.');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadData();
+        void loadData();
     }, []);
 
     const openEnrollmentModal = async (student: StudentInsight) => {
         setSelectedStudent(student);
+        setAllCourses(courses);
         setModalLoading(true);
         try {
-            const [currentEnrollments, courses] = await Promise.all([
-                getUserEnrollments(student.id),
-                getCourses()
-            ]);
+            const currentEnrollments = await getUserEnrollments(student.id);
             setEnrollments(currentEnrollments);
-            setAllCourses(courses.filter(c => !c.is_archived));
-        } catch (err) {
-            console.error('Failed to load enrollment data', err);
+        } catch {
+            setEnrollments([]);
         } finally {
             setModalLoading(false);
         }
@@ -53,200 +81,357 @@ const StudentInsights: React.FC = () => {
         if (!selectedStudent || !selectedCourseId) return;
         try {
             await enrollStudent(selectedCourseId, selectedStudent.id);
-            // Refresh
             const updated = await getUserEnrollments(selectedStudent.id);
             setEnrollments(updated);
             setSelectedCourseId('');
-            loadData(); // Update the main table counts
-        } catch (err: any) {
-            alert(err.message || 'Failed to enroll');
+            void loadData();
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'Failed to enroll');
         }
     };
 
     const handleUnenroll = async (courseId: string) => {
         if (!selectedStudent) return;
-        if (!window.confirm('Are you sure you want to unenroll this student?')) return;
+        if (!window.confirm('Unenroll this student from the course?')) return;
         try {
             await unenrollStudent(courseId, selectedStudent.id);
-            // Refresh
             const updated = await getUserEnrollments(selectedStudent.id);
             setEnrollments(updated);
-            loadData(); // Update the main table counts
-        } catch (err: any) {
-            alert(err.message || 'Failed to unenroll');
+            void loadData();
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'Failed to unenroll');
         }
     };
 
-    const filtered = students.filter(
-        s =>
-            !search.trim() ||
-            s.name?.toLowerCase().includes(search.trim().toLowerCase()) ||
-            s.email?.toLowerCase().includes(search.trim().toLowerCase()) ||
-            s.id?.toLowerCase().includes(search.trim().toLowerCase())
+    const courseById = useMemo(() => {
+        const m = new Map<string, Course>();
+        courses.forEach((c) => m.set(c.id, c));
+        return m;
+    }, [courses]);
+
+    const termOptions = useMemo(() => {
+        const set = new Set<string>();
+        courses.forEach((c) => {
+            const t = (c.term || '').trim();
+            if (t) set.add(t);
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }, [courses]);
+
+    const yearOptions = useMemo(() => {
+        const set = new Set<string>();
+        courses.forEach((c) => {
+            const y = yearFromTerm(c.term || '');
+            if (y) set.add(y);
+        });
+        return Array.from(set).sort((a, b) => Number(b) - Number(a));
+    }, [courses]);
+
+    const coursesForFilterSelect = useMemo(
+        () => [...courses].sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })),
+        [courses]
     );
 
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return students.filter((s) => {
+            if (q) {
+                const matchText =
+                    s.name?.toLowerCase().includes(q) ||
+                    s.email?.toLowerCase().includes(q) ||
+                    s.id?.toLowerCase().includes(q);
+                if (!matchText) return false;
+            }
+            const ids = s.enrolled_course_ids ?? [];
+            if (filterCourseId && !ids.includes(filterCourseId)) return false;
+            if (filterTerm) {
+                const matchesTerm = ids.some((cid) => (courseById.get(cid)?.term || '').trim() === filterTerm);
+                if (!matchesTerm) return false;
+            }
+            if (filterYear) {
+                const matchesYear = ids.some((cid) => yearFromTerm(courseById.get(cid)?.term || '') === filterYear);
+                if (!matchesYear) return false;
+            }
+            return true;
+        });
+    }, [students, search, filterCourseId, filterTerm, filterYear, courseById]);
+
+    const clearFilters = () => {
+        setSearch('');
+        setFilterCourseId('');
+        setFilterTerm('');
+        setFilterYear('');
+    };
+
     return (
-        <div className="min-h-full bg-slate-950/95 text-slate-50 px-6 py-8">
-            <div className="max-w-6xl mx-auto space-y-6">
-                <div>
-                    <Link
-                        to="/admin"
-                        className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200"
-                    >
-                        <ChevronLeft size={18} /> Back to Dashboard
-                    </Link>
-                </div>
-                <header className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-slate-800 p-2">
-                            <GraduationCap size={24} className="text-emerald-400" />
+        <div className="si-page">
+            <div className="si-inner">
+                <header className="si-head">
+                    <h1>Student insights</h1>
+                    <div className="si-toolbar">
+                        <div className="si-toolbar-row">
+                            <div className="si-search-wrap">
+                                <Search size={16} aria-hidden />
+                                <input
+                                    type="search"
+                                    className="si-search"
+                                    placeholder="Search name, email, student ID…"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    aria-label="Search students"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-semibold text-slate-50">Student Insights</h1>
-                            <p className="text-sm text-slate-400">Enrollment and submission activity by student</p>
+                        <div className="si-toolbar-row si-filters-row">
+                            <div className="si-filter-field">
+                                <label className="si-filter-label" htmlFor="si-filter-course">
+                                    Course
+                                </label>
+                                <select
+                                    id="si-filter-course"
+                                    className="si-select"
+                                    value={filterCourseId}
+                                    onChange={(e) => setFilterCourseId(e.target.value)}
+                                    aria-label="Filter by enrolled course"
+                                >
+                                    <option value="">All courses</option>
+                                    {coursesForFilterSelect.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name} ({c.id})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="si-filter-field">
+                                <label className="si-filter-label" htmlFor="si-filter-term">
+                                    Term
+                                </label>
+                                <select
+                                    id="si-filter-term"
+                                    className="si-select"
+                                    value={filterTerm}
+                                    onChange={(e) => setFilterTerm(e.target.value)}
+                                    aria-label="Filter by course term"
+                                >
+                                    <option value="">All terms</option>
+                                    {termOptions.map((t) => (
+                                        <option key={t} value={t}>
+                                            {t}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="si-filter-field">
+                                <label className="si-filter-label" htmlFor="si-filter-year">
+                                    Year
+                                </label>
+                                <select
+                                    id="si-filter-year"
+                                    className="si-select"
+                                    value={filterYear}
+                                    onChange={(e) => setFilterYear(e.target.value)}
+                                    aria-label="Filter by year in course term"
+                                >
+                                    <option value="">All years</option>
+                                    {yearOptions.map((y) => (
+                                        <option key={y} value={y}>
+                                            {y}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {(filterCourseId || filterTerm || filterYear || search.trim()) && (
+                                <button type="button" className="si-clear-filters" onClick={clearFilters}>
+                                    Clear filters
+                                </button>
+                            )}
                         </div>
-                    </div>
-                    <div className="relative">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                        <input
-                            type="text"
-                            placeholder="Search by name, email, ID..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-64 rounded-lg border border-slate-700 bg-slate-900/80 pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/50"
-                        />
                     </div>
                 </header>
 
-                <Card className="bg-slate-900/70 border-slate-800 overflow-hidden">
+                {error && (
+                    <div
+                        style={{
+                            marginBottom: '1rem',
+                            padding: '0.65rem 0.85rem',
+                            borderRadius: '0.375rem',
+                            background: '#fef2f2',
+                            color: '#b91c1c',
+                            fontSize: '0.875rem',
+                            border: '1px solid #fecaca',
+                        }}
+                    >
+                        {error}
+                    </div>
+                )}
+
+                <div className="si-table-wrap si-table-wrap--scroll">
                     {loading ? (
-                        <div className="py-12 text-center text-slate-400">Loading...</div>
+                        <div className="si-empty">Loading students…</div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="text-left text-slate-400 border-b border-slate-700">
-                                        <th className="pb-3 pr-4 font-medium">Name</th>
-                                        <th className="pb-3 pr-4 font-medium">Email</th>
-                                        <th className="pb-3 pr-4 font-medium">ID</th>
-                                        <th className="pb-3 pr-4 font-medium">Courses</th>
-                                        <th className="pb-3 pr-4 font-medium">Submissions</th>
-                                        <th className="pb-3 pr-4 font-medium">Graded</th>
-                                        <th className="pb-3 font-medium text-right">Actions</th>
+                        <table className="si-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Email</th>
+                                    <th scope="col">Student ID</th>
+                                    <th scope="col">Joined</th>
+                                    <th scope="col">Courses</th>
+                                    <th scope="col">Submissions</th>
+                                    <th scope="col">Graded</th>
+                                    <th className="si-th-actions" scope="col">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8} className="si-empty">
+                                            {students.length === 0
+                                                ? 'No students found.'
+                                                : filterCourseId || filterTerm || filterYear
+                                                  ? 'No students match your filters.'
+                                                  : search.trim()
+                                                    ? 'No students match your search.'
+                                                    : 'No students to show.'}
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.map(s => (
-                                        <tr key={s.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                                            <td className="py-3 pr-4 text-slate-200">{s.name ?? '—'}</td>
-                                            <td className="py-3 pr-4 text-slate-300">{s.email ?? '—'}</td>
-                                            <td className="py-3 pr-4 text-slate-400 font-mono text-xs">{s.id}</td>
-                                            <td className="py-3 pr-4 text-slate-200">{s.courses_enrolled}</td>
-                                            <td className="py-3 pr-4 text-slate-200">{s.submissions_count}</td>
-                                            <td className="py-3 pr-4 text-slate-200">{s.graded_count}</td>
-                                            <td className="py-3 text-right">
+                                ) : (
+                                    filtered.map((s) => (
+                                        <tr key={s.id}>
+                                            <td className="si-course-name">{s.name ?? '—'}</td>
+                                            <td>{s.email ?? '—'}</td>
+                                            <td className="si-mono">{s.id}</td>
+                                            <td>{formatJoined(s.created_at)}</td>
+                                            <td className="si-num">{s.courses_enrolled}</td>
+                                            <td className="si-num">{s.submissions_count}</td>
+                                            <td className="si-num">{s.graded_count}</td>
+                                            <td className="si-td-actions">
                                                 <button
-                                                    onClick={() => openEnrollmentModal(s)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-900/40 text-emerald-200 hover:bg-emerald-900/60 transition-colors text-xs border border-emerald-800/50"
+                                                    type="button"
+                                                    className="si-btn si-btn--primary"
+                                                    onClick={() => void openEnrollmentModal(s)}
                                                 >
-                                                    <Settings size={14} />
+                                                    <GraduationCap size={16} aria-hidden />
                                                     Enrollments
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     )}
-                    {!loading && filtered.length === 0 && (
-                        <div className="py-12 text-center text-slate-500">No students match your search.</div>
-                    )}
-                </Card>
+                </div>
             </div>
 
-            {/* Enrollment Management Modal */}
             {selectedStudent && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <Card className="w-full max-w-xl bg-slate-900 border-slate-800 shadow-2xl flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <div
+                    className="si-modal-backdrop"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="si-modal-title"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) setSelectedStudent(null);
+                    }}
+                >
+                    <div className="si-modal" onMouseDown={(e) => e.stopPropagation()}>
+                        <div className="si-modal-header">
                             <div>
-                                <h2 className="text-xl font-semibold text-slate-100">Manage Enrollments</h2>
-                                <p className="text-sm text-slate-400 mt-1">{selectedStudent.name} ({selectedStudent.email})</p>
+                                <h2 id="si-modal-title">Manage enrollments</h2>
+                                <p className="si-muted">{selectedStudent.name}</p>
+                                <p className="si-muted">{selectedStudent.email}</p>
                             </div>
-                            <button onClick={() => setSelectedStudent(null)} className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-all">
+                            <button
+                                type="button"
+                                className="si-modal-close"
+                                onClick={() => setSelectedStudent(null)}
+                                aria-label="Close"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto space-y-6">
-                            {/* Enroll Section */}
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-medium text-slate-300">Enroll in Course</h3>
-                                <div className="flex gap-2">
+                        <div className="si-modal-body">
+                            <div className="si-section">
+                                <h3 className="si-section-title">Enroll in course</h3>
+                                <div className="si-enroll-row">
                                     <select
+                                        className="si-select"
                                         value={selectedCourseId}
-                                        onChange={e => setSelectedCourseId(e.target.value)}
-                                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:ring-1 focus:ring-emerald-500 outline-none"
+                                        onChange={(e) => setSelectedCourseId(e.target.value)}
+                                        aria-label="Select course"
                                     >
-                                        <option value="">Select a course...</option>
+                                        <option value="">Select a course…</option>
                                         {allCourses
-                                            .filter(c => !enrollments.some(e => e.id === c.id))
-                                            .map(c => (
-                                                <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
-                                            ))
-                                        }
+                                            .filter((c) => !enrollments.some((e) => e.id === c.id))
+                                            .map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name} ({c.id})
+                                                </option>
+                                            ))}
                                     </select>
                                     <button
-                                        onClick={handleEnroll}
+                                        type="button"
+                                        className="si-btn si-btn--primary"
                                         disabled={!selectedCourseId}
-                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
+                                        onClick={() => void handleEnroll()}
                                     >
-                                        <Plus size={16} /> Enroll
+                                        <Plus size={16} aria-hidden />
+                                        Enroll
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Current Enrollments */}
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-medium text-slate-300">Current Enrollments</h3>
+                            <div className="si-section">
+                                <h3 className="si-section-title">Current enrollments</h3>
                                 {modalLoading ? (
-                                    <div className="py-4 text-center text-slate-500 text-sm">Loading...</div>
-                                ) : enrollments.length === 0 ? (
-                                    <div className="bg-slate-950/50 border border-slate-800/50 rounded-lg py-4 px-4 text-center text-slate-500 text-sm border-dashed italic">
-                                        Not enrolled in any courses.
+                                    <div className="si-empty" style={{ padding: '1.5rem' }}>
+                                        Loading…
                                     </div>
+                                ) : enrollments.length === 0 ? (
+                                    <div className="si-dash-box">Not enrolled in any courses.</div>
                                 ) : (
-                                    <div className="divide-y divide-slate-800 border border-slate-800 rounded-lg bg-slate-950/30 overflow-hidden">
-                                        {enrollments.map(e => (
-                                            <div key={e.id} className="flex items-center justify-between p-3 hover:bg-slate-800/30 transition-colors">
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-200">{e.name}</p>
-                                                    <p className="text-xs text-slate-500 font-mono mt-0.5">{e.id}</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleUnenroll(e.id)}
-                                                    className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-md transition-all"
-                                                    title="Unenroll"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                        ))}
+                                    <div className="si-subtable-wrap">
+                                        <table className="si-subtable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Course</th>
+                                                    <th>Course ID</th>
+                                                    <th className="si-sub-th-actions"> </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {enrollments.map((e) => (
+                                                    <tr key={e.id}>
+                                                        <td>{e.name}</td>
+                                                        <td className="si-mono">{e.id}</td>
+                                                        <td className="si-td-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="si-icon-btn"
+                                                                title="Unenroll"
+                                                                onClick={() => void handleUnenroll(e.id)}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="p-4 border-t border-slate-800 text-right bg-slate-900/50">
-                            <button
-                                onClick={() => setSelectedStudent(null)}
-                                className="px-5 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                            >
+                        <div className="si-modal-footer">
+                            <button type="button" className="si-btn" onClick={() => setSelectedStudent(null)}>
                                 Close
                             </button>
                         </div>
-                    </Card>
+                    </div>
                 </div>
             )}
         </div>

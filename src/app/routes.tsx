@@ -16,6 +16,7 @@ import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import FacultyCourseView from '../pages/faculty/FacultyCourseView';
 import FacultyStudentListView from '../pages/faculty/FacultyStudentListView';
 import FacultyAssignmentList from '../pages/faculty/FacultyAssignmentList';
+import FacultyAssignmentDetails from '../pages/faculty/FacultyAssignmentDetails';
 import AssignmentWizard from '../pages/faculty/AssignmentWizard';
 import GradingDashboard from '../pages/faculty/GradingDashboard';
 import SubmissionGrader from '../pages/faculty/SubmissionGrader';
@@ -30,6 +31,8 @@ import UserManagement from '../pages/admin/UserManagement';
 import StudentInsights from '../pages/admin/StudentInsights';
 import FacultyManagement from '../pages/admin/FacultyManagement';
 import AppAnalytics from '../pages/admin/AppAnalytics';
+import AppSettings from '../pages/admin/AppSettings';
+import CourseManagement from '../pages/admin/CourseManagement';
 import PendingDisclaimer from '../pages/faculty/PendingDisclaimer';
 import Inbox from '../pages/Inbox';
 
@@ -97,6 +100,7 @@ export const router = createBrowserRouter([
                     { path: 'courses/:courseId/assignments/:assignmentId/edit', element: <AssignmentWizard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading', element: <GradingDashboard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading/:submissionId', element: <SubmissionGrader /> },
+                    { path: 'courses/:courseId/assignments/:assignmentId', element: <FacultyAssignmentDetails /> },
                     { path: 'courses/:courseId/gradebook', element: <CourseGradebook /> },
                 ]
             },
@@ -121,6 +125,8 @@ export const router = createBrowserRouter([
                     { path: 'students', element: <StudentInsights /> },
                     { path: 'faculty', element: <FacultyManagement /> },
                     { path: 'analytics', element: <AppAnalytics /> },
+                    { path: 'settings', element: <AppSettings /> },
+                    { path: 'courses', element: <CourseManagement /> },
                 ]
             }
         ]

@@ -1,19 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, UPLOADS_BASE } from '../../lib/api';
+import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, getSubmissions, deleteAssignment, UPLOADS_BASE } from '../../lib/api';
 import type { TestCase, RubricConfig, User } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
-import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus, X } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus, X, Edit, BarChart2, Download, ChevronLeft } from 'lucide-react';
 import './AssignmentWizard.css';
 import { showDialog } from '../../components/ui/Dialog';
 
-const AssignmentWizard: React.FC = () => {
+export interface AssignmentWizardProps {
+    /** Read-only view of an existing assignment (same layout as edit; use Edit to open the editor). */
+    viewOnly?: boolean;
+}
+
+const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false }) => {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
     const basePath = getRole() === 'ta' ? '/ta' : '/faculty';
     const isEditing = !!assignmentId;
+    const readOnly = viewOnly;
 
     const [formData, setFormData] = useState({
         title: '',
@@ -40,8 +46,9 @@ const AssignmentWizard: React.FC = () => {
     const [testCases, setTestCases] = useState<(Omit<Partial<TestCase>, 'points'> & { points?: number | string })[]>([]);
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
     const [assignmentGroups, setAssignmentGroups] = useState<{ id: string; name: string; students: string[] }[]>([]);
-    const [loading, setLoading] = useState(isEditing);
+    const [loading, setLoading] = useState(isEditing || viewOnly);
     const [saving, setSaving] = useState(false);
+    const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [rubric, setRubric] = useState<RubricConfig>({
         title: '',
         weighted: false,
@@ -54,6 +61,16 @@ const AssignmentWizard: React.FC = () => {
     const attachmentInputRef = useRef<HTMLInputElement>(null);
 
     const API_BASE = `${UPLOADS_BASE}/api`;
+
+    useEffect(() => {
+        if (!viewOnly || !assignmentId) {
+            setSubmissionCount(null);
+            return;
+        }
+        getSubmissions({ assignment_id: assignmentId })
+            .then((subs) => setSubmissionCount(subs.length))
+            .catch(() => setSubmissionCount(0));
+    }, [viewOnly, assignmentId]);
 
     useEffect(() => {
         if (courseId) {
@@ -297,15 +314,76 @@ const AssignmentWizard: React.FC = () => {
         }
     };
 
+    const handleDeleteAssignmentView = async () => {
+        if (!assignmentId || !courseId) return;
+        const confirmed = await showDialog({
+            title: 'Delete Assignment',
+            message: `Are you sure you want to delete "${formData.title}"? This will also delete all submissions.`,
+            type: 'danger',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+        });
+        if (!confirmed) return;
+        try {
+            await deleteAssignment(assignmentId);
+            navigate(`${basePath}/courses/${courseId}/assignments`);
+        } catch (err) {
+            console.error(err);
+            await showDialog({ title: 'Error', message: 'Failed to delete assignment', confirmText: 'OK' });
+        }
+    };
+
     if (loading) return <div className="p-8">Loading...</div>;
 
-    return (
-        <div className="assignment-wizard-container">
-            <h1 className="wizard-title">
-                {isEditing ? 'Edit Assignment' : 'Create New Assignment'}
-            </h1>
+    const editHref = assignmentId ? `${basePath}/courses/${courseId}/assignments/${assignmentId}/edit` : '';
+    const gradingHref = assignmentId ? `${basePath}/courses/${courseId}/assignments/${assignmentId}/grading` : '';
 
-            <form onSubmit={handleSubmit} className="wizard-form">
+    return (
+        <div className={`assignment-wizard-container${readOnly ? ' view-only' : ''}`}>
+            {readOnly && (
+                <div className="wizard-view-header">
+                    <button
+                        type="button"
+                        className="wizard-back-to-assignments"
+                        onClick={() => courseId && navigate(`${basePath}/courses/${courseId}/assignments`)}
+                    >
+                        <ChevronLeft size={16} />
+                        Back to assignments
+                    </button>
+                    <div className="wizard-view-header-row">
+                        <h1 className="wizard-title wizard-title-view">{formData.title || 'Assignment'}</h1>
+                        <div className="wizard-view-actions">
+                            <Button type="button" variant="outline" size="sm" onClick={() => courseId && navigate(`${basePath}/courses/${courseId}/gradebook`)}>
+                                <Download size={16} />
+                                Grades
+                            </Button>
+                            <Button type="button" variant="primary" size="sm" onClick={() => gradingHref && navigate(gradingHref)}>
+                                <BarChart2 size={16} />
+                                Grade
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => editHref && navigate(editHref)}>
+                                <Edit size={16} />
+                                Edit
+                            </Button>
+                            <Button type="button" variant="danger" size="sm" onClick={handleDeleteAssignmentView}>
+                                <Trash2 size={16} />
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                    {submissionCount !== null && (
+                        <p className="wizard-submission-count">Submissions: {submissionCount}</p>
+                    )}
+                </div>
+            )}
+            {!readOnly && (
+                <h1 className="wizard-title">
+                    {isEditing ? 'Edit Assignment' : 'Create New Assignment'}
+                </h1>
+            )}
+
+            <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit} className="wizard-form">
+                <div className={readOnly ? 'wizard-readonly-inner' : undefined}>
                 <div className="form-group">
                     <label className="form-label">Title</label>
                     <input
@@ -321,6 +399,7 @@ const AssignmentWizard: React.FC = () => {
                 <div className="form-group">
                     <label className="form-label">Description</label>
                     <div className="rich-editor">
+                        {!readOnly && (
                         <div className="rich-toolbar" role="toolbar" aria-label="Description editor toolbar">
                             <button type="button" className="rich-btn" onClick={() => exec('bold')} title="Bold">
                                 <Bold size={16} />
@@ -363,11 +442,12 @@ const AssignmentWizard: React.FC = () => {
                                 <RemoveFormatting size={16} />
                             </button>
                         </div>
+                        )}
 
                         <div
                             ref={descriptionRef}
                             className="rich-content"
-                            contentEditable
+                            contentEditable={!readOnly}
                             role="textbox"
                             aria-multiline="true"
                             onInput={() => setFormData((prev) => ({ ...prev, description: descriptionRef.current?.innerHTML ?? '' }))}
@@ -1067,14 +1147,24 @@ const AssignmentWizard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="form-actions">
-                    <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}`)} disabled={saving}>
-                        Cancel
-                    </Button>
-                    <Button type="submit" disabled={saving}>
-                        {saving ? 'Saving...' : (isEditing ? 'Update Assignment' : 'Create Assignment')}
-                    </Button>
                 </div>
+
+                {readOnly ? (
+                    <div className="form-actions">
+                        <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}/assignments`)}>
+                            Back to assignments
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="form-actions">
+                        <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}`)} disabled={saving}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={saving}>
+                            {saving ? 'Saving...' : (isEditing ? 'Update Assignment' : 'Create Assignment')}
+                        </Button>
+                    </div>
+                )}
             </form>
         </div>
     );

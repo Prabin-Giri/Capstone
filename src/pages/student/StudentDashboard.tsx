@@ -4,12 +4,11 @@ import { getCourses, getAssignments } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { getRole, getUser } from '../../lib/auth';
+import { getUser } from '../../lib/auth';
 
 const StudentDashboard: React.FC = () => {
     const navigate = useNavigate();
     const user = getUser();
-    const role = getRole();
     const [courses, setCourses] = useState<Course[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -72,12 +71,7 @@ const StudentDashboard: React.FC = () => {
     if (loading) {
         return (
             <div className="dashboard-container">
-                <div className="dashboard-header">
-                    <div>
-                        <h1 className="dashboard-title">Dashboard</h1>
-                        <p className="dashboard-subtitle">Loading...</p>
-                    </div>
-                </div>
+                <p className="dashboard-subtitle" style={{ margin: 0 }}>Loading...</p>
             </div>
         );
     }
@@ -85,30 +79,17 @@ const StudentDashboard: React.FC = () => {
     if (error) {
         return (
             <div className="dashboard-container">
-                <div className="dashboard-header">
-                    <div>
-                        <h1 className="dashboard-title">Dashboard</h1>
-                        <p className="dashboard-subtitle" style={{ color: '#ef4444' }}>{error}</p>
-                    </div>
-                </div>
+                <p className="dashboard-subtitle" style={{ color: '#ef4444', margin: 0 }}>{error}</p>
             </div>
         );
     }
 
     return (
         <div className="dashboard-container">
-            <div className="dashboard-header">
-                <div>
-                    <h1 className="dashboard-title">{role === 'ta' ? 'TA Command Center' : 'Student Command Center'}</h1>
-                    <p className="dashboard-subtitle">
-                        Welcome back, {user?.name || 'Student'}. Here is your semester at a glance.
-                    </p>
-                </div>
-                <div className="dashboard-actions">
-                    <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
-                        View Calendar
-                    </Button>
-                </div>
+            <div className="dashboard-calendar-row">
+                <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
+                    View Calendar
+                </Button>
             </div>
 
             {/* Analytics Summary Bar */}
@@ -125,9 +106,9 @@ const StudentDashboard: React.FC = () => {
                     </span>
                     <span className="analytics-desc">Across your courses</span>
                 </div>
-                <div className="analytics-card glass">
+                <div className="analytics-card glass analytics-card--maroon">
                     <span className="analytics-label">Next Deadline</span>
-                    <span className="analytics-value" style={{ color: 'var(--primary-text)' }}>
+                    <span className="analytics-value">
                         {(() => {
                             const upcoming = myAssignments
                                 .filter(a => a.status === 'active' && new Date(a.due_date) >= new Date())
@@ -194,9 +175,7 @@ const StudentDashboard: React.FC = () => {
                                             <span className="stat-label">Assignments</span>
                                         </div>
                                         <div className="stat-item">
-                                            <span className="stat-v" style={{ color: openAssignments.length > 0 ? 'var(--primary-text)' : 'inherit' }}>
-                                                {nextDue}
-                                            </span>
+                                            <span className="stat-v">{nextDue}</span>
                                             <span className="stat-label">Next Due</span>
                                         </div>
                                     </>
@@ -259,9 +238,7 @@ const StudentDashboard: React.FC = () => {
                                             <span className="stat-label">Active Assignments</span>
                                         </div>
                                         <div className="stat-item">
-                                            <span className="stat-v" style={{ color: nextDue !== 'None' ? 'var(--primary-text)' : 'inherit' }}>
-                                                {nextDue}
-                                            </span>
+                                            <span className="stat-v">{nextDue}</span>
                                             <span className="stat-label">Next Due</span>
                                         </div>
                                     </div>

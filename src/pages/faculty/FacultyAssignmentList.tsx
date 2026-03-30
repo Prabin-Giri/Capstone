@@ -7,7 +7,7 @@ import {
     type Assignment,
     type Course
 } from '../../lib/api';
-import { ChevronLeft, Plus, Search, Edit, Trash2, Download, BarChart2 } from 'lucide-react';
+import { ChevronLeft, Plus, Search, Edit, Trash2, Download, BarChart2, ArrowUpDown } from 'lucide-react';
 import { showDialog } from '../../components/ui/Dialog';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import './FacultyAssignmentList.css';
@@ -19,6 +19,7 @@ const FacultyAssignmentList: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
     useEffect(() => {
         if (courseId) loadData();
@@ -65,6 +66,11 @@ const FacultyAssignmentList: React.FC = () => {
     const filtered = q
         ? assignments.filter(a => a.title.toLowerCase().includes(q))
         : assignments;
+    const sortedAssignments = [...filtered].sort((a, b) => {
+        const aTime = new Date(a.due_date).getTime();
+        const bTime = new Date(b.due_date).getTime();
+        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+    });
 
     return (
         <div className="faculty-assignment-list-container">
@@ -90,16 +96,29 @@ const FacultyAssignmentList: React.FC = () => {
                 </button>
             </div>
 
-            {/* Search */}
-            <div className="fal-search-bar">
-                <Search size={16} className="fal-search-icon" />
-                <input
-                    type="text"
-                    placeholder="Search assignments..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="fal-search-input"
-                />
+            {/* Search + Sort */}
+            <div className="fal-controls">
+                <div className="fal-search-bar">
+                    <Search size={16} className="fal-search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Search assignments..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="fal-search-input"
+                    />
+                </div>
+                <div className="fal-sort-wrap">
+                    <button
+                        type="button"
+                        className={`fal-sort-btn ${sortOrder === 'asc' ? 'is-asc' : 'is-desc'}`}
+                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                        title={`Sort by deadline (${sortOrder === 'asc' ? 'ascending' : 'descending'})`}
+                        aria-label={`Sort by deadline (${sortOrder === 'asc' ? 'ascending' : 'descending'})`}
+                    >
+                        <ArrowUpDown size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* Assignments Table */}
@@ -121,12 +140,12 @@ const FacultyAssignmentList: React.FC = () => {
                                     {q ? 'No assignments match your search.' : 'No assignments yet. Create one to get started!'}
                                 </td>
                             </tr>
-                        ) : filtered.map(a => (
+                        ) : sortedAssignments.map(a => (
                             <tr key={a.id}>
                                 <td>
                                     <span
                                         className="fal-assignment-title"
-                                        onClick={() => navigate(`/faculty/courses/${courseId}/assignments/${a.id}/grading`)}
+                                        onClick={() => navigate(`/faculty/courses/${courseId}/assignments/${a.id}`)}
                                     >
                                         {a.title}
                                     </span>

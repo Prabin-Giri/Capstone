@@ -21,12 +21,13 @@ import {
     getTAs,
     inviteTA,
     removeTA,
+    UPLOADS_BASE,
     type User,
     type CsvEnrollResult
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key, Users } from 'lucide-react';
+import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key, Users, Pencil, PenLine } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
 import { showDialog } from '../../components/ui/Dialog';
@@ -402,14 +403,13 @@ const FacultyCourseView: React.FC = () => {
             <div className="faculty-course-header">
                 <div className="header-title">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <h1>Faculty Command Center</h1>
+                        <p className="header-metadata">{course.name} • {course.id}</p>
                         {!!course.is_archived && (
                             <span className="tag-pill" style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--muted-color)', border: '1px solid rgba(255,255,255,0.2)' }}>
                                 ARCHIVED
                             </span>
                         )}
                     </div>
-                    <p className="header-metadata">{course.name} • {course.id}</p>
                 </div>
 
                 <div className="header-actions">
@@ -500,6 +500,30 @@ const FacultyCourseView: React.FC = () => {
                             </div>
                         )}
                     </div>
+                    {documents?.syllabus_path ? (
+                        <a href={getFileUrl(documents.syllabus_path)} target="_blank" rel="noreferrer" className="doc-pill">
+                            <FileText size={16} />
+                            Syllabus
+                            <Download size={14} />
+                        </a>
+                    ) : (
+                        <button className="doc-pill empty" onClick={() => syllabusInputRef.current?.click()}>
+                            <FileText size={16} />
+                            Upload Syllabus
+                        </button>
+                    )}
+                    {documents?.schedule_path ? (
+                        <a href={getFileUrl(documents.schedule_path)} target="_blank" rel="noreferrer" className="doc-pill">
+                            <Calendar size={16} />
+                            Schedule
+                            <Download size={14} />
+                        </a>
+                    ) : (
+                        <button className="doc-pill empty" onClick={() => scheduleInputRef.current?.click()}>
+                            <Calendar size={16} />
+                            Upload Schedule
+                        </button>
+                    )}
 
                     <button
                         onClick={() => navigate('students')}
@@ -549,43 +573,15 @@ const FacultyCourseView: React.FC = () => {
                 </div>
             </div>
 
-            {/* Course Documents Section */}
-            <div className="course-documents-section">
-                {documents?.syllabus_path ? (
-                    <a href={getFileUrl(documents.syllabus_path)} target="_blank" rel="noreferrer" className="doc-pill">
-                        <FileText size={16} />
-                        Syllabus
-                        <Download size={14} />
-                    </a>
-                ) : (
-                    <div className="doc-pill empty">
-                        <FileText size={16} />
-                        No Syllabus
-                    </div>
-                )}
-
-                {documents?.schedule_path ? (
-                    <a href={getFileUrl(documents.schedule_path)} target="_blank" rel="noreferrer" className="doc-pill">
-                        <Calendar size={16} />
-                        Assignment Schedule
-                        <Download size={14} />
-                    </a>
-                ) : (
-                    <div className="doc-pill empty">
-                        <Calendar size={16} />
-                        No Schedule
-                    </div>
-                )}
-            </div>
-
             <div className="course-main-content">
                 <div className="assignments-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h2 
-                            className="section-title" 
-                            style={{ margin: 0, cursor: 'pointer' }} 
+                        <button
                             onClick={() => navigate('assignments')}
-                        >Assignments</h2>
+                            className="enroll-btn-small"
+                        >
+                            View All Assignments
+                        </button>
                         <button
                             onClick={() => navigate('assignments/new')}
                             className="enroll-btn-small"
@@ -600,72 +596,91 @@ const FacultyCourseView: React.FC = () => {
                                 <small>Create your first assignment to get started.</small>
                             </div>
                         ) : (
-                            assignments.map(assignment => (
+                            [...assignments]
+                                .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())
+                                .slice(0, 3)
+                                .map(assignment => (
                                 <div key={assignment.id} className="assignment-card">
-                                    <div className="card-content">
-                                        {/* Row 1: Title */}
-                                        <div className="card-title-row">
+                                    <div className="assignment-card-inner">
+                                        <div className="assignment-card-title-row">
                                             <h3
                                                 className="assignment-title"
-                                                onClick={() => navigate(`assignments/${assignment.id}/grading`)}
-                                                style={{ cursor: 'pointer', color: 'var(--text-primary)' }}
+                                                onClick={() => navigate(`assignments/${assignment.id}`)}
                                             >
                                                 {assignment.title}
                                             </h3>
+                                            {assignment.points != null && Number(assignment.points) > 0 ? (
+                                                <span className="assignment-points-pill">{Number(assignment.points)} pts</span>
+                                            ) : null}
                                         </div>
 
-                                        {/* Row 2: Metadata & Actions */}
-                                        <div className="card-details-row">
-                                            {/* Left: Metadata */}
-                                            <div className="meta-group">
+                                        <div className="assignment-card-toolbar">
+                                            <div className="assignment-card-meta">
                                                 <div className="due-date">
-                                                    <span className="due-label">DEADLINE</span>
-                                                    {new Date(assignment.due_date).toLocaleDateString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        year: 'numeric'
-                                                    })}
+                                                    <span className="due-label">Deadline</span>
+                                                    <span className="due-value">
+                                                        {new Date(assignment.due_date).toLocaleDateString('en-US', {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            year: 'numeric',
+                                                        })}
+                                                    </span>
                                                 </div>
                                                 <StatusBadge status={assignment.status} />
                                             </div>
 
-                                            {/* Right: Actions */}
-                                            <div className="action-group">
-                                                <div className="button-group">
-                                                    <a
-                                                        href={getAssignmentGradesExportUrl(assignment.id)}
-                                                        download
-                                                        className="action-btn"
-                                                        title="Download Grades"
-                                                        style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                    >
-                                                        <Download size={14} />
-                                                        Grades
-                                                    </a>
-                                                    <button
-                                                        onClick={() => navigate(`assignments/${assignment.id}/grading`)}
-                                                        className="action-btn"
-                                                    >
-                                                        Grade
-                                                    </button>
-                                                    <button
-                                                        onClick={() => navigate(`assignments/${assignment.id}/edit`)}
-                                                        className="action-btn"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteClick(assignment.id)}
-                                                        className="delete-btn"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
+                                            <div className="assignment-card-actions" role="toolbar" aria-label="Assignment actions">
+                                                <a
+                                                    href={getAssignmentGradesExportUrl(assignment.id)}
+                                                    download
+                                                    className="assignment-tool-btn"
+                                                    title="Download grades CSV"
+                                                >
+                                                    <Download size={15} aria-hidden />
+                                                    <span>Grades</span>
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    className="assignment-tool-btn assignment-tool-btn--primary"
+                                                    onClick={() => navigate(`assignments/${assignment.id}/grading`)}
+                                                    title="Open grading workspace"
+                                                >
+                                                    <PenLine size={15} aria-hidden />
+                                                    <span>Grade</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="assignment-tool-btn"
+                                                    onClick={() => navigate(`assignments/${assignment.id}/edit`)}
+                                                    title="Edit assignment"
+                                                >
+                                                    <Pencil size={15} aria-hidden />
+                                                    <span>Edit</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="assignment-tool-btn assignment-tool-btn--danger"
+                                                    onClick={() => handleDeleteClick(assignment.id)}
+                                                    title="Delete assignment"
+                                                >
+                                                    <Trash2 size={15} aria-hidden />
+                                                    <span>Delete</span>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            ))
+                                ))
+                        )}
+                        {assignments.length > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                <button
+                                    onClick={() => navigate('assignments')}
+                                    className="view-all-maroon-btn"
+                                >
+                                    View All
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -686,7 +701,16 @@ const FacultyCourseView: React.FC = () => {
                                 <div className="ta-info-list">
                                     {enrolledTAs.slice(0, 3).map(ta => (
                                         <div key={ta.id} className="ta-info-row">
-                                            <span className="ta-dot" aria-hidden="true" />
+                                            {ta.profile_picture ? (
+                                                <img
+                                                    src={`${UPLOADS_BASE}/uploads/${ta.profile_picture}`}
+                                                    alt={ta.name}
+                                                    className="ta-avatar"
+                                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                            ) : (
+                                                <span className="ta-dot ta-initial" aria-hidden="true">{ta.name.charAt(0).toUpperCase()}</span>
+                                            )}
                                             <span className="ta-name">{ta.name}</span>
                                         </div>
                                     ))}

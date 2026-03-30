@@ -111,12 +111,6 @@ const FacultyDashboard: React.FC = () => {
     return (
         <div className="faculty-dashboard-container">
             <div className="dashboard-header">
-                <div>
-                    <h1 className="dashboard-title">Dashboard</h1>
-                    <p className="dashboard-subtitle">
-                        {showArchived ? 'Your archived courses.' : 'Overview of your active courses.'}
-                    </p>
-                </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <button
                         className="btn-header-outline"
