@@ -15,6 +15,7 @@ async function main() {
         process.env.DOCKER_CMD = '/usr/local/bin/docker';
     }
     const runCode = require('../runCode');
+    const config = require('../config');
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grader-test-'));
     const pyFile = path.join(tmpDir, 'main.py');
     fs.writeFileSync(pyFile, 'import sys\nprint(sys.stdin.read().strip())');
@@ -23,7 +24,7 @@ async function main() {
             sourceFilePath: pyFile,
             language: 'python',
             stdin: 'hello from test\n',
-            timeoutMs: 10000,
+            timeoutMs: config.runTimeoutMs,
         });
         const expected = 'hello from test';
         const got = (result.stdout || '').trim();

@@ -5,7 +5,9 @@ const { gradeSubmission } = require('../grader/gradeSubmission');
 /**
  * POST /api/grader/submissions/:id/run
  * Run the auto-grader for this submission. Updates submission with grade, feedback, status.
- * Query: ?publicOnly=1 to run only public tests (e.g. for student "run public tests").
+ * Query: ?publicOnly=1 — public tests only (e.g. student run).
+ * ?dryRun=1 — run tests, do not persist.
+ * ?testResultsOnly=1 — persist auto_grade/auto_feedback; keep status pending (no final grade).
  */
 router.post('/submissions/:id/run', async (req, res, next) => {
     try {
@@ -13,7 +15,10 @@ router.post('/submissions/:id/run', async (req, res, next) => {
         if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid submission ID' });
         const publicOnly = req.query.publicOnly === '1' || req.query.publicOnly === 'true';
         const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
-        const result = await gradeSubmission(id, { publicOnly, dryRun });
+        const testResultsOnly =
+            !dryRun &&
+            (req.query.testResultsOnly === '1' || req.query.testResultsOnly === 'true');
+        const result = await gradeSubmission(id, { publicOnly, dryRun, testResultsOnly });
 
         if (dryRun) {
             return res.json({

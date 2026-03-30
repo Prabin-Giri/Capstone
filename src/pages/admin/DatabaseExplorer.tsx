@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDbTables, getTableData, updateTableRecord, deleteTableRecord } from '../../lib/api';
 import type { TableData } from '../../lib/api';
-import { Card } from '../../components/ui/Card';
 import { ChevronLeft, Edit2, Save, X, Trash2 } from 'lucide-react';
 import './DatabaseExplorer.css';
 
@@ -118,16 +117,15 @@ const DatabaseExplorer: React.FC = () => {
         }
     };
 
-    if (loading && tables.length === 0) return <div className="db-explorer">Loading database...</div>;
+    if (loading && tables.length === 0) {
+        return <div className="db-explorer db-explorer--loading">Loading database…</div>;
+    }
 
     return (
         <div className="db-explorer">
             <div className="db-sidebar">
-                <Link
-                    to="/admin"
-                    className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200 mb-3"
-                >
-                    <ChevronLeft size={18} /> Back
+                <Link to="/admin" className="db-back-link">
+                    <ChevronLeft size={18} aria-hidden /> Back
                 </Link>
                 <h2 className="sidebar-title">Tables</h2>
                 <div className="table-list">
@@ -151,8 +149,8 @@ const DatabaseExplorer: React.FC = () => {
                             <p className="row-count">{tableData.rows.length} rows (showing first 100)</p>
                         </div>
 
-                        <Card className="table-card">
-                            <div className="table-wrapper">
+                        <div className="db-table-outer">
+                            <div className="db-table-wrap table-wrapper">
                                 <table className="data-table">
                                     <thead>
                                         <tr>
@@ -192,23 +190,43 @@ const DatabaseExplorer: React.FC = () => {
                                                 ))}
                                                 <td className="actions-cell">
                                                     {editingRowIndex === i ? (
-                                                        <div className="flex gap-2">
-                                                            <button onClick={() => saveChanges(row)} className="text-emerald-400 hover:text-emerald-300" title="Save">
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => saveChanges(row)}
+                                                                className="db-icon-btn db-icon-btn--save"
+                                                                title="Save"
+                                                            >
                                                                 <Save size={18} />
                                                             </button>
-                                                            <button onClick={cancelEditing} className="text-slate-400 hover:text-slate-200" title="Cancel">
+                                                            <button
+                                                                type="button"
+                                                                onClick={cancelEditing}
+                                                                className="db-icon-btn db-icon-btn--cancel"
+                                                                title="Cancel"
+                                                            >
                                                                 <X size={18} />
                                                             </button>
-                                                        </div>
+                                                        </>
                                                     ) : (
-                                                        <div className="flex gap-2">
-                                                            <button onClick={() => startEditing(i, row)} className="text-slate-400 hover:text-sky-400" title="Edit">
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => startEditing(i, row)}
+                                                                className="db-icon-btn"
+                                                                title="Edit"
+                                                            >
                                                                 <Edit2 size={16} />
                                                             </button>
-                                                            <button onClick={() => handleDeleteRow(row)} className="text-slate-400 hover:text-red-400" title="Delete">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteRow(row)}
+                                                                className="db-icon-btn db-icon-btn--delete"
+                                                                title="Delete"
+                                                            >
                                                                 <Trash2 size={16} />
                                                             </button>
-                                                        </div>
+                                                        </>
                                                     )}
                                                 </td>
                                             </tr>
@@ -216,7 +234,7 @@ const DatabaseExplorer: React.FC = () => {
                                     </tbody>
                                 </table>
                             </div>
-                        </Card>
+                        </div>
                     </div>
                 ) : (
                     <div className="db-empty">

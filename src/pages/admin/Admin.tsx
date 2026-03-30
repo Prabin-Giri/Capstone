@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Database, Users, GraduationCap, UserCheck, BarChart2, ChevronRight } from 'lucide-react';
+import { Database, Users, GraduationCap, UserCheck, BarChart2, Settings, BookOpen } from 'lucide-react';
 import { getPendingFaculty, verifyFaculty, type PendingFaculty } from '../../lib/api';
 import './Admin.css';
 
@@ -8,6 +8,14 @@ const Admin: React.FC = () => {
     const navigate = useNavigate();
     const [pendingFaculty, setPendingFaculty] = useState<PendingFaculty[]>([]);
     const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const prevTitle = document.title;
+        document.title = 'Admin Dashboard · AutoGrade';
+        return () => {
+            document.title = prevTitle;
+        };
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -35,11 +43,13 @@ const Admin: React.FC = () => {
     };
 
     const sections = [
-        { id: 'db', title: 'Database Explorer', description: 'Inspect tables, preview rows, and understand how data flows through IntelliGrade.', path: '/admin/database', icon: Database, accent: 'db' },
-        { id: 'users', title: 'User Management', description: 'View and manage student, faculty, TA, and admin accounts in one place.', path: '/admin/users', icon: Users, accent: 'users' },
-        { id: 'students', title: 'Student Insights', description: 'Enrollment and submission activity by student.', path: '/admin/students', icon: GraduationCap, accent: 'students' },
-        { id: 'faculty', title: 'Faculty Management', description: 'Verify faculty, track course ownership, and grading load.', path: '/admin/faculty', icon: UserCheck, accent: 'faculty' },
-        { id: 'analytics', title: 'App Analytics', description: 'Platform-wide usage, counts, and performance metrics.', path: '/admin/analytics', icon: BarChart2, accent: 'analytics' },
+        { id: 'db', title: 'Database Explorer', path: '/admin/database', icon: Database },
+        { id: 'users', title: 'User Management', path: '/admin/users', icon: Users },
+        { id: 'students', title: 'Student Insights', path: '/admin/students', icon: GraduationCap },
+        { id: 'faculty', title: 'Faculty Management', path: '/admin/faculty', icon: UserCheck },
+        { id: 'analytics', title: 'App Analytics', path: '/admin/analytics', icon: BarChart2 },
+        { id: 'settings', title: 'App Settings', path: '/admin/settings', icon: Settings },
+        { id: 'courses', title: 'Course Management', path: '/admin/courses', icon: BookOpen },
     ];
 
     return (
@@ -49,10 +59,6 @@ const Admin: React.FC = () => {
             <div className="admin-bg-orb admin-bg-orb-3" aria-hidden />
 
             <div className="max-w-6xl mx-auto">
-                <header className="admin-header">
-                    <h1 className="admin-title">Admin Control Center</h1>
-                </header>
-
                 {pendingFaculty.length > 0 && (
                     <div className="admin-pending-wrap">
                         <div className="admin-pending-card">
@@ -98,18 +104,12 @@ const Admin: React.FC = () => {
                                 key={section.id}
                                 type="button"
                                 className="admin-bubble"
-                                data-accent={section.accent}
                                 onClick={() => navigate(section.path)}
                             >
-                                <div className="admin-bubble-blob" aria-hidden />
-                                <div className="admin-bubble-icon-wrap">
-                                    <Icon size={22} className="text-white" strokeWidth={2.2} />
+                                <div className="admin-bubble-icon-wrap" aria-hidden>
+                                    <Icon size={22} strokeWidth={2.2} />
                                 </div>
                                 <h2 className="admin-bubble-title">{section.title}</h2>
-                                <p className="admin-bubble-desc">{section.description}</p>
-                                <span className="admin-bubble-cta">
-                                    Open <ChevronRight size={14} />
-                                </span>
                             </button>
                         );
                     })}

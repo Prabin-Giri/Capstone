@@ -229,6 +229,12 @@
     margin-top: 0.5rem;
 }
 
+.dashboard-calendar-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
 /* Analytics Summary Bar */
 .analytics-bar {
     display: grid;
@@ -244,6 +250,26 @@
     border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+}
+
+.analytics-card--maroon {
+    background: linear-gradient(160deg, #991b1b 0%, #7f1d1d 55%, #450a0a 100%) !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 8px 24px rgba(69, 10, 10, 0.28);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.analytics-card--maroon .analytics-label {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.analytics-card--maroon .analytics-value {
+    color: #ffffff;
+}
+
+.analytics-card--maroon .analytics-desc {
+    color: rgba(255, 255, 255, 0.75);
 }
 
 .analytics-label {
@@ -313,8 +339,14 @@
     flex-wrap: nowrap !important;
     gap: 1.5rem !important;
     margin-top: 1rem !important;
-    padding-top: 1rem !important;
-    border-top: 1px solid var(--border-color) !important;
+    margin-left: -1.25rem !important;
+    margin-right: -1.25rem !important;
+    margin-bottom: -1.25rem !important;
+    padding: 1rem 1.25rem 1.1rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
+    background: linear-gradient(180deg, #991b1b 0%, #7f1d1d 50%, #450a0a 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .course-stats-display .stat-item {
@@ -322,7 +354,7 @@
     flex-direction: row !important;
     align-items: baseline !important;
     gap: 0.4rem !important;
-    color: var(--text-secondary) !important;
+    color: rgba(255, 255, 255, 0.88) !important;
     font-size: 0.85rem !important;
     white-space: nowrap !important;
 }
@@ -330,7 +362,7 @@
 .course-stats-display .stat-label {
     font-size: 0.85rem !important;
     font-weight: 400 !important;
-    color: var(--text-secondary) !important;
+    color: rgba(255, 255, 255, 0.78) !important;
     text-transform: none !important;
     margin-bottom: 0 !important;
 }
@@ -338,7 +370,7 @@
 .course-stats-display .stat-v {
     font-size: 1.25rem !important;
     font-weight: 800 !important;
-    color: var(--primary-text) !important;
+    color: #ffffff !important;
     line-height: 1 !important;
 }
 
@@ -430,6 +462,10 @@
 
     .course-card-premium {
         padding-bottom: 1rem;
+    }
+
+    .course-card-premium .course-stats-display {
+        margin-bottom: calc(-1.25rem - 1rem) !important;
     }
 }
 

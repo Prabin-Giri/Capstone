@@ -1,19 +1,16 @@
-// Your grading UI changes for SubmissionGrader.tsx
-
-// Updated component logic and UI changes for submission grading
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
-import type { Submission, Assignment, RubricConfig, AssignmentGroup, TestResult } from '../../lib/api';
+import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests } from '../../lib/api';
+import type { Submission, Assignment, RubricConfig, TestResult } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 import UserAvatar from '../../components/ui/UserAvatar';
-import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, ArrowLeft, CalendarDays, Layers } from 'lucide-react';
 
 import './SubmissionGrader.css';
 import { showDialog } from '../../components/ui/Dialog';
-import { getCommentChar, getLanguageFromFilename, parseUTC } from '../../lib/utils';
+import { getCommentChar, getLanguageFromFilename } from '../../lib/utils';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -27,11 +24,9 @@ const SubmissionGrader: React.FC = () => {
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [loading, setLoading] = useState(true);
     const [switching, setSwitching] = useState(false);
-    const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
-    const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
-    const [codeContent, setCodeContent] = useState<string | null>(null);
+    const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+    const [workspaceFiles, setWorkspaceFiles] = useState<EditorFile[]>([]);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-    const [previewFileName, setPreviewFileName] = useState<string | null>(null);
     const [, setIsAutograding] = useState(false);
     const [showAttemptSelector, setShowAttemptSelector] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -42,14 +37,12 @@ const SubmissionGrader: React.FC = () => {
     const [grade, setGrade] = useState('');
     const [feedback, setFeedback] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
+    const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
+    const [testSummary, setTestSummary] = useState<{ passed: number | null; total: number | null }>({ passed: null, total: null });
 
     // Anonymous grading — TA context detected from URL (same as basePath logic)
     const _isTA = basePath === '/ta';
     const [hideNames, setHideNames] = useState(false);
-
-    // Group Grading State
-    const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
-    const [gradeByGroup, setGradeByGroup] = useState(() => localStorage.getItem('grader_group_mode') === 'true');
 
     // Mobile drawers
     const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
@@ -57,18 +50,26 @@ const SubmissionGrader: React.FC = () => {
 
     // Sidebar states initialized from localStorage for persistence across student switches
     const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() => {
-        return localStorage.getItem('grader_left_collapsed') === 'true';
+        const saved = localStorage.getItem('grader_left_collapsed');
+        return saved === null ? true : saved === 'true';
     });
     const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(() => {
         return localStorage.getItem('grader_right_collapsed') === 'true';
     });
 
-    // Sidebar widths — initialized from localStorage
-    const LEFT_MIN = 240;
-    const RIGHT_MIN = 300;
+    // Sidebar widths — initialized from localStorage (px). Left must fit name + badge; never cap at ~130px.
+    const LEFT_MIN = 220;
+    const LEFT_MAX = 420;
+    const LEFT_DEFAULT = 280;
+    const RIGHT_MIN = 380;
     const [leftWidth, setLeftWidth] = useState(() => {
         const saved = localStorage.getItem('grader_left_width');
-        return saved ? parseInt(saved) : LEFT_MIN;
+        if (!saved) return LEFT_DEFAULT;
+        const n = parseInt(saved, 10);
+        if (Number.isNaN(n)) return LEFT_DEFAULT;
+        // Legacy bug: max drag was 130px or init used value/4 — treat tiny values as corrupt
+        if (n < LEFT_MIN) return LEFT_DEFAULT;
+        return Math.min(n, LEFT_MAX);
     });
     const [rightWidth, setRightWidth] = useState(() => {
         const saved = localStorage.getItem('grader_right_width');
@@ -77,7 +78,18 @@ const SubmissionGrader: React.FC = () => {
 
     const [isResizingLeft, setIsResizingLeft] = useState(false);
     const [isResizingRight, setIsResizingRight] = useState(false);
+    const [isNarrowLayout, setIsNarrowLayout] = useState(() =>
+        typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
+    );
     const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 900px)');
+        const sync = () => setIsNarrowLayout(mq.matches);
+        sync();
+        mq.addEventListener('change', sync);
+        return () => mq.removeEventListener('change', sync);
+    }, []);
 
     // Persistence helpers
     const toggleLeftSidebar = (val: boolean) => {
@@ -88,6 +100,29 @@ const SubmissionGrader: React.FC = () => {
     const toggleRightSidebar = (val: boolean) => {
         setIsRightSidebarCollapsed(val);
         localStorage.setItem('grader_right_collapsed', String(val));
+    };
+
+    const parseTestSummary = (text?: string | null) => {
+        if (!text) return { passed: null, total: null };
+        const ratio = text.match(/(\d+)\s*\/\s*(\d+)/);
+        if (ratio) return { passed: Number(ratio[1]), total: Number(ratio[2]) };
+        const passLines = (text.match(/(^|\n).*(pass|passed|✅).*/gi) || []).length;
+        const failLines = (text.match(/(^|\n).*(fail|failed|❌).*/gi) || []).length;
+        if (passLines + failLines > 0) return { passed: passLines, total: passLines + failLines };
+
+        // Fallback: infer total from explicit test case entries like "Test Case 1"
+        const testCaseMentions = text.match(/test\s*case\s*#?\s*\d+/gi) || [];
+        const uniqueCases = new Set(
+            testCaseMentions
+                .map(m => {
+                    const n = m.match(/\d+/);
+                    return n ? n[0] : '';
+                })
+                .filter(Boolean)
+        );
+        if (uniqueCases.size > 0) return { passed: 0, total: uniqueCases.size };
+
+        return { passed: null, total: null };
     };
 
     useEffect(() => {
@@ -109,12 +144,12 @@ const SubmissionGrader: React.FC = () => {
         }).catch(console.error);
     }, [assignmentId]);
 
-    // Left sidebar resize (expand only — min = LEFT_MIN)
+    // Left sidebar resize — min/max in px so student names and grade badges stay visible
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
             if (!isResizingLeft || !containerRef.current) return;
             const left = containerRef.current.getBoundingClientRect().left;
-            setLeftWidth(Math.max(LEFT_MIN, Math.min(e.clientX - left, 520)));
+            setLeftWidth(Math.max(LEFT_MIN, Math.min(e.clientX - left, LEFT_MAX)));
         };
         const onUp = () => {
             setIsResizingLeft(false);
@@ -129,7 +164,7 @@ const SubmissionGrader: React.FC = () => {
         const onMove = (e: MouseEvent) => {
             if (!isResizingRight || !containerRef.current) return;
             const right = containerRef.current.getBoundingClientRect().right;
-            setRightWidth(Math.max(RIGHT_MIN, Math.min(right - e.clientX, 580)));
+            setRightWidth(Math.max(RIGHT_MIN, Math.min(right - e.clientX, 740)));
         };
         const onUp = () => {
             setIsResizingRight(false);
@@ -146,10 +181,9 @@ const SubmissionGrader: React.FC = () => {
         setGrade(s.grade !== undefined && s.grade !== null ? Number(s.grade).toFixed(2) : '');
         setFeedback(s.feedback || '');
         setAllSubmissions([s]); // placeholder; full history loads below
-        setPreviewFileUrl(null);
-        setPreviewFileName(null);
-        setCodeContent(null);
-        setPreviewBlobUrl(null);
+        setActiveAttemptIndex(0);
+        setIsWorkspaceOpen(false);
+        setWorkspaceFiles([]);
         if (rubric) {
             const initialScores: Record<string, number | ''> = {};
             const items = rubric.sections ? rubric.sections.flatMap(sec => sec.items) : (rubric.criteria ?? []);
@@ -170,21 +204,18 @@ const SubmissionGrader: React.FC = () => {
         try {
             const knownStudent = allStudentSubmissions.find(s => s.id === parseInt(submissionId));
 
-            const [subData, assignData, historyData, groupsData] = await Promise.all([
+            const [subData, assignData, historyData] = await Promise.all([
                 // On switch we already have basic data — still fetch full record for auto_grade etc.
                 getSubmission(parseInt(submissionId)),
                 assignment ? Promise.resolve(assignment) : getAssignment(assignmentId),
                 knownStudent
                     ? getSubmissions({ assignment_id: assignmentId, student_id: knownStudent.student_id })
                     : Promise.resolve([] as typeof allSubmissions),
-                getAssignmentGroups(assignmentId).catch(() => [] as AssignmentGroup[])
             ]);
 
             const resolvedHistory = historyData.length > 0
                 ? historyData
                 : await getSubmissions({ assignment_id: assignmentId, student_id: subData.student_id });
-
-            setAssignmentGroups(groupsData || []);
 
             setSubmission(subData);
             setAssignment(assignData);
@@ -207,58 +238,16 @@ const SubmissionGrader: React.FC = () => {
                 }
             }
             setAllSubmissions(resolvedHistory);
+            const selectedIdx = resolvedHistory.findIndex(h => h.id === subData.id);
+            setActiveAttemptIndex(selectedIdx >= 0 ? selectedIdx : 0);
             setGrade(subData.grade !== undefined && subData.grade !== null ? Number(subData.grade).toFixed(2) : '');
             setFeedback(subData.feedback || '');
+            setTestSummary(parseTestSummary(subData.auto_feedback || subData.feedback));
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
             setSwitching(false);
-        }
-    }
-
-    useEffect(() => {
-        // Revoke any previous blob URL to avoid memory leaks
-        if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-        setPreviewBlobUrl(null);
-
-        if (previewFileUrl && previewFileName) {
-            const isCodeFile = /\.(py|java|cpp|c|h|cs|js|ts|tsx|jsx|css|html|txt|json|md|sql)$/i.test(previewFileName);
-            if (isCodeFile) fetchCodeContent(previewFileUrl);
-            else fetchBlobPreview(previewFileUrl);
-        } else {
-            setCodeContent(null);
-        }
-    }, [previewFileUrl, previewFileName]);
-
-    async function fetchCodeContent(url: string) {
-        setIsPreviewLoading(true);
-        try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error();
-            setCodeContent(await res.text());
-        } catch {
-            setCodeContent('Error loading file content.');
-        } finally {
-            setIsPreviewLoading(false);
-        }
-    }
-
-    async function fetchBlobPreview(url: string) {
-        setIsPreviewLoading(true);
-        setCodeContent(null);
-        try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error();
-            const blob = await res.blob();
-            // Force inline MIME so browser renders it instead of downloading
-            const inlineMime = blob.type === 'application/octet-stream' ? 'application/pdf' : blob.type;
-            const blobUrl = URL.createObjectURL(new Blob([blob], { type: inlineMime }));
-            setPreviewBlobUrl(blobUrl);
-        } catch {
-            setCodeContent('Error loading file preview.');
-        } finally {
-            setIsPreviewLoading(false);
         }
     }
 
@@ -279,6 +268,40 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
+    async function loadAttemptWorkspace(files: { name: string; path: string }[], preferredPath?: string) {
+        setIsPreviewLoading(true);
+        try {
+            const ordered = preferredPath
+                ? [...files].sort((a, b) => (a.path === preferredPath ? -1 : b.path === preferredPath ? 1 : 0))
+                : files;
+            const loaded = await Promise.all(ordered.map(async (f, idx) => {
+                const url = getFileUrl(f.path);
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error();
+                    const content = await res.text();
+                    return {
+                        id: `${f.path}-${idx}`,
+                        name: f.name,
+                        content,
+                        language: getLanguageFromFilename(f.name, assignment?.language || 'python'),
+                    } as EditorFile;
+                } catch {
+                    return {
+                        id: `${f.path}-${idx}`,
+                        name: f.name,
+                        content: 'Unable to render this file in editor preview. Please use Download.',
+                        language: getLanguageFromFilename(f.name, assignment?.language || 'python'),
+                    } as EditorFile;
+                }
+            }));
+            setWorkspaceFiles(loaded);
+            setIsWorkspaceOpen(true);
+        } finally {
+            setIsPreviewLoading(false);
+        }
+    }
+
     async function handleAutograde(id?: number, dryRun = false) {
         const targetId = id || submission?.id;
         if (!targetId) return;
@@ -286,9 +309,10 @@ const SubmissionGrader: React.FC = () => {
         if (!dryRun) setShowAttemptSelector(false);
         try {
             const updatedSub = await runAutograde(targetId, dryRun);
+            setTestSummary(parseTestSummary(updatedSub.feedback));
             if (dryRun) {
                 setSubmission(prev => prev ? { ...prev, auto_grade: updatedSub.grade, auto_feedback: updatedSub.feedback } : null);
-                setAlertConfig({ show: true, type: 'info', title: 'Autograde Preview', message: 'Suggested results are ready. Review them and apply if desired.' });
+                setAlertConfig({ show: true, type: 'info', title: 'Test Case Report Ready', message: 'View details to inspect test-by-test output.' });
             } else {
                 if (submission?.id === updatedSub.id) setSubmission(updatedSub);
                 setAllSubmissions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s));
@@ -311,11 +335,11 @@ const SubmissionGrader: React.FC = () => {
             const comment = getCommentChar(detectedLang);
             const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
-            setIsRunningCustom(false);
             return data;
         } catch (err) {
-            setIsRunningCustom(false);
             throw new Error(`Failed to execute code: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setIsRunningCustom(false);
         }
     }
 
@@ -328,11 +352,26 @@ const SubmissionGrader: React.FC = () => {
             const comment = getCommentChar(detectedLang);
             const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             const data = await runTests(assignment.id, codeToRun, detectedLang);
-            setIsRunningCustom(false);
+            const results = data.results || [];
+            const passedCount = results.filter((r: TestResult) => !!r.passed).length;
+            const totalCount = results.length;
+            setTestSummary({ passed: passedCount, total: totalCount });
+
+            const reportLines = results.map((r: TestResult, idx: number) => {
+                const status = r.passed ? 'PASSED' : 'FAILED';
+                const visibility = r.is_public === 0 ? 'Hidden' : 'Public';
+                const expected = r.expected ?? '-';
+                const actual = r.actual ?? '-';
+                const err = r.error ? `\n  Error: ${r.error}` : '';
+                return `Test Case ${idx + 1} [${visibility}] - ${status}\n  Expected: ${expected}\n  Actual: ${actual}${err}`;
+            });
+            const report = `Execution Summary\nPassed: ${passedCount}/${totalCount}\nStatus: ${totalCount > 0 && passedCount === totalCount ? 'Passed' : 'Failed'}\n\n${reportLines.join('\n\n')}`;
+            setSubmission(prev => prev ? { ...prev, auto_feedback: report } : prev);
             return { results: data.results, log: `Language: ${detectedLang} · ${codeToRun.length} bytes` };
         } catch (err) {
-            setIsRunningCustom(false);
             throw new Error(`Failed to run tests: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setIsRunningCustom(false);
         }
     }
 
@@ -377,16 +416,7 @@ const SubmissionGrader: React.FC = () => {
             return;
         }
         try {
-            if (gradeByGroup && assignment?.type === 'group' && submission) {
-                const studentGroup = assignmentGroups.find(g => g.students.some(s => s.id === submission.student_id));
-                if (studentGroup) {
-                    await gradeAssignmentGroup(assignment.id, studentGroup.id, { grade: enteredGrade !== undefined ? enteredGrade : 0, feedback, status: 'graded' });
-                } else {
-                    await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
-                }
-            } else {
-                await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
-            }
+            await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
             navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`);
         } catch (err) {
             console.error(err);
@@ -416,12 +446,33 @@ const SubmissionGrader: React.FC = () => {
     if (!submission || !assignment) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
 
     const maxPoints = assignment.points || 100;
+    const activeAttempt = allSubmissions[activeAttemptIndex] || submission;
+    const activeAttemptFiles = activeAttempt.files || [{ name: activeAttempt.file_name, path: activeAttempt.file_path }];
+    const attemptPrimaryFile = activeAttemptFiles[0];
+    const canGoPrevAttempt = activeAttemptIndex > 0;
+    const canGoNextAttempt = activeAttemptIndex < allSubmissions.length - 1;
+    const studentDisplayName = hideNames ? anonLabel(submission.student_id) : (submission.student_name || 'Student');
+    const isSubmissionGraded = submission.status === 'graded';
+    const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
+
+    const handleStudentsButton = () => {
+        if (isNarrowLayout) {
+            setLeftDrawerOpen(true);
+            setRightDrawerOpen(false);
+            return;
+        }
+        toggleLeftSidebar(!isLeftSidebarCollapsed);
+    };
+
+    /** On narrow screens, drawer width is controlled by CSS — do not set inline width (collapsed uses 0px and breaks slide/scroll). */
+    const leftSidebarStyle = isNarrowLayout ? undefined : { width: isLeftSidebarCollapsed ? 0 : leftWidth };
+    const rightSidebarStyle = isNarrowLayout ? undefined : { width: isRightSidebarCollapsed ? 0 : rightWidth };
 
     return (
         <div className="grader-container" ref={containerRef}>
 
             {/* Mobile drawer backdrops */}
-            {(leftDrawerOpen || rightDrawerOpen) && (
+            {showDrawerBackdrop && (
                 <div
                     className="drawer-backdrop"
                     onClick={() => { setLeftDrawerOpen(false); setRightDrawerOpen(false); }}
@@ -429,7 +480,10 @@ const SubmissionGrader: React.FC = () => {
             )}
 
             {/* ── LEFT SIDEBAR: Student List ───────────────── */}
-            <div className={`grader-sidebar grader-sidebar-left${leftDrawerOpen ? ' drawer-open' : ''}${isLeftSidebarCollapsed ? ' collapsed' : ''}`} style={{ width: isLeftSidebarCollapsed ? 0 : leftWidth }}>
+            <div
+                className={`grader-sidebar grader-sidebar-left${leftDrawerOpen ? ' drawer-open' : ''}${isLeftSidebarCollapsed ? ' collapsed' : ''}`}
+                style={leftSidebarStyle}
+            >
                 <div className="sidebar-header">
                     <span className="sidebar-header-title">Students</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -460,102 +514,36 @@ const SubmissionGrader: React.FC = () => {
                     </div>
                 )}
 
-                {assignment?.type === 'group' && (
-                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-secondary)' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Grade by Group</span>
-                        <label className="switch" style={{ margin: 0, scale: '0.8' }}>
-                            <input
-                                type="checkbox"
-                                checked={gradeByGroup}
-                                onChange={e => {
-                                    setGradeByGroup(e.target.checked);
-                                    localStorage.setItem('grader_group_mode', String(e.target.checked));
-                                }}
-                            />
-                            <span className="slider round"></span>
-                        </label>
-                    </div>
-                )}
-
                 <div className="student-list">
-                    {gradeByGroup && assignment?.type === 'group' ? (
-                        <>
-                            {assignmentGroups.length === 0 && (
-                                <div className="student-list-empty">No groups found</div>
-                            )}
-                            {assignmentGroups.map(group => {
-                                const groupStudents = filteredStudents.filter(s => group.students.some(gStud => gStud.id === s.student_id));
-                                if (groupStudents.length === 0) return null;
-                                return (
-                                    <div key={group.id} className="group-section">
-                                        <div style={{ padding: '0.35rem 1rem', backgroundColor: 'rgba(0,0,0,0.03)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>
-                                            {group.name}
-                                        </div>
-                                        {groupStudents.map(s => {
-                                            const isActive = s.id === parseInt(submissionId || '0');
-                                            const isGraded = s.grade !== null && s.grade !== undefined;
-                                            const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
-                                            return (
-                                                <div
-                                                    key={s.id}
-                                                    className={`student-list-item ${isActive ? 'active' : ''}`}
-                                                    onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
-                                                >
-                                                    <UserAvatar
-                                                        user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
-                                                        size={34}
-                                                    />
-                                                    <div className="student-list-info">
-                                                        <span className="student-list-name">{displayName}</span>
-                                                        {!hideNames && <span className="student-list-id">{s.student_id}</span>}
-                                                    </div>
-                                                    <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
-                                                        {isGraded
-                                                            ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
-                                                            : <><Clock size={11} />Pending</>
-                                                        }
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })}
-                        </>
-                    ) : (
-                        <>
-                            {filteredStudents.length === 0 && (
-                                <div className="student-list-empty">No students found</div>
-                            )}
-                            {filteredStudents.map(s => {
-                                const isActive = s.id === parseInt(submissionId || '0');
-                                const isGraded = s.grade !== null && s.grade !== undefined;
-                                const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
-                                return (
-                                    <div
-                                        key={s.id}
-                                        className={`student-list-item ${isActive ? 'active' : ''}`}
-                                        onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
-                                    >
-                                        <UserAvatar
-                                            user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
-                                            size={34}
-                                        />
-                                        <div className="student-list-info">
-                                            <span className="student-list-name">{displayName}</span>
-                                            {!hideNames && <span className="student-list-id">{s.student_id}</span>}
-                                        </div>
-                                        <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
-                                            {isGraded
-                                                ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
-                                                : <><Clock size={11} />Pending</>
-                                            }
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </>
+                    {filteredStudents.length === 0 && (
+                        <div className="student-list-empty">No students found</div>
                     )}
+                    {filteredStudents.map(s => {
+                        const isActive = s.id === parseInt(submissionId || '0');
+                        const isGraded = s.grade !== null && s.grade !== undefined;
+                        const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
+                        return (
+                            <div
+                                key={s.id}
+                                className={`student-list-item ${isActive ? 'active' : ''}`}
+                                onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
+                            >
+                                <UserAvatar
+                                    user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
+                                    size={34}
+                                />
+                                <div className="student-list-info">
+                                    <span className="student-list-name">{displayName}</span>
+                                </div>
+                                <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
+                                    {isGraded
+                                        ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
+                                        : <><Clock size={11} />Pending</>
+                                    }
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="sidebar-resize-handle-v" onMouseDown={() => setIsResizingLeft(true)} />
@@ -563,6 +551,11 @@ const SubmissionGrader: React.FC = () => {
 
             {/* ── MIDDLE: Submission + Preview ─────────────── */}
             <div className={`grader-panel-middle${switching ? ' switching' : ''}`}>
+                <div className="grader-top-actions desktop-only">
+                    <Button variant="outline" size="sm" className="grader-action-btn student-list-corner-btn" onClick={handleStudentsButton} title="Student list">
+                        <Users size={14} />
+                    </Button>
+                </div>
                 {/* Mobile toolbar — drawer toggles */}
                 <div className="mobile-drawer-toolbar">
                     <button className="mobile-drawer-btn" onClick={() => { setLeftDrawerOpen(true); setRightDrawerOpen(false); }}>
@@ -577,25 +570,18 @@ const SubmissionGrader: React.FC = () => {
 
                 {/* Student header */}
                 <div className="grader-student-header">
-                    {isLeftSidebarCollapsed && (
-                        <button 
-                            className="sidebar-expand-btn desktop-only left" 
-                            onClick={() => toggleLeftSidebar(false)}
-                            title="Expand Student List"
-                        >
-                            <PanelLeftOpen size={20} />
-                            <span className="expand-btn-text">View Student List</span>
-                        </button>
-                    )}
-                    <UserAvatar
-                        user={hideNames ? { name: anonLabel(submission.student_id) } : { name: submission.student_name, profilePicture: submission.student_profile_picture }}
-                        size={52}
-                        className="grader-student-avatar"
-                    />
                     <div className="grader-header-content">
                         <div className="grader-title-row">
-                            <h2 className="grader-title">{hideNames ? anonLabel(submission.student_id) : submission.student_name}</h2>
-                            <div className="student-nav-btns">
+                            <button
+                                className="grader-back-btn"
+                                onClick={() => navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`)}
+                                title="Back to grading list"
+                            >
+                                <ArrowLeft size={15} />
+                            </button>
+                            <h2 className="grader-title">{studentDisplayName}</h2>
+                            {isSubmissionGraded && <span className="graded-by-pill">Graded</span>}
+                            <div className="student-nav-btns right-end">
                                 <button
                                     className="student-nav-btn"
                                     disabled={!prevStudent}
@@ -610,16 +596,6 @@ const SubmissionGrader: React.FC = () => {
                                     title={nextStudent ? `Next: ${nextStudent.student_name}` : 'No next student'}
                                 >&#8250;</button>
                             </div>
-                            {isRightSidebarCollapsed && (
-                                <button 
-                                    className="sidebar-expand-btn desktop-only right" 
-                                    onClick={() => toggleRightSidebar(false)}
-                                    title="Expand Grading Summary"
-                                >
-                                    <PanelRightOpen size={20} />
-                                    <span className="expand-btn-text">View Grading</span>
-                                </button>
-                            )}
                         </div>
                         <div className="meta-bar">
                             {!hideNames && <>
@@ -637,7 +613,7 @@ const SubmissionGrader: React.FC = () => {
                             <div className="meta-item">
                                 <span className="meta-label">Submitted</span>
                                 <span className="meta-value">
-                                    {parseUTC(submission.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                    {new Date(submission.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                                 </span>
                             </div>
                             <div className="meta-separator" />
@@ -646,50 +622,95 @@ const SubmissionGrader: React.FC = () => {
                                 <span className="meta-value">{allSubmissions.length}</span>
                             </div>
                         </div>
+                        <div className="submission-summary-cards">
+                            <div className="summary-card">
+                                <div className="summary-card-label">Assignment</div>
+                                <div className="summary-card-value">{assignment.title}</div>
+                            </div>
+                            <div className="summary-card">
+                                <div className="summary-card-label">Submitted</div>
+                                <div className="summary-card-value">
+                                    {new Date(activeAttempt.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                </div>
+                            </div>
+                            <div className="summary-card">
+                                <div className="summary-card-label">Attempts</div>
+                                <div className="summary-card-value">{allSubmissions.length}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Submission artifacts */}
                 <div className="submissions-section">
-                    {allSubmissions.map((sub, idx) => (
-                        <div key={sub.id} className="submission-attempt-group">
+                    <div className="submission-attempt-group">
+                        <div className="attempt-topbar">
                             <div className="attempt-label">
-                                Attempt {allSubmissions.length - idx}
-                                <span className="attempt-date-inline">{parseUTC(sub.submitted_at).toLocaleString()}</span>
+                                <Layers size={14} />
+                                Attempt {allSubmissions.length - activeAttemptIndex}
+                                <span className="attempt-date-inline">
+                                    <CalendarDays size={12} />
+                                    {new Date(activeAttempt.submitted_at).toLocaleString()}
+                                </span>
                             </div>
-                            {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => {
-                                const url = getFileUrl(f.path);
-                                const isPreviewing = previewFileUrl === url;
-                                return (
-                                    <div key={i} className="file-box">
-                                        <span className="file-name">{f.name}</span>
-                                        <div className="file-actions">
-                                            <Button variant="outline" className="btn-pill" size="sm"
-                                                onClick={() => {
-                                                    if (isPreviewing) { setPreviewFileUrl(null); setPreviewFileName(null); }
-                                                    else { setPreviewFileUrl(url); setPreviewFileName(f.name); }
-                                                }}>
-                                                {isPreviewing ? 'Hide Preview' : 'Preview'}
-                                            </Button>
-                                            <Button variant="primary" className="btn-pill" size="sm" onClick={() => handleDownload(url, f.name)}>
-                                                Download
-                                            </Button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            <div className="file-actions">
+                                <Button
+                                    variant="outline"
+                                    className="btn-pill"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (!attemptPrimaryFile) return;
+                                        if (isWorkspaceOpen) {
+                                            setIsWorkspaceOpen(false);
+                                            setWorkspaceFiles([]);
+                                        } else {
+                                            void loadAttemptWorkspace(activeAttemptFiles, attemptPrimaryFile.path);
+                                        }
+                                    }}
+                                    disabled={!attemptPrimaryFile}
+                                >
+                                    {isWorkspaceOpen ? 'Hide' : 'Preview'}
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="btn-pill"
+                                    size="sm"
+                                    onClick={() => attemptPrimaryFile && handleDownload(getFileUrl(attemptPrimaryFile.path), attemptPrimaryFile.name)}
+                                    disabled={!attemptPrimaryFile}
+                                >
+                                    Download
+                                </Button>
+                            </div>
+                            <div className="student-nav-btns">
+                                <button
+                                    className="student-nav-btn"
+                                    disabled={!canGoPrevAttempt}
+                                    onClick={() => setActiveAttemptIndex(prev => Math.max(prev - 1, 0))}
+                                    title="Previous attempt"
+                                >
+                                    &#8249;
+                                </button>
+                                <span className="student-nav-counter">{activeAttemptIndex + 1} / {allSubmissions.length}</span>
+                                <button
+                                    className="student-nav-btn"
+                                    disabled={!canGoNextAttempt}
+                                    onClick={() => setActiveAttemptIndex(prev => Math.min(prev + 1, allSubmissions.length - 1))}
+                                    title="Next attempt"
+                                >
+                                    &#8250;
+                                </button>
+                            </div>
                         </div>
-                    ))}
+                    </div>
                 </div>
 
-                {/* Preview area */}
                 <div className="preview-area">
                     {isPreviewLoading ? (
                         <div className="preview-placeholder"><div className="loading-spinner" />Loading preview...</div>
-                    ) : codeContent !== null && previewFileName ? (
+                    ) : isWorkspaceOpen && workspaceFiles.length > 0 ? (
                         <div className="code-preview-container">
                             <AssignmentEditor
-                                initialFiles={[{ id: 'preview', name: previewFileName, content: codeContent, language: getLanguageFromFilename(previewFileName, assignment.language || 'python') }]}
+                                initialFiles={workspaceFiles}
                                 language={assignment.language || 'python'}
                                 theme="light"
                                 isRunning={isRunningCustom}
@@ -699,16 +720,17 @@ const SubmissionGrader: React.FC = () => {
                                 readOnly={true}
                             />
                         </div>
-                    ) : previewBlobUrl ? (
-                        <iframe src={previewBlobUrl} className="preview-frame" title="File Preview" />
                     ) : (
-                        <div className="preview-placeholder">Select a file above to preview.</div>
+                        <div className="preview-placeholder">Select Preview from the attempts bar to view files in Project Workspace.</div>
                     )}
                 </div>
             </div>
 
             {/* ── RIGHT SIDEBAR: Grading ────────────────────── */}
-            <div className={`grader-sidebar grader-sidebar-right${rightDrawerOpen ? ' drawer-open' : ''}${isRightSidebarCollapsed ? ' collapsed' : ''}${switching ? ' switching' : ''}`} style={{ width: isRightSidebarCollapsed ? 0 : rightWidth }}>
+            <div
+                className={`grader-sidebar grader-sidebar-right${rightDrawerOpen ? ' drawer-open' : ''}${isRightSidebarCollapsed ? ' collapsed' : ''}${switching ? ' switching' : ''}`}
+                style={rightSidebarStyle}
+            >
                 <div className="sidebar-resize-handle-v sidebar-resize-handle-right" onMouseDown={() => setIsResizingRight(true)} />
 
                 <div className="grading-sidebar-content">
@@ -721,26 +743,20 @@ const SubmissionGrader: React.FC = () => {
                         </div>
 
                         <div className="grading-form">
-                            {/* 1. Autograde action */}
-                            <div>
-                                <Button variant="primary" size="lg" style={{ width: '100%', marginBottom: '6px' }} onClick={() => handleAutograde(undefined, true)}>
-                                    Autograde
-                                </Button>
-                                <p style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>Automatically calculate grade based on test cases.</p>
-                            </div>
-
-                            {/* 2. Autograde result (shown after running) */}
-                            {submission?.auto_grade !== undefined && submission?.auto_grade !== null && (
-                                <div className="autograde-result-box">
-                                    <div>
-                                        <span className="autograde-label">Autograde Result</span>
-                                        <div className="autograde-score">{Number(submission.auto_grade).toFixed(2)} / {maxPoints.toFixed(2)}</div>
+                            {/* 1. Test case summary */}
+                            <div className="autograde-result-box">
+                                <div>
+                                    <span className="autograde-label">Test Case Results</span>
+                                    <div className="autograde-score">
+                                        {testSummary.passed !== null && testSummary.total !== null
+                                            ? `${testSummary.passed}/${testSummary.total}`
+                                            : '0/0'}
                                     </div>
-                                    <Button size="sm" style={{ backgroundColor: 'var(--primary-color)', color: 'white' }} onClick={() => setShowFeedbackModal(true)}>
-                                        View Feedback
-                                    </Button>
                                 </div>
-                            )}
+                                <Button size="sm" style={{ backgroundColor: 'var(--primary-color)', color: 'white' }} onClick={() => setShowFeedbackModal(true)}>
+                                    View details
+                                </Button>
+                            </div>
 
                             {/* 3. Rubric scoring */}
                             {rubric && (
@@ -841,16 +857,19 @@ const SubmissionGrader: React.FC = () => {
                                     value={grade}
                                     onChange={e => { const v = e.target.value; setGrade(parseFloat(v) > maxPoints ? maxPoints.toString() : v); }} />
                             </div>
-
                             <div className="form-group">
                                 <label className="form-label">Feedback</label>
-                                <textarea rows={6} className="form-textarea" value={feedback}
-                                    onChange={e => setFeedback(e.target.value)} placeholder="Enter detailed feedback here..." />
+                                <textarea
+                                    rows={4}
+                                    className="form-textarea"
+                                    value={feedback}
+                                    onChange={e => setFeedback(e.target.value)}
+                                    placeholder="Add feedback for this submission..."
+                                />
                             </div>
 
-                            <div className="form-actions">
-                                <Button variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
-                                <Button onClick={handleSave}>Save & Return</Button>
+                            <div className="form-actions single">
+                                <Button onClick={handleSave}>Save Final Grade</Button>
                             </div>
                         </div>
                 </div>
@@ -890,26 +909,48 @@ const SubmissionGrader: React.FC = () => {
                 <div className="modal-overlay" onClick={() => setShowFeedbackModal(false)}>
                     <div className="modal-content feedback-modal" style={{ maxWidth: '600px', width: '90%' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 className="modal-title">Autograde Result Feedback</h3>
+                            <h3 className="modal-title">Test Case Report Details</h3>
                             <button className="modal-close" onClick={() => setShowFeedbackModal(false)}>✕</button>
                         </div>
                         <div className="modal-body" style={{ padding: '20px' }}>
-                            <div style={{ marginBottom: '16px' }}>
-                                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Suggested Score</span>
-                                <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--primary-text)' }}>
-                                    {Number(submission?.auto_grade).toFixed(2)} / {maxPoints.toFixed(2)}
+                            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Passed Test Cases</span>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--primary-text)' }}>
+                                    {testSummary.passed !== null && testSummary.total !== null ? `${testSummary.passed}/${testSummary.total}` : '0/0'}
+                                </div>
+                            </div>
+                            <div style={{ marginBottom: '16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px 14px' }}>
+                                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                    Execution Summary
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--primary-text)' }}>
+                                        Passed: {testSummary.passed !== null && testSummary.total !== null ? `${testSummary.passed}/${testSummary.total}` : '0/0'}
+                                    </span>
+                                    <span
+                                        style={{
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            padding: '4px 10px',
+                                            borderRadius: '999px',
+                                            border: '1px solid',
+                                            borderColor: (testSummary.total !== null && testSummary.total > 0 && testSummary.passed === testSummary.total) ? 'rgba(22,163,74,0.35)' : 'rgba(220,38,38,0.35)',
+                                            background: (testSummary.total !== null && testSummary.total > 0 && testSummary.passed === testSummary.total) ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)',
+                                            color: (testSummary.total !== null && testSummary.total > 0 && testSummary.passed === testSummary.total) ? '#15803d' : '#b91c1c'
+                                        }}
+                                    >
+                                        Status: {(testSummary.total !== null && testSummary.total > 0 && testSummary.passed === testSummary.total) ? 'Passed' : 'Failed'}
+                                    </span>
                                 </div>
                             </div>
                             <div style={{ marginBottom: '20px' }}>
-                                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Detailed Feedback</span>
-                                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '14px', maxHeight: '280px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '13px', fontFamily: 'monospace' }}>
-                                    {submission?.auto_feedback || 'No feedback available.'}
+                                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Full Test Case Report</span>
+                                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '14px', maxHeight: '340px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.45 }}>
+                                    {submission?.auto_feedback || 'No test case report available yet.'}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #e5e7eb', paddingTop: '14px' }}>
                                 <Button variant="ghost" onClick={() => setShowFeedbackModal(false)}>Cancel</Button>
-                                <Button style={{ backgroundColor: 'var(--primary-color)', color: 'white' }} onClick={() => { if (submission?.auto_feedback) setFeedback(submission.auto_feedback); setShowFeedbackModal(false); }}>Use Feedback</Button>
-                                <Button style={{ backgroundColor: 'var(--primary-color)', color: 'white' }} onClick={() => { if (submission?.auto_grade != null) setGrade(Number(submission.auto_grade).toFixed(2)); setShowFeedbackModal(false); }}>Use Score</Button>
                             </div>
                         </div>
                     </div>

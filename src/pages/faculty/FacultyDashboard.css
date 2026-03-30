@@ -267,22 +267,26 @@
 
 /* Target the Card component structure inside the dashboard grid */
 .dashboard-grid .card {
-    min-height: auto !important;
-    height: auto !important;
+    min-height: 280px !important;
+    height: 280px !important;
     border-top: 4px solid var(--primary-border) !important;
+    display: flex !important;
 }
 
 .dashboard-grid .card .card-body {
     padding: 1.25rem !important;
-    display: block !important;
-    flex: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    gap: 0.9rem !important;
 }
 
 .course-card-header {
     display: flex !important;
     justify-content: space-between !important;
     align-items: flex-start !important;
-    margin-bottom: 1.25rem !important;
+    margin-bottom: 0.4rem !important;
+    min-height: 110px !important;
 }
 
 .course-id {
@@ -291,6 +295,11 @@
     color: var(--text-primary) !important;
     margin: 0 !important;
     line-height: 1.3 !important;
+    max-width: 230px !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
 }
 
 .course-term {
@@ -305,8 +314,11 @@
     flex-wrap: nowrap !important;
     gap: 1.5rem !important;
     margin-top: 1rem !important;
-    padding-top: 1rem !important;
-    border-top: 1px solid var(--border-color) !important;
+    padding: 0.85rem 1rem !important;
+    border-top: none !important;
+    border-radius: 10px !important;
+    background: var(--primary-color) !important;
+    margin-top: auto !important;
 }
 
 .course-stats>div {
@@ -314,7 +326,7 @@
     flex-direction: row !important;
     align-items: baseline !important;
     gap: 0.4rem !important;
-    color: var(--text-secondary) !important;
+    color: rgba(255, 255, 255, 0.92) !important;
     font-size: 0.85rem !important;
     white-space: nowrap !important;
 }
@@ -322,7 +334,7 @@
 .stat-value {
     font-size: 1.25rem !important;
     font-weight: 800 !important;
-    color: var(--primary-text) !important;
+    color: #ffffff !important;
     line-height: 1 !important;
 }
 
@@ -364,6 +376,11 @@
     .dashboard-grid {
         grid-template-columns: 1fr !important;
         gap: 1.5rem !important;
+    }
+
+    .dashboard-grid .card {
+        min-height: 250px !important;
+        height: 250px !important;
     }
 
     .archive-modal-card {

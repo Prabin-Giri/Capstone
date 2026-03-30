@@ -1,6 +1,116 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { query, getDb, isMySQL } = require('../db');
+
+const FACULTY_METRICS_SQL = `
+    SELECT u.id, u.name, u.email, u.verified, u.created_at, u.updated_at,
+        (SELECT COUNT(*) FROM courses c WHERE c.instructor_id = u.id) AS course_count,
+        (SELECT COUNT(*) FROM assignments a INNER JOIN courses c ON a.course_id = c.id WHERE c.instructor_id = u.id) AS assignment_count,
+        (SELECT COUNT(*) FROM assignments a INNER JOIN courses c ON a.course_id = c.id WHERE c.instructor_id = u.id AND a.status = 'active') AS active_assignments,
+        (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id) AS messages_sent,
+        (SELECT COUNT(DISTINCT ce.student_id) FROM course_enrollments ce INNER JOIN courses c ON ce.course_id = c.id WHERE c.instructor_id = u.id) AS unique_students
+    FROM users u WHERE u.role = 'faculty'`;
+
+function normalizeFacultyRow(row) {
+    const n = { ...row };
+    ['course_count', 'assignment_count', 'active_assignments', 'messages_sent', 'unique_students'].forEach((k) => {
+        if (n[k] !== undefined && n[k] !== null) n[k] = Number(n[k]);
+    });
+    if (n.verified !== undefined && n.verified !== null) {
+        n.verified = n.verified === 1 || n.verified === true;
+    }
+    return n;
+}
+
+function validateAdminFacultyPassword(password) {
+    if (typeof password !== 'string' || password.length < 8) {
+        return 'Password must be at least 8 characters';
+    }
+    if (!/[a-zA-Z]/.test(password)) return 'Password must contain at least one letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must contain at least one special character';
+    return null;
+}
+
+async function insertFacultyRecord(db, { name, email, password, verified }) {
+    const normalizedName = String(name || '').trim();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedName || !normalizedEmail) {
+        const err = new Error('Name and email are required');
+        err.statusCode = 400;
+        throw err;
+    }
+    const pwErr = validateAdminFacultyPassword(password);
+    if (pwErr) {
+        const err = new Error(pwErr);
+        err.statusCode = 400;
+        throw err;
+    }
+    const [existing] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ?', [normalizedEmail]);
+    const exRows = Array.isArray(existing) ? existing : [];
+    if (exRows.length > 0) {
+        const err = new Error('User with this email already exists');
+        err.statusCode = 409;
+        throw err;
+    }
+    const id = `faculty_${crypto.randomUUID()}`;
+    const ver = verified === false ? 0 : 1;
+    await db.execute(
+        `INSERT INTO users (id, name, email, password, role, verified, student_id, email_verified, email_verification_token, email_verification_otp, email_verification_expires) VALUES (?, ?, ?, ?, 'faculty', ?, NULL, 1, NULL, NULL, NULL)`,
+        [id, normalizedName, normalizedEmail, password, ver]
+    );
+    return { id, email: normalizedEmail, name: normalizedName };
+}
+
+async function buildLinkedCourseIdsMap(db, userIds) {
+    const map = new Map();
+    if (!userIds.length) return map;
+    const ids = [...new Set(userIds.map(String))];
+    const ph = ids.map(() => '?').join(',');
+    for (const id of ids) map.set(id, new Set());
+
+    const merge = (rows, uidKey, cidKey) => {
+        const list = Array.isArray(rows) ? rows : [];
+        for (const row of list) {
+            const uid = row[uidKey];
+            const cid = row[cidKey];
+            if (uid != null && cid != null) map.get(String(uid))?.add(String(cid));
+        }
+    };
+
+    try {
+        const [r1] = await db.execute(
+            `SELECT instructor_id AS uid, id AS cid FROM courses WHERE instructor_id IN (${ph})`,
+            ids
+        );
+        merge(r1, 'uid', 'cid');
+    } catch {
+        /* optional tables */
+    }
+    try {
+        const [r2] = await db.execute(
+            `SELECT student_id AS uid, course_id AS cid FROM course_enrollments WHERE student_id IN (${ph})`,
+            ids
+        );
+        merge(r2, 'uid', 'cid');
+    } catch {
+        /* */
+    }
+    try {
+        const [r3] = await db.execute(
+            `SELECT ta_id AS uid, course_id AS cid FROM course_tas WHERE ta_id IN (${ph})`,
+            ids
+        );
+        merge(r3, 'uid', 'cid');
+    } catch {
+        /* */
+    }
+
+    const out = new Map();
+    for (const [k, v] of map) out.set(k, [...v]);
+    return out;
+}
 
 // Get all table names
 router.get('/tables', async (req, res) => {
@@ -66,18 +176,145 @@ router.post('/verify-faculty/:id', async (req, res) => {
     }
 });
 
-// GET /api/admin/users - List all users (no password)
+// GET /api/admin/users — full profile (no password / tokens) + activity counts
 router.get('/users', async (req, res) => {
     try {
         const db = getDb();
-        const [rows] = await db.execute(
-            'SELECT id, name, email, role, verified, created_at FROM users ORDER BY role, name'
+
+        if (isMySQL) {
+            const [rows] = await db.execute(`
+                SELECT
+                    u.id,
+                    u.name,
+                    u.email,
+                    u.role,
+                    u.student_id,
+                    u.profile_picture,
+                    u.verified,
+                    u.email_verified,
+                    u.created_at,
+                    u.updated_at,
+                    (SELECT COUNT(*) FROM courses c WHERE c.instructor_id = u.id) AS courses_teaching,
+                    (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.student_id = u.id) AS enrollments_count,
+                    (SELECT COUNT(*) FROM course_tas ct WHERE ct.ta_id = u.id) AS ta_courses_count,
+                    (SELECT COUNT(*) FROM submissions s WHERE s.student_id = u.id) AS submissions_count,
+                    (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id) AS messages_sent,
+                    (SELECT COUNT(*) FROM conversation_participants cp WHERE cp.user_id = u.id) AS conversation_memberships,
+                    (SELECT COUNT(*) FROM group_members gm WHERE gm.student_id = u.id) AS group_memberships,
+                    (SELECT COUNT(*) FROM todos t WHERE t.student_id = u.id) AS todos_count,
+                    (SELECT COUNT(*) FROM course_settings cs WHERE cs.student_id = u.id) AS course_settings_rows,
+                    (SELECT GROUP_CONCAT(DISTINCT cid) FROM (
+                        SELECT c.id AS cid FROM courses c WHERE c.instructor_id = u.id
+                        UNION
+                        SELECT ce.course_id AS cid FROM course_enrollments ce WHERE ce.student_id = u.id
+                        UNION
+                        SELECT ct.course_id AS cid FROM course_tas ct WHERE ct.ta_id = u.id
+                    ) AS _uc) AS linked_course_ids
+                FROM users u
+                ORDER BY u.role, u.name
+            `);
+            return res.json(rows.map(normalizeAdminUserRow));
+        }
+
+        let baseRows;
+        try {
+            const [r] = await db.execute(
+                `SELECT id, name, email, role, student_id, profile_picture, verified, email_verified, created_at, updated_at
+                 FROM users ORDER BY role, name`
+            );
+            baseRows = r;
+        } catch {
+            const [r] = await db.execute(
+                `SELECT id, name, email, role, student_id, profile_picture, verified, created_at, updated_at
+                 FROM users ORDER BY role, name`
+            );
+            baseRows = r.map((row) => ({ ...row, email_verified: null }));
+        }
+
+        const countSql = async (sql, params) => {
+            try {
+                const [r] = await db.execute(sql, params);
+                const row = r[0];
+                if (!row) return 0;
+                const v = row.c !== undefined ? row.c : row.COUNT !== undefined ? row.COUNT : Object.values(row)[0];
+                return Number(v) || 0;
+            } catch {
+                return 0;
+            }
+        };
+
+        const linkMap = await buildLinkedCourseIdsMap(db, baseRows.map((u) => u.id));
+
+        const enriched = await Promise.all(
+            baseRows.map(async (u) => {
+                const id = u.id;
+                return {
+                    ...u,
+                    linked_course_ids: (linkMap.get(String(id)) || []).join(','),
+                    courses_teaching: await countSql('SELECT COUNT(*) AS c FROM courses WHERE instructor_id = ?', [id]),
+                    enrollments_count: await countSql(
+                        'SELECT COUNT(*) AS c FROM course_enrollments WHERE student_id = ?',
+                        [id]
+                    ),
+                    ta_courses_count: await countSql('SELECT COUNT(*) AS c FROM course_tas WHERE ta_id = ?', [id]),
+                    submissions_count: await countSql('SELECT COUNT(*) AS c FROM submissions WHERE student_id = ?', [id]),
+                    messages_sent: await countSql('SELECT COUNT(*) AS c FROM messages WHERE sender_id = ?', [id]),
+                    conversation_memberships: await countSql(
+                        'SELECT COUNT(*) AS c FROM conversation_participants WHERE user_id = ?',
+                        [id]
+                    ),
+                    group_memberships: await countSql('SELECT COUNT(*) AS c FROM group_members WHERE student_id = ?', [
+                        id,
+                    ]),
+                    todos_count: await countSql('SELECT COUNT(*) AS c FROM todos WHERE student_id = ?', [id]),
+                    course_settings_rows: await countSql(
+                        'SELECT COUNT(*) AS c FROM course_settings WHERE student_id = ?',
+                        [id]
+                    ),
+                };
+            })
         );
-        res.json(rows);
+
+        res.json(enriched.map(normalizeAdminUserRow));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
+function normalizeAdminUserRow(row) {
+    const n = { ...row };
+    if (n.verified !== undefined && n.verified !== null) {
+        n.verified = n.verified === 1 || n.verified === true;
+    }
+    if (n.email_verified !== undefined && n.email_verified !== null) {
+        n.email_verified = n.email_verified === 1 || n.email_verified === true;
+    }
+    const numKeys = [
+        'courses_teaching',
+        'enrollments_count',
+        'ta_courses_count',
+        'submissions_count',
+        'messages_sent',
+        'conversation_memberships',
+        'group_memberships',
+        'todos_count',
+        'course_settings_rows',
+    ];
+    numKeys.forEach((k) => {
+        if (n[k] !== undefined && n[k] !== null) n[k] = Number(n[k]);
+    });
+    if (Array.isArray(n.linked_course_ids)) {
+        n.linked_course_ids = n.linked_course_ids.map(String).filter(Boolean);
+    } else if (n.linked_course_ids != null && String(n.linked_course_ids).trim() !== '') {
+        n.linked_course_ids = String(n.linked_course_ids)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+    } else {
+        n.linked_course_ids = [];
+    }
+    return n;
+}
 
 // GET /api/admin/students/insights - Student enrollment and activity
 router.get('/students/insights', async (req, res) => {
@@ -103,9 +340,11 @@ router.get('/students/insights', async (req, res) => {
             submitByStudent[s.student_id].count++;
             if (s.grade != null) submitByStudent[s.student_id].graded++;
         });
+        const enrolledIds = (sid) => (enrollByStudent[sid] || []).map(String);
         const result = students.map(s => ({
             ...s,
-            courses_enrolled: (enrollByStudent[s.id] || []).length,
+            courses_enrolled: enrolledIds(s.id).length,
+            enrolled_course_ids: enrolledIds(s.id),
             submissions_count: (submitByStudent[s.id] && submitByStudent[s.id].count) || 0,
             graded_count: (submitByStudent[s.id] && submitByStudent[s.id].graded) || 0,
         }));
@@ -115,16 +354,127 @@ router.get('/students/insights', async (req, res) => {
     }
 });
 
-// GET /api/admin/faculty - All faculty with verified status
+// GET /api/admin/faculty - All faculty with engagement-related metrics + courses they teach (for admin filters)
 router.get('/faculty', async (req, res) => {
     try {
         const db = getDb();
-        const [rows] = await db.execute(
-            `SELECT u.id, u.name, u.email, u.verified, u.created_at,
-             (SELECT COUNT(*) FROM courses c WHERE c.instructor_id = u.id) AS course_count
-             FROM users u WHERE u.role = 'faculty' ORDER BY u.name`
+        const [rows] = await db.execute(`${FACULTY_METRICS_SQL} ORDER BY u.name`);
+        const list = Array.isArray(rows) ? rows : [];
+        const normalized = list.map(normalizeFacultyRow);
+        const ids = normalized.map((u) => u.id);
+        if (ids.length === 0) {
+            return res.json([]);
+        }
+        const ph = ids.map(() => '?').join(',');
+        const [courseRows] = await db.execute(
+            `SELECT id, name, term, instructor_id FROM courses WHERE instructor_id IN (${ph}) ORDER BY name`,
+            ids
         );
-        res.json(rows);
+        const cr = Array.isArray(courseRows) ? courseRows : [];
+        const byInstructor = {};
+        cr.forEach((row) => {
+            const iid = String(row.instructor_id);
+            if (!byInstructor[iid]) byInstructor[iid] = [];
+            byInstructor[iid].push({
+                id: String(row.id),
+                name: row.name,
+                term: row.term != null ? String(row.term) : '',
+            });
+        });
+        const out = normalized.map((u) => ({
+            ...u,
+            courses_taught: byInstructor[String(u.id)] || [],
+        }));
+        res.json(out);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/admin/faculty/import — bulk create from parsed CSV rows
+router.post('/faculty/import', async (req, res) => {
+    try {
+        const { rows, defaultPassword } = req.body || {};
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ error: 'rows must be a non-empty array of { name, email, password? }' });
+        }
+        const defPw = typeof defaultPassword === 'string' && defaultPassword ? defaultPassword : null;
+        if (!defPw && rows.some((r) => !r || typeof r.password !== 'string' || !r.password.trim())) {
+            return res.status(400).json({ error: 'Provide defaultPassword or a password on each row' });
+        }
+        const db = getDb();
+        const created = [];
+        const errors = [];
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i] || {};
+            const password = (typeof r.password === 'string' && r.password.trim()) || defPw;
+            try {
+                const out = await insertFacultyRecord(db, {
+                    name: r.name,
+                    email: r.email,
+                    password,
+                    verified: true,
+                });
+                created.push(out);
+            } catch (e) {
+                errors.push({
+                    row: i + 1,
+                    email: r.email || '',
+                    error: e.message || String(e),
+                });
+            }
+        }
+        res.status(201).json({
+            created,
+            errors,
+            message: `Created ${created.length}; ${errors.length} failed`,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/admin/faculty — create one faculty account
+router.post('/faculty', async (req, res) => {
+    try {
+        const { name, email, password, requireVerification } = req.body || {};
+        const db = getDb();
+        const verified = requireVerification === true ? false : true;
+        const out = await insertFacultyRecord(db, { name, email, password, verified });
+        res.status(201).json({ message: 'Faculty created successfully', ...out });
+    } catch (e) {
+        const code = e.statusCode || 500;
+        res.status(code >= 400 && code < 600 ? code : 500).json({
+            error: e.message || 'Failed to create faculty',
+        });
+    }
+});
+
+// GET /api/admin/faculty/:id — detail + courses taught
+router.get('/faculty/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        const { id } = req.params;
+        const [rows] = await db.execute(`${FACULTY_METRICS_SQL} AND u.id = ?`, [id]);
+        const list = Array.isArray(rows) ? rows : [];
+        if (!list.length) {
+            return res.status(404).json({ error: 'Faculty not found' });
+        }
+        let courseRows;
+        try {
+            const [cr] = await db.execute(
+                'SELECT id, name, term, is_archived FROM courses WHERE instructor_id = ? ORDER BY name',
+                [id]
+            );
+            courseRows = cr;
+        } catch {
+            const [cr] = await db.execute('SELECT id, name, term FROM courses WHERE instructor_id = ? ORDER BY name', [
+                id,
+            ]);
+            courseRows = cr;
+        }
+        const courses = Array.isArray(courseRows) ? courseRows : [];
+        res.json({ ...normalizeFacultyRow(list[0]), courses });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -153,6 +503,71 @@ router.get('/analytics', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+const ADMIN_USER_ROLES = new Set(['student', 'faculty', 'admin', 'ta']);
+
+// PATCH /api/admin/users/:id — update name, email, student_id, and/or role (Admin only)
+router.patch('/users/:id', async (req, res) => {
+    const userId = req.params.id;
+    const body = req.body || {};
+    const { name, email, student_id: studentIdBody, role } = body;
+
+    const updates = {};
+    if (typeof name === 'string') {
+        const t = name.trim();
+        if (!t) return res.status(400).json({ error: 'Name cannot be empty' });
+        updates.name = t;
+    }
+    if (typeof email === 'string') {
+        const t = email.trim();
+        if (!t) return res.status(400).json({ error: 'Email cannot be empty' });
+        updates.email = t;
+    }
+    if (studentIdBody !== undefined) {
+        if (studentIdBody === null || studentIdBody === '') updates.student_id = null;
+        else if (typeof studentIdBody === 'string') updates.student_id = studentIdBody.trim() || null;
+        else return res.status(400).json({ error: 'Invalid student_id' });
+    }
+    if (role !== undefined) {
+        if (typeof role !== 'string' || !ADMIN_USER_ROLES.has(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+        updates.role = role;
+    }
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    try {
+        const db = getDb();
+
+        if (updates.email) {
+            const [dup] = await db.execute('SELECT id FROM users WHERE email = ? AND id != ?', [
+                updates.email,
+                userId,
+            ]);
+            const dupRows = Array.isArray(dup) ? dup : [];
+            if (dupRows.length > 0) {
+                return res.status(409).json({ error: 'Email already in use' });
+            }
+        }
+
+        const keys = Object.keys(updates);
+        const qCol = (k) => (isMySQL ? `\`${k}\`` : k);
+        const setClause = keys.map((k) => `${qCol(k)} = ?`).join(', ');
+        const params = [...keys.map((k) => updates[k]), userId];
+        await db.execute(`UPDATE users SET ${setClause} WHERE id = ?`, params);
+        res.json({ message: 'User updated successfully' });
+    } catch (err) {
+        const msg = String(err && err.message ? err.message : err);
+        const code = err && err.code;
+        if (code === 'ER_DUP_ENTRY' || code === 'SQLITE_CONSTRAINT' || /duplicate|unique/i.test(msg)) {
+            return res.status(409).json({ error: 'Email already in use' });
+        }
+        res.status(500).json({ error: msg || 'Update failed' });
     }
 });
 
@@ -219,6 +634,155 @@ router.get('/users/:id/enrollments', async (req, res) => {
             WHERE ce.student_id = ?
         `, [studentId]);
         res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+function normalizeAdminCourseListRow(row) {
+    const n = { ...row };
+    ['student_count', 'assignment_count', 'ta_count'].forEach((k) => {
+        if (n[k] != null && n[k] !== '') n[k] = Number(n[k]);
+    });
+    if (n.is_archived !== undefined && n.is_archived !== null) {
+        n.is_archived = n.is_archived === 1 || n.is_archived === true;
+    }
+    return n;
+}
+
+// GET /api/admin/courses — paginated list (default 15 per page)
+router.get('/courses', async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '15'), 10) || 15));
+        const offset = (page - 1) * limit;
+        const safeLimit = Math.floor(Number(limit));
+        const safeOffset = Math.floor(Number(offset));
+        const db = getDb();
+
+        const [countResult] = await db.execute('SELECT COUNT(*) AS n FROM courses');
+        const countArr = Array.isArray(countResult) ? countResult : [];
+        const countRow = countArr[0] || {};
+        const total = Number(countRow.n ?? countRow.N ?? Object.values(countRow)[0] ?? 0);
+
+        const baseSql = `
+            SELECT c.id, c.name, c.term, c.created_at, c.updated_at, c.is_archived, c.instructor_id,
+                u.name AS instructor_name,
+                u.email AS instructor_email,
+                (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = c.id) AS student_count,
+                (SELECT COUNT(*) FROM assignments a WHERE a.course_id = c.id) AS assignment_count,
+                (SELECT COUNT(*) FROM course_tas ct WHERE ct.course_id = c.id) AS ta_count,
+                (SELECT MAX(a.due_date) FROM assignments a WHERE a.course_id = c.id) AS last_assignment_due
+            FROM courses c
+            LEFT JOIN users u ON u.id = c.instructor_id
+            ORDER BY LOWER(c.name), c.id`;
+
+        // mysql2 rejects bound parameters for LIMIT/OFFSET ("Incorrect arguments to mysqld_stmt_execute")
+        const [rows] = await db.execute(`${baseSql} LIMIT ${safeLimit} OFFSET ${safeOffset}`);
+        const list = Array.isArray(rows) ? rows : [];
+        const courses = list.map(normalizeAdminCourseListRow);
+
+        res.json({
+            courses,
+            total,
+            page,
+            limit,
+            totalPages: total ? Math.ceil(total / limit) : 0,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/admin/courses/:courseId/detail — students, assignments, TAs, stats
+router.get('/courses/:courseId/detail', async (req, res) => {
+    const { courseId } = req.params;
+    try {
+        const db = getDb();
+        const [courseRows] = await db.execute(
+            `SELECT c.id, c.name, c.term, c.created_at, c.updated_at, c.is_archived, c.instructor_id,
+                u.name AS instructor_name, u.email AS instructor_email
+             FROM courses c
+             LEFT JOIN users u ON u.id = c.instructor_id
+             WHERE c.id = ?`,
+            [courseId]
+        );
+        const cr = Array.isArray(courseRows) ? courseRows : [];
+        if (!cr.length) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        const course = normalizeAdminCourseListRow(cr[0]);
+
+        let studentRows;
+        try {
+            const [sr] = await db.execute(
+                `SELECT u.id, u.name, u.email, ce.enrolled_at AS enrolled_at
+                 FROM users u
+                 JOIN course_enrollments ce ON ce.student_id = u.id
+                 WHERE ce.course_id = ?
+                 ORDER BY u.name`,
+                [courseId]
+            );
+            studentRows = sr;
+        } catch {
+            const [sr] = await db.execute(
+                `SELECT u.id, u.name, u.email
+                 FROM users u
+                 JOIN course_enrollments ce ON ce.student_id = u.id
+                 WHERE ce.course_id = ?
+                 ORDER BY u.name`,
+                [courseId]
+            );
+            studentRows = sr;
+        }
+
+        const [assignmentRows] = await db.execute(
+            `SELECT a.id, a.title, a.due_date, a.status, a.points, a.created_at,
+                (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) AS submissions_count
+             FROM assignments a
+             WHERE a.course_id = ?
+             ORDER BY a.due_date`,
+            [courseId]
+        );
+
+        const [taRows] = await db.execute(
+            `SELECT u.id, u.name, u.email
+             FROM users u
+             JOIN course_tas ct ON ct.ta_id = u.id
+             WHERE ct.course_id = ?
+             ORDER BY u.name`,
+            [courseId]
+        );
+
+        const [subAgg] = await db.execute(
+            `SELECT COUNT(*) AS n FROM submissions s
+             INNER JOIN assignments a ON a.id = s.assignment_id
+             WHERE a.course_id = ?`,
+            [courseId]
+        );
+        const subArr = Array.isArray(subAgg) ? subAgg : [];
+        const submissionTotal = Number(subArr[0]?.n ?? subArr[0]?.N ?? 0);
+
+        const students = Array.isArray(studentRows) ? studentRows : [];
+        const assignments = (Array.isArray(assignmentRows) ? assignmentRows : []).map((a) => ({
+            ...a,
+            submissions_count: Number(a.submissions_count ?? 0),
+        }));
+        const tas = Array.isArray(taRows) ? taRows : [];
+
+        res.json({
+            course,
+            students,
+            assignments,
+            tas,
+            stats: {
+                enrollment_count: students.length,
+                assignment_count: assignments.length,
+                submission_count: submissionTotal,
+                ta_count: tas.length,
+                active_assignments: assignments.filter((a) => a.status === 'active').length,
+            },
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

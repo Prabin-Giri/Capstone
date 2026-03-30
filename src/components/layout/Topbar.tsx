@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Menu, Moon, Sun, Monitor } from 'lucide-react';
-import { getUser } from '../../lib/auth';
-import { getUnreadCount } from '../../lib/api';
+import { getUser, getRole, AUTH_ROLES } from '../../lib/auth';
+import { getUnreadCount, getConversations, getAssignments } from '../../lib/api';
+import type { Conversation, Assignment } from '../../lib/api';
 import './Layout.css';
 
 interface TopbarProps {
@@ -54,6 +55,10 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
     const navigate = useNavigate();
     const [themeMode, setThemeMode] = useState<ThemeMode>('system');
     const [unreadCount, setUnreadCount] = useState(0);
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [notifLoading, setNotifLoading] = useState(false);
+    const [recentMessages, setRecentMessages] = useState<Conversation[]>([]);
+    const [upcomingDeadlines, setUpcomingDeadlines] = useState<Assignment[]>([]);
     const user = getUser();
 
     useEffect(() => {
@@ -134,9 +139,43 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         return () => { clearInterval(interval); window.removeEventListener('inbox-read', handleInboxRead); };
     }, [user?.id]);
 
+    useEffect(() => {
+        if (!notifOpen) return;
+        const onDocClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.topbar-bell-wrap')) setNotifOpen(false);
+        };
+        document.addEventListener('mousedown', onDocClick);
+        return () => document.removeEventListener('mousedown', onDocClick);
+    }, [notifOpen]);
+
     const getPageTitle = () => {
         const path = location.pathname;
         if (path.includes('/calendar')) return 'Calendar';
+        if (path === '/student' || path === '/student/') {
+            return getRole() === AUTH_ROLES.TA ? 'TA Dashboard' : 'Student Dashboard';
+        }
+        if (path === '/admin' || path === '/admin/') return 'Admin Dashboard';
+        if (path.startsWith('/admin/database')) return 'Database Explorer';
+        if (path.startsWith('/admin/users')) return 'User Management';
+        if (path.startsWith('/admin/students')) return 'Student Insights';
+        if (path.startsWith('/admin/faculty')) return 'Faculty Management';
+        if (path.startsWith('/admin/analytics')) return 'App Analytics';
+        if (path.startsWith('/admin/settings')) return 'App Settings';
+        if (path.startsWith('/admin/courses')) return 'Course Management';
+        if (path.startsWith('/admin')) return 'Admin Dashboard';
+        if (path === '/faculty' || path === '/faculty/') return 'Faculty Dashboard';
+        if (path.includes('/faculty/pending')) return 'Faculty Verification';
+        if (path.includes('/faculty/courses/new')) return 'Create Course';
+        if (/^\/faculty\/courses\/[^/]+\/assignments\/new\/?$/.test(path)) return 'New Assignment';
+        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/edit\/?$/.test(path)) return 'Edit Assignment';
+        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/grading\/[^/]+\/?$/.test(path)) return 'Submission Grading';
+        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/grading\/?$/.test(path)) return 'Grading Dashboard';
+        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/?$/.test(path)) return 'Assignment Details';
+        if (/^\/faculty\/courses\/[^/]+\/assignments\/?$/.test(path)) return 'Assignments';
+        if (/^\/faculty\/courses\/[^/]+\/gradebook\/?$/.test(path)) return 'Course Gradebook';
+        if (/^\/faculty\/courses\/[^/]+\/students\/?$/.test(path)) return 'Students';
+        if (/^\/faculty\/courses\/[^/]+\/?$/.test(path)) return 'Faculty Command Center';
         if (path.includes('/faculty')) return 'Faculty Dashboard';
         if (path.includes('/student') || path.includes('/ta')) return 'Dashboard';
         return 'AutoGrade';
@@ -148,6 +187,50 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         : themeMode === 'dark'
             ? <Moon size={18} />
             : <Sun size={18} />;
+
+    const formatDue = (iso?: string) => {
+        if (!iso) return 'No due date';
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return 'No due date';
+        return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+    };
+
+    const loadNotifications = async () => {
+        if (!user?.id) return;
+        setNotifLoading(true);
+        try {
+            const [conversations, assignments] = await Promise.all([
+                getConversations(user.id),
+                getAssignments(),
+            ]);
+            const messages = [...conversations]
+                .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+                .slice(0, 5);
+            const now = Date.now();
+            const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000;
+            const deadlines = assignments
+                .filter(a => !!a.due_date)
+                .filter(a => {
+                    const t = new Date(a.due_date).getTime();
+                    return !Number.isNaN(t) && t >= now && t <= sevenDaysFromNow;
+                })
+                .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                .slice(0, 5);
+            setRecentMessages(messages);
+            setUpcomingDeadlines(deadlines);
+        } catch {
+            setRecentMessages([]);
+            setUpcomingDeadlines([]);
+        } finally {
+            setNotifLoading(false);
+        }
+    };
+
+    const onBellClick = async () => {
+        const next = !notifOpen;
+        setNotifOpen(next);
+        if (next) await loadNotifications();
+    };
 
     return (
         <header className="topbar">
@@ -169,15 +252,57 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                     {themeIcon}
                     <span className="theme-toggle-label">{themeLabel}</span>
                 </button>
-                <button
-                    className="topbar-bell-btn"
-                    onClick={() => navigate('/inbox')}
-                    title="Inbox"
-                    aria-label={`Inbox${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-                >
-                    <Bell size={20} />
-                    {unreadCount > 0 && <span className="topbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
-                </button>
+                <div className="topbar-bell-wrap">
+                    <button
+                        className="topbar-bell-btn"
+                        onClick={onBellClick}
+                        title="Notifications"
+                        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                    >
+                        <Bell size={20} />
+                        {unreadCount > 0 && <span className="topbar-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+                    </button>
+                    {notifOpen && (
+                        <div className="topbar-notif-popover">
+                            <div className="topbar-notif-header">Notifications</div>
+                            {notifLoading ? (
+                                <div className="topbar-notif-empty">Loading...</div>
+                            ) : recentMessages.length === 0 && upcomingDeadlines.length === 0 ? (
+                                <div className="topbar-notif-empty">No notifications right now.</div>
+                            ) : (
+                                <>
+                                    <div className="topbar-notif-section-title">Messages</div>
+                                    {recentMessages.length === 0 ? (
+                                        <div className="topbar-notif-empty">No recent messages.</div>
+                                    ) : recentMessages.map(c => (
+                                        <div key={c.id} className="topbar-notif-item">
+                                            <div className="topbar-notif-item-title">{c.subject}</div>
+                                            <div className="topbar-notif-item-sub">{c.last_message?.body || 'No messages yet.'}</div>
+                                        </div>
+                                    ))}
+                                    <div className="topbar-notif-section-title">Upcoming Deadlines</div>
+                                    {upcomingDeadlines.length === 0 ? (
+                                        <div className="topbar-notif-empty">No upcoming deadlines.</div>
+                                    ) : upcomingDeadlines.map(a => (
+                                        <div key={a.id} className="topbar-notif-item">
+                                            <div className="topbar-notif-item-title">{a.title}</div>
+                                            <div className="topbar-notif-item-sub">{formatDue(a.due_date)}</div>
+                                        </div>
+                                    ))}
+                                    <button
+                                        className="topbar-notif-viewall"
+                                        onClick={() => {
+                                            setNotifOpen(false);
+                                            navigate('/inbox');
+                                        }}
+                                    >
+                                        View all
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </header>
     );

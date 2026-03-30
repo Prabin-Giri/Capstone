@@ -175,6 +175,14 @@ async function initDb() {
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (ta_id) REFERENCES users(id) ON DELETE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS course_enrollments (
+            course_id TEXT NOT NULL,
+            student_id TEXT NOT NULL,
+            enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (course_id, student_id),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+            FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
     ];
     for (const sql of migrations) {
         try { db.run(sql); } catch (e) {

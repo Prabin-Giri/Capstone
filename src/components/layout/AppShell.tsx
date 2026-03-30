@@ -14,7 +14,10 @@ import './Layout.css';
 const AppShell: React.FC = () => {
     const location = useLocation();
     const role = getRole();
-    const dashboardPath = role === AUTH_ROLES.FACULTY ? '/faculty' : '/student';
+    const dashboardPath =
+        role === AUTH_ROLES.FACULTY ? '/faculty' :
+        role === AUTH_ROLES.ADMIN ? '/admin' :
+        '/student';
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [isAccountOpen, setIsAccountOpen] = useState(false);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
