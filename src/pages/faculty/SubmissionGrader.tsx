@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
+import { getSubmission, getSubmissions, updateSubmission, getSubmissionFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
 import type { Submission, Assignment, RubricConfig, TestResult, AssignmentGroup } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
@@ -390,7 +390,7 @@ const SubmissionGrader: React.FC = () => {
                 ? [...files].sort((a, b) => (a.path === preferredPath ? -1 : b.path === preferredPath ? 1 : 0))
                 : files;
             const loaded = await Promise.all(ordered.map(async (f, idx) => {
-                const url = getFileUrl(f.path);
+                const url = getSubmissionFileUrl(submission!.id, f.name);
                 try {
                     const res = await fetch(url);
                     if (!res.ok) throw new Error();
@@ -974,7 +974,7 @@ const SubmissionGrader: React.FC = () => {
                                     variant="primary"
                                     className="btn-pill"
                                     size="sm"
-                                    onClick={() => attemptPrimaryFile && handleDownload(getFileUrl(attemptPrimaryFile.path), attemptPrimaryFile.name)}
+                                    onClick={() => attemptPrimaryFile && handleDownload(getSubmissionFileUrl(activeAttempt.id, attemptPrimaryFile.name), attemptPrimaryFile.name)}
                                     disabled={!attemptPrimaryFile}
                                 >
                                     Download

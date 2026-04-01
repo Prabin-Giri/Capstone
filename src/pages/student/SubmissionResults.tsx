@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getSubmission, getFileUrl, getSubmissions, getAssignment } from '../../lib/api';
+import { getSubmission, getSubmissionFileUrl, getSubmissions, getAssignment } from '../../lib/api';
 import type { Submission, Assignment } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import { parseUTC } from '../../lib/utils';
@@ -153,7 +153,7 @@ const SubmissionResults: React.FC = () => {
                         {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
                             <a
                                 key={i}
-                                href={getFileUrl(f.path)}
+                                href={getSubmissionFileUrl(submission.id, f.name)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn btn-outline btn-pill"

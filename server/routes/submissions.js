@@ -4,25 +4,35 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
+const { uploadToS3, getFromS3, deleteFromS3, s3Enabled } = require('../s3');
 
-// Ensure uploads directory exists
+// ── Local disk fallback (for local dev without S3) ─────────────────────────
 const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+// Use memory storage: we decide where to write after multer parses the request
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ── Key helpers ────────────────────────────────────────────────────────────
+function submissionKey(submissionId, filename) {
+    return `submissions/${submissionId}/${filename}`;
 }
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
+/**
+ * Persist a single file: to S3 if configured, otherwise local disk.
+ * Returns the value to store in `file_path` column (S3 key or local filename).
+ */
+async function persistFile(buffer, originalName, submissionId) {
+    if (s3Enabled) {
+        const key = submissionKey(submissionId, originalName);
+        await uploadToS3(key, buffer);
+        return key; // stored as S3 key
+    } else {
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + originalName;
+        fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
+        return uniqueName; // stored as filename
     }
-});
-
-const upload = multer({ storage });
+}
 
 // GET /api/submissions - Get all submissions (optionally filter)
 router.get('/', async (req, res, next) => {
@@ -33,21 +43,13 @@ router.get('/', async (req, res, next) => {
         let sql = `SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1`;
         const params = [];
 
-        if (assignment_id) {
-            sql += ' AND submissions.assignment_id = ?';
-            params.push(assignment_id);
-        }
-        if (student_id) {
-            sql += ' AND submissions.student_id = ?';
-            params.push(student_id);
-        }
+        if (assignment_id) { sql += ' AND submissions.assignment_id = ?'; params.push(assignment_id); }
+        if (student_id)    { sql += ' AND submissions.student_id = ?';    params.push(student_id); }
         sql += ' ORDER BY submissions.submitted_at DESC';
 
         const result = await db.execute(sql, params);
         res.json(queryToObjects(result));
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
 });
 
 // GET /api/submissions/:id - Get single submission
@@ -55,15 +57,50 @@ router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
         const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
-        const result = await db.execute(`SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE submissions.id = ?`, [req.params.id]);
+        const result = await db.execute(
+            `SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE submissions.id = ?`,
+            [req.params.id]
+        );
         const row = queryOne(result);
-        if (!row) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
+        if (!row) return res.status(404).json({ error: 'Submission not found' });
         res.json(row);
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
+});
+
+// GET /api/submissions/:id/file/:filename — Proxy file content for preview
+// Replaces the old express.static('/uploads') endpoint from the frontend's perspective.
+router.get('/:id/file/:filename', async (req, res, next) => {
+    try {
+        const { id, filename } = req.params;
+        if (s3Enabled) {
+            const key = submissionKey(id, filename);
+            try {
+                const buffer = await getFromS3(key);
+                res.set('Content-Type', 'text/plain; charset=utf-8');
+                res.set('Access-Control-Allow-Origin', '*');
+                return res.send(buffer);
+            } catch (err) {
+                // Key not found in S3 — try legacy local path
+            }
+        }
+        // Local fallback: find the file by scanning uploads dir for legacy uploads
+        const db = getDb();
+        const [rows] = await db.execute('SELECT file_path FROM submissions WHERE id = ?', [id]);
+        if (!rows || rows.length === 0) return res.status(404).send('Submission not found');
+        const filePath = rows[0].file_path;
+        let localPath;
+        try {
+            const filesData = JSON.parse(filePath);
+            const match = Array.isArray(filesData) ? filesData.find(f => f.name === filename || f.path === filename) : null;
+            localPath = match ? path.join(uploadsDir, match.path) : path.join(uploadsDir, filePath);
+        } catch {
+            localPath = path.join(uploadsDir, filePath);
+        }
+        if (!fs.existsSync(localPath)) return res.status(404).send('File not found');
+        res.set('Content-Type', 'text/plain; charset=utf-8');
+        res.set('Access-Control-Allow-Origin', '*');
+        res.sendFile(localPath);
+    } catch (err) { next(err); }
 });
 
 // POST /api/submissions - Create new submission (with file array)
@@ -72,29 +109,15 @@ router.post('/', upload.array('files'), async (req, res, next) => {
         const db = getDb();
         const { assignment_id, student_id } = req.body;
 
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ error: 'No files uploaded' });
-        }
-        if (!assignment_id || !student_id) {
-            return res.status(400).json({ error: 'assignment_id and student_id are required' });
-        }
+        if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+        if (!assignment_id || !student_id) return res.status(400).json({ error: 'assignment_id and student_id are required' });
 
-        const filesData = req.files.map(f => ({
-            name: f.originalname,
-            path: f.filename
-        }));
-
-        const file_name = `${req.files.length} file${req.files.length > 1 ? 's' : ''}`;
-        const file_path = JSON.stringify(filesData);
-
-        // Check if assignment is group one_for_all
+        // Check if assignment is group one_for_all (need to know target student IDs before we can build keys)
         const [aRows] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignment_id]);
         const assignment = aRows[0];
-        
+
         let targetStudentIds = [student_id];
-        
         if (assignment && assignment.type === 'group' && assignment.group_submission_type === 'one_for_all') {
-            // Find student's group for this assignment
             const [gRows] = await db.execute(`
                 SELECT student_id FROM group_members
                 WHERE group_id IN (
@@ -103,25 +126,49 @@ router.post('/', upload.array('files'), async (req, res, next) => {
                     WHERE assignment_groups.assignment_id = ? AND group_members.student_id = ?
                 )
             `, [assignment_id, student_id]);
-            
-            if (gRows && gRows.length > 0) {
-                targetStudentIds = gRows.map(r => r.student_id);
-            }
+            if (gRows && gRows.length > 0) targetStudentIds = gRows.map(r => r.student_id);
         }
 
-        // Always insert new submission for all targeted students to track multiple attempts identically for the group
+        // Insert a placeholder row to get the submission ID (needed for S3 key)
+        await db.execute(
+            "INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
+            [assignment_id, student_id, 'uploading...', '']
+        );
+        const [idRows] = await db.execute(
+            'SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
+            [assignment_id, student_id]
+        );
+        const newId = idRows[0].id;
+
+        // Now persist files using that ID
+        const filesData = await Promise.all(req.files.map(async (f) => {
+            const storedPath = await persistFile(f.buffer, f.originalname, newId);
+            return { name: f.originalname, path: storedPath };
+        }));
+
+        const file_name = `${req.files.length} file${req.files.length > 1 ? 's' : ''}`;
+        const file_path = JSON.stringify(filesData);
+
+        await db.execute(
+            'UPDATE submissions SET file_name = ?, file_path = ? WHERE id = ?',
+            [file_name, file_path, newId]
+        );
+
+        // If group, insert copies for other members
         for (const tid of targetStudentIds) {
-            await db.execute("INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
-                [assignment_id, tid, file_name, file_path]);
+            if (tid === student_id) continue;
+            await db.execute(
+                "INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
+                [assignment_id, tid, file_name, file_path]
+            );
         }
 
-        // Return the *newly inserted* submission for the original student
-        const [rows] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
-            [assignment_id, student_id]);
+        const [rows] = await db.execute(
+            'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
+            [assignment_id, student_id]
+        );
         res.status(201).json(rows[0]);
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
 });
 
 // PUT /api/submissions/:id - Update submission
@@ -133,29 +180,18 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
         const params = [];
 
         if (req.files && req.files.length > 0) {
-            const filesData = req.files.map(f => ({
-                name: f.originalname,
-                path: f.filename
+            const filesData = await Promise.all(req.files.map(async (f) => {
+                const storedPath = await persistFile(f.buffer, f.originalname, req.params.id);
+                return { name: f.originalname, path: storedPath };
             }));
             updates.push('file_name = ?', 'file_path = ?');
             params.push(`${req.files.length} file${req.files.length > 1 ? 's' : ''}`, JSON.stringify(filesData));
         }
-        if (status) {
-            updates.push('status = ?');
-            params.push(status);
-        }
-        if (grade !== undefined) {
-            updates.push('grade = ?');
-            params.push(grade === null || grade === '' ? null : parseFloat(grade));
-        }
-        if (feedback !== undefined) {
-            updates.push('feedback = ?');
-            params.push(feedback);
-        }
+        if (status)            { updates.push('status = ?');   params.push(status); }
+        if (grade !== undefined) { updates.push('grade = ?');  params.push(grade === null || grade === '' ? null : parseFloat(grade)); }
+        if (feedback !== undefined) { updates.push('feedback = ?'); params.push(feedback); }
 
-        if (updates.length === 0) {
-            return res.status(400).json({ error: 'No updates provided' });
-        }
+        if (updates.length === 0) return res.status(400).json({ error: 'No updates provided' });
 
         params.push(req.params.id);
         await db.execute(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
@@ -166,10 +202,8 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
             const { assignment_id, student_id } = currRows[0];
             const [aRows] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignment_id]);
             const assignment = aRows[0];
-
             const sync_group = req.body.sync_group === 'true';
             if (assignment && assignment.type === 'group' && assignment.group_submission_type === 'one_for_all' && sync_group) {
-                // Find all team members
                 const [gRows] = await db.execute(`
                     SELECT student_id FROM group_members
                     WHERE group_id IN (
@@ -178,17 +212,13 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
                         WHERE assignment_groups.assignment_id = ? AND group_members.student_id = ?
                     )
                 `, [assignment_id, student_id]);
-
                 if (gRows && gRows.length > 0) {
                     const memberIds = gRows.map(r => r.student_id);
                     for (const mid of memberIds) {
                         if (mid === student_id) continue;
-                        // Update their LATEST submission for this assignment
                         const [lastRows] = await db.execute('SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1', [assignment_id, mid]);
                         if (lastRows.length > 0) {
-                            const lastId = lastRows[0].id;
-                            // Re-build update params for this specific ID
-                            const syncParams = [...params.slice(0, -1), lastId];
+                            const syncParams = [...params.slice(0, -1), lastRows[0].id];
                             await db.execute(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, syncParams);
                         }
                     }
@@ -197,13 +227,9 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
         }
 
         const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
+        if (rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         res.json(rows[0]);
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
 });
 
 // DELETE /api/submissions/:id - Delete submission
@@ -211,34 +237,32 @@ router.delete('/:id', async (req, res, next) => {
     try {
         const db = getDb();
         const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
+        if (rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
 
-        // Delete file(s)
+        // Delete file(s) from S3 or local disk
         try {
             const filesData = JSON.parse(rows[0].file_path);
             if (Array.isArray(filesData)) {
-                filesData.forEach(f => {
-                    const filePath = path.join(uploadsDir, f.path);
-                    if (fs.existsSync(filePath)) {
-                        fs.unlinkSync(filePath);
+                for (const f of filesData) {
+                    if (s3Enabled) {
+                        await deleteFromS3(f.path).catch(() => {});
+                    } else {
+                        const localPath = path.join(uploadsDir, f.path);
+                        if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
                     }
-                });
+                }
             }
-        } catch (e) {
+        } catch {
             // Fallback for older non-JSON entries
-            const filePath = path.join(uploadsDir, rows[0].file_path);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
+            if (!s3Enabled) {
+                const localPath = path.join(uploadsDir, rows[0].file_path);
+                if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
             }
         }
 
         await db.execute('DELETE FROM submissions WHERE id = ?', [req.params.id]);
         res.json({ message: 'Submission deleted successfully' });
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
 });
 
 module.exports = router;

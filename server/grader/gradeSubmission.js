@@ -1,9 +1,51 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { query, run, saveDb } = require('../db');
 const { runCode } = require('./runCode');
 const { compare, pointsForTest } = require('./outputCompare');
 const config = require('./config');
+const { getFromS3, s3Enabled } = require('../s3');
+
+/**
+ * Download a submission's files from S3 (or verify they exist locally)
+ * into a temporary directory. Returns the local directory path and the
+ * primary file path for the grader to use.
+ */
+async function downloadForGrading(submission) {
+    const uploadsDir = path.join(__dirname, '../uploads');
+    let filesData = [];
+    try {
+        const parsed = JSON.parse(submission.file_path);
+        if (Array.isArray(parsed)) filesData = parsed;
+        else filesData = [{ name: submission.file_name, path: submission.file_path }];
+    } catch {
+        filesData = [{ name: submission.file_name, path: submission.file_path }];
+    }
+
+    if (!s3Enabled) {
+        // Local mode: just verify files exist, return first file path
+        const first = filesData[0];
+        const localPath = path.join(uploadsDir, first.path);
+        return { primaryPath: localPath, uploadsDir, isTemp: false };
+    }
+
+    // S3 mode: download to a temp directory
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `autograde-${submission.id}-`));
+    let primaryPath = null;
+    for (const file of filesData) {
+        const dest = path.join(tmpDir, file.name);
+        try {
+            const buf = await getFromS3(file.path);
+            fs.writeFileSync(dest, buf);
+            if (!primaryPath) primaryPath = dest;
+        } catch (err) {
+            console.warn(`[grader] Could not download from S3: ${file.path}`, err.message);
+        }
+    }
+    if (!primaryPath) throw new Error(`Submission files not found in S3 for submission ${submission.id}`);
+    return { primaryPath, uploadsDir: tmpDir, isTemp: true, tmpDir };
+}
 
 /**
  * Compute late penalty percentage from submitted_at vs due_date.
@@ -134,14 +176,8 @@ async function gradeSubmission(submissionId, opts = {}) {
         return { grade: null, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
     }
 
-    // Resolve source path (handle JSON array)
-    let sourcePath = path.join(uploadsDir, submission.file_path);
-    try {
-        const filesData = JSON.parse(submission.file_path);
-        if (Array.isArray(filesData) && filesData.length > 0) {
-            sourcePath = path.join(uploadsDir, filesData[0].path);
-        }
-    } catch (e) { }
+    // Resolve source path (handle S3 or JSON array or plain filename)
+    const { primaryPath: sourcePath, uploadsDir: graderUploadsDir, isTemp, tmpDir: graderTmpDir } = await downloadForGrading(submission);
 
     if (!fs.existsSync(sourcePath)) {
         const feedback = `Submission file not found: ${submission.file_path}`;
@@ -153,6 +189,7 @@ async function gradeSubmission(submissionId, opts = {}) {
             }
             await saveDb();
         }
+        if (isTemp && graderTmpDir) fs.rmSync(graderTmpDir, { recursive: true, force: true });
         return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
     }
 

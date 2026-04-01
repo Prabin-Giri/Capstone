@@ -34,13 +34,16 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Serve uploaded files statically with explicit CORS headers for cross-origin fetch (Monaco)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-    setHeaders: (res) => {
-        res.set('Access-Control-Allow-Origin', '*');
-        res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    }
-}));
+// ── S3 / File Storage ──────────────────────────────────────────────────────
+// Files are served via GET /api/submissions/:id/file/:filename (proxy in submissions route)
+// which reads from S3 (if configured) or local disk (local dev fallback).
+// The legacy express.static('/uploads') has been removed to avoid serving stale files post-redeploy.
+const { s3Enabled } = require('./s3');
+if (s3Enabled) {
+    console.log(`[storage] S3 enabled — bucket: ${process.env.AWS_S3_BUCKET} (${process.env.AWS_REGION || 'us-east-2'})`);
+} else {
+    console.warn('[storage] S3 not configured — using local disk (uploads/ dir). Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_S3_BUCKET for persistent storage.');
+}
 
 // Routes
 app.use('/api/courses', coursesRouter);

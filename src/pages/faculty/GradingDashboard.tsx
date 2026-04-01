@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { getAssignment, getSubmissions, getFileUrl, updateAssignment, runAutograde } from '../../lib/api';
+import { getAssignment, getSubmissions, getSubmissionFileUrl, updateAssignment, runAutograde } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
 import { BarChart2, Search, FlaskConical, Brain, PenLine, FileBarChart, ChevronLeft } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -448,7 +448,7 @@ const GradingDashboard: React.FC = () => {
                                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-body)', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: '6px' }}>
                                                     <span className="file-name" style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{f.name}</span>
                                                     <a
-                                                        href={getFileUrl(f.path)}
+                                                        href={getSubmissionFileUrl(sub.id, f.name)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn btn-sm btn-outline"

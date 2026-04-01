@@ -717,9 +717,20 @@ export async function deleteSubmission(id: number): Promise<void> {
     await apiFetch<{ message: string }>(`/submissions/${id}`, { method: 'DELETE' });
 }
 
-// Helper to get the full URL for a submitted file
+// Helper to get the full URL for a submitted file.
+// For submission files stored in S3, use getSubmissionFileUrl instead — it routes
+// through the backend proxy which reads from S3.
 export function getFileUrl(filePath: string): string {
+    // Legacy: non-JSON, non-S3 paths (e.g. course syllabi on local disk)
     return `${API_BASE.replace('/api', '')}/uploads/${filePath}`;
+}
+
+/**
+ * Get the URL to fetch a specific submission file (S3-backed on deployed server).
+ * Routes through GET /api/submissions/:id/file/:filename which proxies S3 or local disk.
+ */
+export function getSubmissionFileUrl(submissionId: number | string, filename: string): string {
+    return `${API_BASE}/submissions/${submissionId}/file/${encodeURIComponent(filename)}`;
 }
 // --- Calendar API ---
 
