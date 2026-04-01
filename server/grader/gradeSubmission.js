@@ -179,19 +179,19 @@ async function gradeSubmission(submissionId, opts = {}) {
     // Resolve source path (handle S3 or JSON array or plain filename)
     const { primaryPath: sourcePath, uploadsDir: graderUploadsDir, isTemp, tmpDir: graderTmpDir } = await downloadForGrading(submission);
 
-    if (!fs.existsSync(sourcePath)) {
-        const feedback = `Submission file not found: ${submission.file_path}`;
-        if (!opts.dryRun) {
-            if (opts.testResultsOnly) {
-                await updateSubmissionGrade(submissionId, { auto_grade: 0, auto_feedback: feedback, status: 'pending' });
-            } else {
-                await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'graded' });
+    try {
+        if (!fs.existsSync(sourcePath)) {
+            const feedback = `Submission file not found: ${submission.file_path}`;
+            if (!opts.dryRun) {
+                if (opts.testResultsOnly) {
+                    await updateSubmissionGrade(submissionId, { auto_grade: 0, auto_feedback: feedback, status: 'pending' });
+                } else {
+                    await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'graded' });
+                }
+                await saveDb();
             }
-            await saveDb();
+            return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
         }
-        if (isTemp && graderTmpDir) fs.rmSync(graderTmpDir, { recursive: true, force: true });
-        return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
-    }
 
     const language = (assignment.language || 'python').toLowerCase() === 'node' ? 'javascript' : (assignment.language || 'python').toLowerCase();
     const allowPartial = assignment.allow_partial === 1 || assignment.allow_partial === true;
@@ -361,14 +361,19 @@ async function gradeSubmission(submissionId, opts = {}) {
         await saveDb();
     }
 
-    return {
-        grade: Math.round(finalGrade * 100) / 100,
-        feedback,
-        results,
-        rawScore,
-        maxPossible,
-        latePenaltyPercent,
-    };
+        return {
+            grade: Math.round(finalGrade * 100) / 100,
+            feedback,
+            results,
+            rawScore,
+            maxPossible,
+            latePenaltyPercent,
+        };
+    } finally {
+        if (isTemp && graderTmpDir) {
+            try { fs.rmSync(graderTmpDir, { recursive: true, force: true }); } catch (_) {}
+        }
+    }
 }
 
 async function updateSubmissionGrade(submissionId, opts) {
@@ -402,35 +407,9 @@ async function updateSubmissionGrade(submissionId, opts) {
  * Expects the script to output JSON to stdout.
  */
 async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}) {
-    const uploadsDir = path.join(__dirname, '../uploads');
+    const { primaryPath: studentPath, isTemp, tmpDir } = await downloadForGrading(submission);
 
-    // Resolve student path (handle JSON array)
-    let studentPath = path.join(uploadsDir, submission.file_path);
     try {
-        const filesData = JSON.parse(submission.file_path);
-        if (Array.isArray(filesData) && filesData.length > 0) {
-            // For custom graders, they might want all files.
-            // If it's a single file, just use its path.
-            if (filesData.length === 1) {
-                studentPath = path.join(uploadsDir, filesData[0].path);
-            } else {
-                // If multiple files, we'll need a way for the grader to find them.
-                // For now, let's pass the first file's path? 
-                // Or better: let's create a temp dir and copy all (this is handled below if it's a directory).
-                // But studentPath needs to be a valid path for fs.statSync.
-                // Since our system usually stores multiple files in a JSON array but NOT a shared directory,
-                // we'll have to create a temporary directory and copy them all there FIRST.
-                const os = require('os');
-                const workDirForFiles = fs.mkdtempSync(path.join(os.tmpdir(), 'student-files-'));
-                filesData.forEach(f => {
-                    fs.copyFileSync(path.join(uploadsDir, f.path), path.join(workDirForFiles, f.name));
-                });
-                studentPath = workDirForFiles;
-            }
-        }
-    } catch (e) {
-        // Not JSON, use as is
-    }
 
     const language = assignment.language || 'python';
 
@@ -463,11 +442,9 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
     const crypto = require('crypto');
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'autograde-custom-'));
 
-    try {
-        fs.copyFileSync(graderPath, path.join(workDir, graderBase));
-
-        // Handle student submission (could be file or dir)
-        const stat = fs.statSync(studentPath);
+    // Handle student submission (could be file or dir)
+    fs.copyFileSync(graderPath, path.join(workDir, graderBase));
+    const stat = fs.statSync(studentPath);
         if (stat.isDirectory()) {
             const entries = fs.readdirSync(studentPath, { withFileTypes: true });
             const studentSubDir = path.join(workDir, 'submission');
@@ -558,6 +535,9 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
         try {
             fs.rmSync(workDir, { recursive: true, force: true });
         } catch (_) { }
+        if (isTemp && tmpDir) {
+            try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+        }
     }
 }
 
