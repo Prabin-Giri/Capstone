@@ -207,6 +207,65 @@ async function initDb() {
         db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active')");
         db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
         db.run("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
+        
+        // --- Mock Data for Plagiarism Checker ---
+        // 3 Students
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag1', 'Alice Coder', 'alice@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag2', 'Bob Copier', 'bob@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag3', 'Charlie Original', 'charlie@b.c', 'password123', 'student')");
+        
+        // Enroll in course CSCI4060
+        db.run("INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag1')");
+        db.run("INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag2')");
+        db.run("INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag3')");
+        
+        // Submissions for assignment 'lang-platform'
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag1', 'plag1.py', 'plag1.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag2', 'plag2.py', 'plag2.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag3', 'plag3.py', 'plag3.py', 'pending')");
+
+        // --- Additional Mock Data for Plagiarism Checker Extensions ---
+        
+        // Single File High/Moderate/Low Plagiarism students
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag4', 'Dave Clone', 'dave@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag5', 'Eve Mimic', 'eve@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag6', 'Frank Reorder', 'frank@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag7', 'Grace Mod', 'grace@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag8', 'Hank Unique', 'hank@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag9', 'Ivy Divergent', 'ivy@b.c', 'password123', 'student')");
+        
+        // Multi-File Plagiarism students
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag10', 'Jack Multi', 'jack@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag11', 'Karen Multi', 'karen@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag12', 'Leo Refactor', 'leo@b.c', 'password123', 'student')");
+        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag13', 'Mia Safe', 'mia@b.c', 'password123', 'student')");
+
+        // Enroll everyone
+        for(let i=4; i<=13; i++) {
+            db.run(`INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag${i}')`);
+        }
+
+        // Add single-file submissions
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag4', 'plag4.py', 'plag4.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag5', 'plag5.py', 'plag5.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag6', 'plag6.py', 'plag6.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag7', 'plag7.py', 'plag7.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag8', 'plag8.py', 'plag8.py', 'pending')");
+        db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag9', 'plag9.py', 'plag9.py', 'pending')");
+
+        // Add multi-file submissions (using JSON array string for file_path)
+        const jackFiles = JSON.stringify([{name: 'main.py', path:'plag10-main.py'}, {name: 'utils.py', path:'plag10-utils.py'}]);
+        db.run(`INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag10', 'multi-files', '${jackFiles}', 'pending')`);
+        
+        const karenFiles = JSON.stringify([{name: 'app.py', path:'plag11-app.py'}, {name: 'helpers.py', path:'plag11-helpers.py'}]);
+        db.run(`INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag11', 'multi-files', '${karenFiles}', 'pending')`);
+        
+        const leoFiles = JSON.stringify([{name: 'main.py', path:'plag12-main.py'}, {name: 'logic.py', path:'plag12-logic.py'}, {name: 'base.py', path:'plag12-base.py'}]);
+        db.run(`INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag12', 'multi-files', '${leoFiles}', 'pending')`);
+        
+        const miaFiles = JSON.stringify([{name: 'script.py', path:'plag13-script.py'}, {name: 'functions.py', path:'plag13-functions.py'}]);
+        db.run(`INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag13', 'multi-files', '${miaFiles}', 'pending')`);
+
         console.log('Database initialized with sample data');
         saveDbSync();
     }
@@ -283,10 +342,7 @@ function run(sql, params = []) {
     return Promise.resolve();
 }
 
-async function queryOne(sql, params = []) {
-    const rows = await query(sql, params);
-    return rows.length > 0 ? rows[0] : null;
-}
+
 
 function queryToObjects(result) {
     if (!result) return [];

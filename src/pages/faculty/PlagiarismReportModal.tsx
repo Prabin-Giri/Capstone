@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, AlertTriangle, FileText, CheckCircle, Search } from 'lucide-react';
 import { runPlagiarismCheck } from '../../lib/api';
 import './PlagiarismReportModal.css';
@@ -18,6 +19,7 @@ interface PlagiarismReportProps {
 }
 
 const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, assignmentTitle, onClose }) => {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<PlagiarismResult[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -141,7 +143,13 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
                                                 </div>
                                             </div>
 
-                                            <button style={{ color: '#2563eb', background: '#eff6ff', padding: '8px 16px', borderRadius: '8px', border: 'none', fontWeight: '500', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                            <button 
+                                                onClick={() => {
+                                                    onClose();
+                                                    navigate(`/faculty/plagscan?assignment=${assignmentId}&s1=${match.student1.id}&s2=${match.student2.id}`);
+                                                }}
+                                                style={{ color: '#2563eb', background: '#eff6ff', padding: '8px 16px', borderRadius: '8px', border: 'none', fontWeight: '500', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                            >
                                                 <FileText size={16} />
                                                 View Diff
                                             </button>

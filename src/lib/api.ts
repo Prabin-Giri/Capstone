@@ -1016,18 +1016,28 @@ export async function resetPassword(token: string, newPassword: string): Promise
     });
 }
 
+export interface PlagiarismFileData {
+    name: string;
+    content: string;
+    matchedLines: number[];
+}
+
 export interface PlagiarismResult {
     student1: { name: string; id: string };
     student2: { name: string; id: string };
     similarity: number;
     matchedTokens: number;
     totalTokens: number;
+    file1?: PlagiarismFileData;
+    file2?: PlagiarismFileData;
+    assignmentId?: string;
 }
 
 export interface PlagiarismResponse {
     assignmentId: string;
     totalSubmissions: number;
     flaggedPairs: PlagiarismResult[];
+    latencyMs: number;
     message?: string;
 }
 

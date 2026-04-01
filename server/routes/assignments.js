@@ -533,6 +533,7 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
         const assignmentId = req.params.id;
         const fs = require('fs');
         const path = require('path');
+        const startTime = Date.now();
 
         const [submissions] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ?', [assignmentId]);
         const submissionMap = new Map();
@@ -545,29 +546,79 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
         });
 
         const tokenize = (code) => {
-            return code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '')
-                .replace(/\s+/g, ' ')
+            return code
+                .replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '') // remove JS/C comments
+                .replace(/#.*/g, '') // remove Python comments
+                .replace(/[^a-zA-Z0-9_]/g, ' ') // strip punctuation
                 .toLowerCase()
-                .split(' ')
+                .split(/\s+/)
                 .filter(t => t.length > 0);
+        };
+
+        // find matched line indices between two code strings
+        const findMatchedLines = (code1, code2) => {
+            const lines1 = code1.split('\n');
+            const lines2 = code2.split('\n');
+            const matched1 = new Set();
+            const matched2 = new Set();
+
+            lines1.forEach((line, i) => {
+                const stripped = line.replace(/#.*/g, '').replace(/[^a-zA-Z0-9_]/g, ' ').toLowerCase().trim();
+                if (stripped.length < 4) return;
+                lines2.forEach((line2, j) => {
+                    const stripped2 = line2.replace(/#.*/g, '').replace(/[^a-zA-Z0-9_]/g, ' ').toLowerCase().trim();
+                    if (stripped2.length >= 4 && stripped === stripped2) {
+                        matched1.add(i);
+                        matched2.add(j);
+                    }
+                });
+            });
+            return { matched1: Array.from(matched1), matched2: Array.from(matched2) };
         };
 
         const students = Array.from(submissionMap.values());
         const flaggedPairs = [];
         const threshold = 50;
+        const uploadsDir = path.join(__dirname, '../uploads');
+
+        const readSubmissionFiles = (sub) => {
+            let fileList = [];
+            try {
+                let parsed = JSON.parse(sub.file_path);
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                if (Array.isArray(parsed)) {
+                    fileList = parsed;
+                } else {
+                    fileList = [{ name: sub.file_name, path: sub.file_path }];
+                }
+            } catch (e) {
+                fileList = [{ name: sub.file_name, path: sub.file_path }];
+            }
+
+            let combinedCode = '';
+            for (const file of fileList) {
+                const fullPath = path.join(uploadsDir, file.path);
+                if (fs.existsSync(fullPath)) {
+                    const content = fs.readFileSync(fullPath, 'utf8');
+                    // Inject a visual separator if there are multiple files so we can stitch them for display
+                    if (fileList.length > 1) {
+                        combinedCode += `\n\n# --- ${file.name} ---\n\n`;
+                    }
+                    combinedCode += content;
+                }
+            }
+            return combinedCode.trim();
+        };
 
         for (let i = 0; i < students.length; i++) {
             for (let j = i + 1; j < students.length; j++) {
                 const sub1 = students[i];
                 const sub2 = students[j];
 
-                const path1 = path.join(__dirname, '../../uploads', sub1.file_path);
-                const path2 = path.join(__dirname, '../../uploads', sub2.file_path);
+                const code1 = readSubmissionFiles(sub1);
+                const code2 = readSubmissionFiles(sub2);
 
-                if (fs.existsSync(path1) && fs.existsSync(path2)) {
-                    const code1 = fs.readFileSync(path1, 'utf8');
-                    const code2 = fs.readFileSync(path2, 'utf8');
-
+                if (code1 && code2) {
                     const tokens1 = new Set(tokenize(code1));
                     const tokens2 = new Set(tokenize(code2));
 
@@ -582,12 +633,17 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
                         const [s2Rows] = await db.execute('SELECT name FROM users WHERE id = ?', [sub2.student_id]);
                         const s2 = s2Rows[0];
 
+                        const { matched1, matched2 } = findMatchedLines(code1, code2);
+
                         flaggedPairs.push({
                             student1: { id: sub1.student_id, name: s1 ? s1.name : sub1.student_id },
                             student2: { id: sub2.student_id, name: s2 ? s2.name : sub2.student_id },
                             similarity: Math.round(similarity),
                             matchedTokens: intersection.size,
-                            totalTokens: union.size
+                            totalTokens: union.size,
+                            file1: { name: sub1.file_name, content: code1, matchedLines: matched1 },
+                            file2: { name: sub2.file_name, content: code2, matchedLines: matched2 },
+                            assignmentId,
                         });
                     }
                 }
@@ -595,11 +651,13 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
         }
 
         flaggedPairs.sort((a, b) => b.similarity - a.similarity);
+        const latencyMs = Date.now() - startTime;
 
         res.json({
             assignmentId: req.params.id,
             totalSubmissions: students.length,
-            flaggedPairs
+            flaggedPairs,
+            latencyMs,
         });
 
     } catch (err) {
