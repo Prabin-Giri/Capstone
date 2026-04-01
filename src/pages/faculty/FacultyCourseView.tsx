@@ -21,13 +21,12 @@ import {
     getTAs,
     inviteTA,
     removeTA,
-    UPLOADS_BASE,
     type User,
     type CsvEnrollResult
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { ChevronLeft, BarChart2, Plus, Download, Users, FileText, Trash2, Calendar, ChevronDown, Upload, Archive, AlertTriangle, Search, UserPlus, X, Key, Pencil, PenLine } from 'lucide-react';
+import { ChevronLeft, Plus, Download, Users, FileText, Trash2, Calendar, ChevronDown, Upload, Archive, AlertTriangle, Search, UserPlus, X, Key, Pencil, PenLine } from 'lucide-react';
 import UserAvatar from '../../components/ui/UserAvatar';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';

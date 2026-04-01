@@ -49,7 +49,7 @@ const Inbox: React.FC = () => {
     const [showParticipants, setShowParticipants] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const convIdFromUrl = searchParams.get('conversationId');
     const handledConvIdRef = useRef<string | null>(null);
 
@@ -212,9 +212,7 @@ const Inbox: React.FC = () => {
         return conv.participants.filter(p => p.id !== userId);
     }
 
-    function getInitial(name: string) {
-        return name?.charAt(0)?.toUpperCase() || '?';
-    }
+
 
     // Filter by course and search
     const filtered = conversations.filter(c => {

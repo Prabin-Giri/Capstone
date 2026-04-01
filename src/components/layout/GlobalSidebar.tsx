@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle, User, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle, ShieldAlert } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
 import UserAvatar from '../ui/UserAvatar';
 import { cancelDialog } from '../ui/Dialog';
