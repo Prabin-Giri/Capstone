@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, getAssignments } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
-import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { getUser } from '../../lib/auth';
 
@@ -94,19 +93,19 @@ const StudentDashboard: React.FC = () => {
 
             {/* Analytics Summary Bar */}
             <div className="analytics-bar">
-                <div className="analytics-card glass">
+                <div className="analytics-card glass analytics-card-outlined">
                     <span className="analytics-label">Active Courses</span>
                     <span className="analytics-value">{courses.length}</span>
                     <span className="analytics-desc">Spring 2026 Semester</span>
                 </div>
-                <div className="analytics-card glass">
+                <div className="analytics-card glass analytics-card-outlined">
                     <span className="analytics-label">Pending Assignments</span>
                     <span className="analytics-value">
                         {myAssignments.filter(a => a.status === 'active' && new Date(a.due_date) >= new Date()).length}
                     </span>
                     <span className="analytics-desc">Across your courses</span>
                 </div>
-                <div className="analytics-card glass analytics-card--maroon">
+                <div className="analytics-card glass analytics-card-outlined">
                     <span className="analytics-label">Next Deadline</span>
                     <span className="analytics-value">
                         {(() => {
@@ -147,7 +146,7 @@ const StudentDashboard: React.FC = () => {
                         : 'None';
 
                     return (
-                        <Card
+                        <div
                             key={`${course.id}-${course.displayRole}`}
                             className={`course-card-premium cursor-pointer ${isTA ? 'ta-card' : ''}`}
                             onClick={() => navigate(isTA ? `/ta/courses/${course.id}` : `/student/courses/${course.id}`)}
@@ -157,13 +156,15 @@ const StudentDashboard: React.FC = () => {
                                     <h3 className="course-title-display">{course.name}</h3>
                                     <p className="course-term">{course.term}</p>
                                 </div>
-                                <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                                    <span className="tag-pill">{course.id}</span>
-                                    {isTA && (
-                                        <span className="role-badge ta">
-                                            TA
-                                        </span>
-                                    )}
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                                    <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                                        <span className="tag-pill">{course.id}</span>
+                                        {isTA && (
+                                            <span className="role-badge ta">
+                                                TA
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -186,7 +187,7 @@ const StudentDashboard: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                        </Card>
+                        </div>
                     );
                         })}
                     </div>
@@ -216,7 +217,7 @@ const StudentDashboard: React.FC = () => {
                                 : 'None';
 
                             return (
-                                <Card
+                                <div
                                     key={`${course.id}-${course.displayRole}`}
                                     className="course-card-premium cursor-pointer ta-card"
                                     onClick={() => navigate(`/ta/courses/${course.id}`)}
@@ -226,9 +227,11 @@ const StudentDashboard: React.FC = () => {
                                             <h3 className="course-title-display">{course.name}</h3>
                                             <p className="course-term">{course.term}</p>
                                         </div>
-                                        <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                                            <span className="tag-pill">{course.id}</span>
-                                            <span className="role-badge ta">TA</span>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                                            <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                                                <span className="tag-pill">{course.id}</span>
+                                                <span className="role-badge ta">TA</span>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -242,7 +245,7 @@ const StudentDashboard: React.FC = () => {
                                             <span className="stat-label">Next Due</span>
                                         </div>
                                     </div>
-                                </Card>
+                                </div>
                             );
                         })}
                     </div>

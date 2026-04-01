@@ -8,12 +8,12 @@ const AppSettings: React.FC = () => {
         <div className="min-h-full bg-slate-950/95 text-slate-50 px-6 py-8">
             <div className="max-w-3xl mx-auto space-y-6">
                 <div>
-                    <Link
-                        to="/admin"
-                        className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200"
-                    >
-                        <ChevronLeft size={18} /> Back to Dashboard
-                    </Link>
+                    <div className="breadcrumb">
+                        <Link to="/admin">
+                            <ChevronLeft size={14} />
+                            Back to Dashboard
+                        </Link>
+                    </div>
                 </div>
                 <header className="flex items-center gap-3">
                     <div className="rounded-lg bg-slate-800 p-2">

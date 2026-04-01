@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import type { Course, Assignment, Submission } from '../../lib/api';
-import { Search, Clock } from 'lucide-react';
+import { Search, Clock, ChevronLeft } from 'lucide-react';
 import './ClassAssignments.css';
 
 const ClassAssignments: React.FC = () => {
@@ -73,9 +73,12 @@ const ClassAssignments: React.FC = () => {
                 <div className="state-card">
                     <h1 className="assignments-title">Course not found</h1>
                     <p className="assignments-subtitle">Invalid course ID.</p>
-                    <Link to="/student" className="link-primary">
-                        Back to Dashboard
-                    </Link>
+                    <div className="breadcrumb">
+                         <Link to="/student">
+                             <ChevronLeft size={14} />
+                             Back to Dashboard
+                         </Link>
+                    </div>
                 </div>
             </div>
         );
@@ -116,9 +119,12 @@ const ClassAssignments: React.FC = () => {
                 <div className="state-card">
                     <h1 className="assignments-title">Course not found</h1>
                     <p className="assignments-subtitle">We could not find that course.</p>
-                    <Link to="/student" className="link-primary">
-                        Back to Dashboard
-                    </Link>
+                    <div className="breadcrumb">
+                        <Link to="/student">
+                            <ChevronLeft size={14} />
+                            Back to Dashboard
+                        </Link>
+                    </div>
                 </div>
             </div>
         );
@@ -135,6 +141,12 @@ const ClassAssignments: React.FC = () => {
 
     return (
         <div className="class-assignments">
+            <div className="breadcrumb">
+                 <Link to="/student">
+                     <ChevronLeft size={14} />
+                     Back to Dashboard
+                 </Link>
+            </div>
             {header}
             <div className="assignments-toolbar">
                 <div className="assignments-search">
@@ -194,7 +206,11 @@ const ClassAssignments: React.FC = () => {
                                 year: 'numeric'
                             });
 
-                            const isGraded = submission && (submission.status === 'graded' || submission.status === 'returned');
+                            // Use case-insensitive check and also allow showing grade if explicitly present even if still 'pending'
+                            const isGraded = submission && (
+                                ['graded', 'returned'].includes(submission.status?.toLowerCase() || '') ||
+                                (submission.grade !== undefined && submission.grade !== null)
+                            );
                             const gradeDisplay =
                                 isGraded &&
                                     submission.grade !== undefined &&

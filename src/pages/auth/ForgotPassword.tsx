@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Mail, CheckCircle, ChevronLeft } from 'lucide-react';
 import { forgotPassword } from '../../lib/api';
 import './Login.css';
 
@@ -78,7 +78,7 @@ const ForgotPassword: React.FC = () => {
 
                             <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                                 <Link to="/login" className="back-link-inline" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <ArrowLeft size={14} /> Back to Login
+                                    <ChevronLeft size={14} /> Back to Login
                                 </Link>
                             </div>
                         </>

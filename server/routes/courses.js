@@ -74,10 +74,15 @@ router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
         const result = await db.execute(`
-            SELECT c.*,
+            SELECT c.*, 
+            u.name AS instructor_name, 
+            u.email AS instructor_email, 
+            u.profile_picture AS instructor_profile_picture,
             (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = c.id) as student_count,
             (SELECT COUNT(*) FROM assignments a WHERE a.course_id = c.id AND a.status = 'active') as active_assignment_count
-            FROM courses c WHERE c.id = ?
+            FROM courses c 
+            LEFT JOIN users u ON c.instructor_id = u.id
+            WHERE c.id = ?
         `, [req.params.id]);
         const course = queryOne(result);
         if (!course) {
@@ -201,7 +206,7 @@ router.get('/:id/grades', async (req, res, next) => {
 
         // 3. Get only students enrolled in this course
         const [students] = await db.execute(`
-            SELECT u.id, u.name, u.email FROM users u
+            SELECT u.id, u.name, u.email, u.profile_picture FROM users u
             JOIN course_enrollments ce ON u.id = ce.student_id AND ce.course_id = ?
             WHERE u.role = 'student'
             ORDER BY u.name

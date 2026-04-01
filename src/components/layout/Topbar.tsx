@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Menu, Moon, Sun, Monitor } from 'lucide-react';
+import { Bell, Menu, Moon, Sun, Monitor, MessageSquare, Calendar as CalendarIcon, CheckCheck, Inbox, ArrowRight } from 'lucide-react';
 import { getUser, getRole, AUTH_ROLES } from '../../lib/auth';
 import { getUnreadCount, getConversations, getAssignments } from '../../lib/api';
 import type { Conversation, Assignment } from '../../lib/api';
@@ -195,6 +195,23 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
+    const formatTimeAgo = (iso?: string) => {
+        if (!iso) return '';
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return '';
+        const now = new Date();
+        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours}h ago`;
+        const diffInDays = Math.floor(diffInHours / 24);
+        if (diffInDays < 7) return `${diffInDays}d ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
     const loadNotifications = async () => {
         if (!user?.id) return;
         setNotifLoading(true);
@@ -264,42 +281,94 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                     </button>
                     {notifOpen && (
                         <div className="topbar-notif-popover">
-                            <div className="topbar-notif-header">Notifications</div>
-                            {notifLoading ? (
-                                <div className="topbar-notif-empty">Loading...</div>
-                            ) : recentMessages.length === 0 && upcomingDeadlines.length === 0 ? (
-                                <div className="topbar-notif-empty">No notifications right now.</div>
-                            ) : (
-                                <>
-                                    <div className="topbar-notif-section-title">Messages</div>
-                                    {recentMessages.length === 0 ? (
-                                        <div className="topbar-notif-empty">No recent messages.</div>
-                                    ) : recentMessages.map(c => (
-                                        <div key={c.id} className="topbar-notif-item">
-                                            <div className="topbar-notif-item-title">{c.subject}</div>
-                                            <div className="topbar-notif-item-sub">{c.last_message?.body || 'No messages yet.'}</div>
-                                        </div>
-                                    ))}
-                                    <div className="topbar-notif-section-title">Upcoming Deadlines</div>
-                                    {upcomingDeadlines.length === 0 ? (
-                                        <div className="topbar-notif-empty">No upcoming deadlines.</div>
-                                    ) : upcomingDeadlines.map(a => (
-                                        <div key={a.id} className="topbar-notif-item">
-                                            <div className="topbar-notif-item-title">{a.title}</div>
-                                            <div className="topbar-notif-item-sub">{formatDue(a.due_date)}</div>
-                                        </div>
-                                    ))}
-                                    <button
-                                        className="topbar-notif-viewall"
+                            <div className="topbar-notif-header">
+                                <span className="topbar-notif-title">Notifications</span>
+                                {(recentMessages.length > 0 || upcomingDeadlines.length > 0) && (
+                                    <button 
+                                        className="topbar-notif-clear"
                                         onClick={() => {
-                                            setNotifOpen(false);
-                                            navigate('/inbox');
+                                            setRecentMessages([]);
+                                            setUpcomingDeadlines([]);
                                         }}
                                     >
-                                        View all
+                                        <CheckCheck size={14} style={{ marginRight: '4px' }} />
+                                        Clear all
                                     </button>
-                                </>
-                            )}
+                                )}
+                            </div>
+                            
+                            <div className="topbar-notif-content">
+                                {notifLoading ? (
+                                    <div className="topbar-notif-empty">Loading notifications...</div>
+                                ) : recentMessages.length === 0 && upcomingDeadlines.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                        <div style={{ marginBottom: '12px', opacity: 0.2 }}>
+                                            <Bell size={48} style={{ margin: '0 auto' }} />
+                                        </div>
+                                        <div className="topbar-notif-item-title" style={{ textAlign: 'center' }}>All caught up!</div>
+                                        <div className="topbar-notif-item-sub" style={{ textAlign: 'center' }}>No new notifications right now.</div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {recentMessages.length > 0 && (
+                                            <>
+                                                <div className="topbar-notif-section-title">Recent Messages</div>
+                                                {recentMessages.map(c => (
+                                                    <div key={c.id} className={`topbar-notif-item ${c.unread_count > 0 ? 'unread' : ''}`} onClick={() => { setNotifOpen(false); navigate(`/inbox?conversationId=${c.id}`); }}>
+                                                        <div className="topbar-notif-icon-wrap">
+                                                            <MessageSquare size={18} />
+                                                        </div>
+                                                        <div className="topbar-notif-text">
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                <div className="topbar-notif-item-title">
+                                                                    {c.last_message?.sender_name || 'Someone'}
+                                                                    {c.unread_count > 0 && <span className="topbar-notif-unread-dot" />}
+                                                                </div>
+                                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                                                    {formatTimeAgo(c.updated_at)}
+                                                                </span>
+                                                            </div>
+                                                            <div className={`topbar-notif-item-subject ${c.unread_count > 0 ? 'unread' : ''}`}>{c.subject}</div>
+                                                            <div className="topbar-notif-item-sub">{c.last_message?.body || 'No messages yet.'}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        )}
+                                        
+                                        {upcomingDeadlines.length > 0 && (
+                                            <>
+                                                <div className="topbar-notif-section-title">Upcoming Deadlines</div>
+                                                {upcomingDeadlines.map(a => (
+                                                    <div key={a.id} className="topbar-notif-item" onClick={() => { setNotifOpen(false); navigate(user?.role === AUTH_ROLES.FACULTY ? `/faculty/courses/${a.course_id}/assignments/${a.id}` : `/student/courses/${a.course_id}/assignments/${a.id}`); }}>
+                                                        <div className="topbar-notif-icon-wrap deadline">
+                                                            <CalendarIcon size={18} />
+                                                        </div>
+                                                        <div className="topbar-notif-text">
+                                                            <div className="topbar-notif-item-title">{a.title}</div>
+                                                            <div className="topbar-notif-item-sub">Due {formatDue(a.due_date)}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="topbar-notif-footer">
+                                <button
+                                    className="topbar-notif-viewall"
+                                    onClick={() => {
+                                        setNotifOpen(false);
+                                        navigate('/inbox');
+                                    }}
+                                >
+                                    <Inbox size={16} />
+                                    Go to Inbox
+                                    <ArrowRight size={14} style={{ marginLeft: 'auto' }} />
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

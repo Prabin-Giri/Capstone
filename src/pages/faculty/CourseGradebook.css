@@ -104,9 +104,9 @@
     border-radius: 6px;
     font-size: 0.875rem;
     font-weight: 600;
-    border: 1px solid var(--border-color);
-    background: var(--bg-body);
-    color: var(--text-primary);
+    border: 2px solid var(--primary-light);
+    background-color: var(--bg-surface);
+    color: var(--primary-text);
     cursor: pointer;
 }
 
@@ -135,8 +135,8 @@
 }
 
 .btn-report:hover {
-    background-color: var(--border-color);
-    border-color: var(--text-primary);
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
 }
 
 .btn-report.premium {

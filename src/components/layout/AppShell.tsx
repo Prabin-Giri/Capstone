@@ -136,21 +136,31 @@ const AppShell: React.FC = () => {
                     <Topbar onToggleSidebar={toggleSidebar} />
 
                     <main className="content-area">
-                        {courseId ? (
-                            <div className="course-page-layout">
-                                <CourseSidebar courseId={courseId} />
-                                <div className="course-page-content">
-                                    <Breadcrumbs courseId={courseId} />
-                                    <div className="page-transition" key={location.pathname}>
-                                        <Outlet />
+                        {(() => {
+                            // For grading routes, use a stable key so SubmissionGrader stays
+                            // mounted when switching between students (only submissionId changes).
+                            // For all other routes, use the full pathname for page transitions.
+                            const isGradingRoute = /\/assignments\/[^/]+\/grading\/[^/]+$/.test(location.pathname);
+                            const transitionKey = isGradingRoute
+                                ? location.pathname.replace(/\/grading\/[^/]+$/, '/grading')
+                                : location.pathname;
+
+                            return courseId ? (
+                                <div className="course-page-layout">
+                                    <CourseSidebar courseId={courseId} />
+                                    <div className="course-page-content">
+                                        <Breadcrumbs courseId={courseId} />
+                                        <div className="page-transition" key={transitionKey}>
+                                            <Outlet />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="page-transition" key={location.pathname}>
-                                <Outlet />
-                            </div>
-                        )}
+                            ) : (
+                                <div className="page-transition" key={transitionKey}>
+                                    <Outlet />
+                                </div>
+                            );
+                        })()}
                     </main>
                 </div>
             </div>

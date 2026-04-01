@@ -174,3 +174,65 @@
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
 }
+
+.instructor-badge-large {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.instructor-badge-large:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.instructor-badge-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.instructor-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-tertiary);
+}
+
+.instructor-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Dark mode overrides for student view instructor badge */
+.dark-theme .instructor-badge-large {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .instructor-badge-large:hover {
+    border-color: var(--primary-light);
+}
+
+.dark-theme .instructor-name {
+    color: #ffffff;
+}
+
+@media (max-width: 640px) {
+    .overview-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .instructor-badge-large {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+}

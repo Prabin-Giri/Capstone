@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Mail, Send, Star, Archive, Trash2, ArrowLeft, X, Pencil, Search, UserPlus } from 'lucide-react';
 import { getUser } from '../lib/auth';
 import {
@@ -17,6 +18,7 @@ import {
 import type { Course, Conversation, ConversationMessage, MessageContact, UserGroup } from '../lib/api';
 import { parseUTC } from '../lib/utils';
 import { showDialog } from '../components/ui/Dialog';
+import UserAvatar from '../components/ui/UserAvatar';
 import './Inbox.css';
 
 type InboxFilter = 'inbox' | 'unread' | 'starred' | 'sent' | 'archived';
@@ -47,6 +49,9 @@ const Inbox: React.FC = () => {
     const [showParticipants, setShowParticipants] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const convIdFromUrl = searchParams.get('conversationId');
+    const handledConvIdRef = useRef<string | null>(null);
 
     // Load courses
     useEffect(() => {
@@ -103,6 +108,17 @@ const Inbox: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // Handle deep linking to a specific conversation from URL
+    useEffect(() => {
+        if (convIdFromUrl && conversations.length > 0 && handledConvIdRef.current !== convIdFromUrl) {
+            const found = conversations.find(c => String(c.id) === convIdFromUrl);
+            if (found) {
+                selectConversation(found);
+                handledConvIdRef.current = convIdFromUrl;
+            }
+        }
+    }, [convIdFromUrl, conversations]);
+
     function selectConversation(conv: Conversation) {
         setActiveConv(conv);
         setDetailOpen(true);
@@ -139,7 +155,7 @@ const Inbox: React.FC = () => {
     async function handleArchive() {
         if (!activeConv) return;
         const isCurrentlyArchived = !!activeConv.is_archived;
-        
+
         // Confirmation for archiving (but not necessarily for unarchiving)
         if (!isCurrentlyArchived) {
             const confirmed = await showDialog({
@@ -172,7 +188,7 @@ const Inbox: React.FC = () => {
             cancelText: 'Cancel'
         });
         if (!confirmed) return;
-        
+
         try {
             await deleteConversation(activeConv.id, userId);
             setActiveConv(null);
@@ -262,9 +278,13 @@ const Inbox: React.FC = () => {
                                     onClick={() => selectConversation(conv)}
                                 >
                                     <div className="inbox-conv-avatar">
-                                        {displayUser?.profile_picture
-                                            ? <img src={displayUser.profile_picture.startsWith('http') ? displayUser.profile_picture : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'}/uploads/${displayUser.profile_picture}`} alt="" />
-                                            : getInitial(displayUser?.name || conv.created_by_name || '?')}
+                                        <UserAvatar 
+                                            user={{ 
+                                                name: displayUser?.name || conv.created_by_name || '?', 
+                                                profile_picture: displayUser?.profile_picture 
+                                            }} 
+                                            size={44} 
+                                        />
                                     </div>
                                     <div className="inbox-conv-body">
                                         <div className="inbox-conv-header">
@@ -281,8 +301,8 @@ const Inbox: React.FC = () => {
                                         )}
                                         <div className="inbox-conv-meta">
                                             {conv.course_name && <span className="inbox-conv-course-badge">{conv.course_name}</span>}
-                                            <span 
-                                                className={`inbox-conv-star ${conv.is_starred ? 'starred' : ''}`} 
+                                            <span
+                                                className={`inbox-conv-star ${conv.is_starred ? 'starred' : ''}`}
                                                 onClick={e => handleStar(conv, e)}
                                                 title={conv.is_starred ? "Unstar" : "Star"}
                                             >
@@ -320,16 +340,16 @@ const Inbox: React.FC = () => {
                                     <button className="inbox-action-btn" title="Manage Participants" onClick={() => setShowParticipants(true)}>
                                         <UserPlus size={16} />
                                     </button>
-                                    <button 
-                                        className={`inbox-action-btn ${activeConv.is_starred ? 'starred' : ''}`} 
-                                        title={activeConv.is_starred ? "Unstar" : "Star"} 
+                                    <button
+                                        className={`inbox-action-btn ${activeConv.is_starred ? 'starred' : ''}`}
+                                        title={activeConv.is_starred ? "Unstar" : "Star"}
                                         onClick={e => handleStar(activeConv, e)}
                                     >
                                         <Star size={18} fill={activeConv.is_starred ? "currentColor" : "none"} />
                                     </button>
-                                    <button 
-                                        className={`inbox-action-btn ${activeConv.is_archived ? 'archived' : ''}`} 
-                                        title={activeConv.is_archived ? "Unarchive" : "Archive"} 
+                                    <button
+                                        className={`inbox-action-btn ${activeConv.is_archived ? 'archived' : ''}`}
+                                        title={activeConv.is_archived ? "Unarchive" : "Archive"}
                                         onClick={handleArchive}
                                     >
                                         <Archive size={18} fill={activeConv.is_archived ? "currentColor" : "none"} />
@@ -344,9 +364,13 @@ const Inbox: React.FC = () => {
                                 {messages.map(msg => (
                                     <div key={msg.id} className={`inbox-msg ${msg.sender_id === userId ? 'own' : ''}`}>
                                         <div className="inbox-msg-avatar">
-                                            {msg.sender_picture
-                                                ? <img src={msg.sender_picture.startsWith('http') ? msg.sender_picture : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'}/uploads/${msg.sender_picture}`} alt="" />
-                                                : getInitial(msg.sender_name)}
+                                            <UserAvatar 
+                                                user={{ 
+                                                    name: msg.sender_name, 
+                                                    profile_picture: msg.sender_picture 
+                                                }} 
+                                                size={32} 
+                                            />
                                         </div>
                                         <div className="inbox-msg-content">
                                             <div className="inbox-msg-sender">{msg.sender_name}</div>
@@ -474,7 +498,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ userId, courses, onClose, o
         const newRecipients = group.members
             .filter(m => m.id !== userId && !recipients.find(r => r.id === m.id))
             .map(m => ({ id: m.id, name: m.name, email: m.email, role: 'student' as const, profile_picture: undefined }));
-        
+
         if (newRecipients.length > 0) {
             setRecipients(prev => [...prev, ...newRecipients]);
         }
@@ -668,8 +692,8 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({ userId, conversat
                                             <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</span>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{c.role}</span>
                                         </div>
-                                        <button 
-                                            className="btn btn-primary" 
+                                        <button
+                                            className="btn btn-primary"
                                             style={{ padding: '4px 12px', fontSize: '0.75rem' }}
                                             disabled={adding === c.id}
                                             onClick={() => handleAdd(c.id)}

@@ -27,9 +27,11 @@ import {
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FileText, Calendar, Plus, ChevronDown, Download, Upload, Archive, AlertTriangle, Search, UserPlus, X, Trash2, Key, Users, Pencil, PenLine } from 'lucide-react';
+import { ChevronLeft, BarChart2, Plus, Download, Users, FileText, Trash2, Calendar, ChevronDown, Upload, Archive, AlertTriangle, Search, UserPlus, X, Key, Pencil, PenLine } from 'lucide-react';
+import UserAvatar from '../../components/ui/UserAvatar';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
+import { Link } from 'react-router-dom';
 import { showDialog } from '../../components/ui/Dialog';
 import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 
@@ -402,6 +404,12 @@ const FacultyCourseView: React.FC = () => {
             {/* Page Header */}
             <div className="faculty-course-header">
                 <div className="header-title">
+                    <div className="breadcrumb">
+                        <Link to="/faculty">
+                            <ChevronLeft size={14} />
+                            Back to Courses
+                        </Link>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <p className="header-metadata">{course.name} • {course.id}</p>
                         {!!course.is_archived && (
@@ -539,8 +547,7 @@ const FacultyCourseView: React.FC = () => {
 
                     <button
                         onClick={() => navigate('gradebook')}
-                        className="create-btn"
-                        style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+                        className="create-btn create-btn-solid"
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <FileText size={18} />
@@ -554,19 +561,19 @@ const FacultyCourseView: React.FC = () => {
 
 
             <div className="analytics-bar">
-                <div className="analytics-card glass">
+                <div className="analytics-card glass analytics-card-outlined">
                     <span className="analytics-label">Total Assignments</span>
                     <span className="analytics-value">{assignments.length}</span>
                     <span className="analytics-desc">Current semester total</span>
                 </div>
-                <div className="analytics-card glass">
+                <div className="analytics-card glass analytics-card-outlined">
                     <span className="analytics-label">Enrolled Students</span>
                     <span className="analytics-value">{enrolledStudents.length}</span>
                     <span className="analytics-desc">Active learners</span>
                 </div>
-                <div className="analytics-card glass">
+                <div className="analytics-card glass analytics-card-outlined">
                     <span className="analytics-label">Pending Grading</span>
-                    <span className="analytics-value" style={{ color: 'var(--text-primary)' }}>
+                    <span className="analytics-value">
                         {pendingCount}
                     </span>
                     <span className="analytics-desc">Total submissions to review</span>
@@ -672,16 +679,7 @@ const FacultyCourseView: React.FC = () => {
                                 </div>
                                 ))
                         )}
-                        {assignments.length > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                                <button
-                                    onClick={() => navigate('assignments')}
-                                    className="view-all-maroon-btn"
-                                >
-                                    View All
-                                </button>
-                            </div>
-                        )}
+
                     </div>
                 </div>
 
@@ -701,17 +699,24 @@ const FacultyCourseView: React.FC = () => {
                                 <div className="ta-info-list">
                                     {enrolledTAs.slice(0, 3).map(ta => (
                                         <div key={ta.id} className="ta-info-row">
-                                            {ta.profile_picture ? (
-                                                <img
-                                                    src={`${UPLOADS_BASE}/uploads/${ta.profile_picture}`}
-                                                    alt={ta.name}
-                                                    className="ta-avatar"
-                                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                                />
-                                            ) : (
-                                                <span className="ta-dot ta-initial" aria-hidden="true">{ta.name.charAt(0).toUpperCase()}</span>
-                                            )}
+                                            <UserAvatar 
+                                                user={{ 
+                                                    name: ta.name, 
+                                                    profile_picture: ta.profile_picture 
+                                                }} 
+                                                size={24} 
+                                            />
                                             <span className="ta-name">{ta.name}</span>
+                                            <button
+                                                className="ta-unassign-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setTaToRemove(ta);
+                                                }}
+                                                title={`Unassign ${ta.name}`}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
                                     ))}
                                     {enrolledTAs.length > 3 && (
@@ -897,29 +902,30 @@ const FacultyCourseView: React.FC = () => {
             {taToRemove && (
                 <div className="unenroll-overlay">
                     <div className="unenroll-content">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="unenroll-icon-wrapper">
-                                <AlertTriangle size={32} />
-                            </div>
-                            <h3 className="unenroll-title">Remove Teaching Assistant?</h3>
-                            <p className="unenroll-text">
-                                Are you sure you want to revoke access for <strong>{taToRemove.name}</strong> to this course?
-                            </p>
+                        <div className="unenroll-icon-wrapper" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)' }}>
+                            <Users size={32} />
+                        </div>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.8rem', textAlign: 'center' }}>
+                            Remove Teaching Assistant?
+                        </h2>
+                        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: '1.05rem', lineHeight: '1.5', marginBottom: '2rem' }}>
+                            Are you sure you want to revoke access for <strong style={{ color: 'var(--primary-color)' }}>{taToRemove.name}</strong> to this course?
+                        </p>
 
-                            <div className="unenroll-btn-group">
-                                <button
-                                    onClick={() => setTaToRemove(null)}
-                                    className="unenroll-btn unenroll-btn-cancel"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleRemoveTA}
-                                    className="unenroll-btn unenroll-btn-confirm"
-                                >
-                                    Remove Access
-                                </button>
-                            </div>
+                        <div className="unenroll-btn-group">
+                            <button
+                                onClick={() => setTaToRemove(null)}
+                                className="unenroll-btn"
+                                style={{ background: 'var(--bg-body)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleRemoveTA}
+                                className="unenroll-btn unenroll-btn-confirm"
+                            >
+                                Unassign TA
+                            </button>
                         </div>
                     </div>
                 </div>

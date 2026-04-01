@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, getSubmissions, deleteAssignment, UPLOADS_BASE } from '../../lib/api';
 import type { TestCase, RubricConfig, User } from '../../lib/api';
 import { getRole } from '../../lib/auth';
@@ -342,14 +342,12 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         <div className={`assignment-wizard-container${readOnly ? ' view-only' : ''}`}>
             {readOnly && (
                 <div className="wizard-view-header">
-                    <button
-                        type="button"
-                        className="wizard-back-to-assignments"
-                        onClick={() => courseId && navigate(`${basePath}/courses/${courseId}/assignments`)}
-                    >
-                        <ChevronLeft size={16} />
-                        Back to assignments
-                    </button>
+                    <div className="breadcrumb">
+                         <Link to={`${basePath}/courses/${courseId}`}>
+                             <ChevronLeft size={14} />
+                             Back to course
+                         </Link>
+                    </div>
                     <div className="wizard-view-header-row">
                         <h1 className="wizard-title wizard-title-view">{formData.title || 'Assignment'}</h1>
                         <div className="wizard-view-actions">
@@ -377,9 +375,16 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                 </div>
             )}
             {!readOnly && (
-                <h1 className="wizard-title">
-                    {isEditing ? 'Edit Assignment' : 'Create New Assignment'}
-                </h1>
+                <>
+                    <div className="breadcrumb">
+                        <Link to={`${basePath}/courses/${courseId}`}>
+                            <ChevronLeft size={14} /> Back to course
+                        </Link>
+                    </div>
+                    <h1 className="wizard-title">
+                        {isEditing ? 'Edit Assignment' : 'Create New Assignment'}
+                    </h1>
+                </>
             )}
 
             <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit} className="wizard-form">
@@ -1151,8 +1156,8 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
 
                 {readOnly ? (
                     <div className="form-actions">
-                        <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}/assignments`)}>
-                            Back to assignments
+                        <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}`)}>
+                            Back to course
                         </Button>
                     </div>
                 ) : (

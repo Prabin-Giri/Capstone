@@ -22,6 +22,7 @@ import {
     UserCheck,
     X,
 } from 'lucide-react';
+import UserAvatar from '../../components/ui/UserAvatar';
 import './UserManagement.css';
 
 const LS_SUSPENDED = 'urm_suspended_user_ids';
@@ -393,7 +394,10 @@ const UserManagement: React.FC = () => {
                                         return (
                                             <tr key={u.id}>
                                                 <td>
-                                                    <span className="font-medium text-[#1e293b]">{u.name ?? '—'}</span>
+                                                    <div className="um-user-cell">
+                                                        <UserAvatar user={u} size="sm" />
+                                                        <span className="font-medium text-[#1e293b]">{u.name ?? '—'}</span>
+                                                    </div>
                                                 </td>
                                                 <td className="max-w-[12rem] truncate text-[#475569]">{u.email ?? '—'}</td>
                                                 <td>{roleBadge(u.role)}</td>

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getCourseDocuments, getFileUrl } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
-import { Calendar, FileText, GraduationCap, ListChecks, Rocket } from 'lucide-react';
+import { Calendar, FileText, GraduationCap, ListChecks, Rocket, ChevronLeft } from 'lucide-react';
+import UserAvatar from '../../components/ui/UserAvatar';
 import './ClassOverview.css';
 
 const ClassOverview: React.FC = () => {
@@ -44,9 +45,12 @@ const ClassOverview: React.FC = () => {
                 <div className="state-card">
                     <h1 className="overview-title">Course not found</h1>
                     <p className="overview-subtitle">We could not find that course.</p>
-                    <Link to="/student" className="btn-primary">
-                        Back to Dashboard
-                    </Link>
+                    <div className="breadcrumb">
+                         <Link to="/student">
+                             <ChevronLeft size={14} />
+                             Back to Dashboard
+                         </Link>
+                    </div>
                 </div>
             </div>
         );
@@ -63,6 +67,12 @@ const ClassOverview: React.FC = () => {
 
     return (
         <div className="class-overview">
+            <div className="breadcrumb">
+                 <Link to="/student">
+                     <ChevronLeft size={14} />
+                     Back to Dashboard
+                 </Link>
+            </div>
             <div className="overview-header">
                 <div>
                     <h1 className="overview-title">{course.name}</h1>
@@ -70,9 +80,19 @@ const ClassOverview: React.FC = () => {
                         {course.name} &bull; {course.term}
                     </p>
                 </div>
-                <Link to={`/student/courses/${course.id}/assignments`} className="btn-view-assignments">
-                    View Assignments
-                </Link>
+                <div className="instructor-badge-large">
+                    <UserAvatar 
+                        user={{ 
+                            name: course.instructor_name, 
+                            profile_picture: course.instructor_profile_picture 
+                        }} 
+                        size={40} 
+                    />
+                    <div className="instructor-badge-info">
+                        <span className="instructor-label">Instructor</span>
+                        <span className="instructor-name">{course.instructor_name}</span>
+                    </div>
+                </div>
             </div>
 
             <div className="quick-actions">

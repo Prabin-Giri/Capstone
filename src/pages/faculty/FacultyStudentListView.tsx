@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
-import { getCourseGrades, getSubmissions, unenrollStudent, type GradebookData } from '../../lib/api';
-import { ChevronLeft, BarChart2, X, ExternalLink, Trash2 } from 'lucide-react';
+import { getCourseGrades, getSubmissions, type GradebookData, inviteTA, getTAs, removeTA, unenrollStudent } from '../../lib/api';
+import { ChevronLeft, BarChart2, X, ExternalLink, UserPlus, ShieldCheck, Users, Trash, ShieldAlert } from 'lucide-react';
+import UserAvatar from '../../components/ui/UserAvatar';
 import './FacultyStudentListView.css';
 
 const FacultyStudentListView: React.FC = () => {
@@ -11,6 +12,9 @@ const FacultyStudentListView: React.FC = () => {
     const [data, setData] = useState<GradebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+    const [taIds, setTaIds] = useState<Set<string>>(new Set());
+    const [taActionModal, setTaActionModal] = useState<{ student: any, isAssign: boolean } | null>(null);
+    const [studentToUnenroll, setStudentToUnenroll] = useState<{ id: string, name: string } | null>(null);
 
     const basePath = useMemo(() => {
         return pathname.startsWith('/ta') ? `/ta/courses/${courseId}` : `/faculty/courses/${courseId}`;
@@ -21,8 +25,19 @@ const FacultyStudentListView: React.FC = () => {
     useEffect(() => {
         if (courseId) {
             loadData();
+            loadTaData();
         }
     }, [courseId]);
+
+    async function loadTaData() {
+        if (!courseId) return;
+        try {
+            const tas = await getTAs(courseId);
+            setTaIds(new Set(tas.map(ta => ta.id)));
+        } catch (err) {
+            console.error('Failed to load TA data', err);
+        }
+    }
 
     async function loadData() {
         if (!courseId) return;
@@ -123,20 +138,6 @@ const FacultyStudentListView: React.FC = () => {
         }
     };
 
-    const handleUnenrollStudent = async (studentId: string, studentName: string) => {
-        if (!courseId) return;
-        const confirmed = window.confirm(`Are you sure you want to unenroll ${studentName} from this course? This action cannot be undone.`);
-        if (!confirmed) return;
-
-        try {
-            await unenrollStudent(courseId, studentId);
-            await loadData();
-        } catch (err) {
-            console.error('Failed to unenroll student', err);
-            alert('Failed to unenroll student. Please try again.');
-        }
-    };
-
     const report = generateStudentReport();
 
     return (
@@ -176,13 +177,7 @@ const FacultyStudentListView: React.FC = () => {
                             <tr key={student.id}>
                                 <td>
                                     <div className="student-name-cell">
-                                        <div
-                                            className="student-avatar-circle"
-                                            aria-hidden="true"
-                                            title={student.name}
-                                        >
-                                            {student.name?.trim()?.charAt(0)?.toUpperCase() || '?'}
-                                        </div>
+                                        <UserAvatar user={student} size="sm" />
                                         <span>{student.name}</span>
                                     </div>
                                 </td>
@@ -190,32 +185,122 @@ const FacultyStudentListView: React.FC = () => {
                                 <td style={{ color: 'var(--text-secondary)' }}>{student.email}</td>
                                 <td style={{ textAlign: 'right' }}>
                                     <div className="student-actions-cell">
-                                        <button 
-                                            className="view-grades-btn"
-                                            onClick={() => setSelectedStudentId(student.id)}
-                                            title="View student grades"
-                                        >
-                                            <BarChart2 size={16} />
-                                            View Grades
-                                        </button>
-                                        {!isTA && (
                                             <button 
-                                                className="unenroll-btn"
-                                                onClick={() => handleUnenrollStudent(student.id, student.name)}
-                                                title="Unenroll student"
+                                                className="view-grades-btn"
+                                                onClick={() => setSelectedStudentId(student.id)}
+                                                title="View student grades"
                                             >
-                                                <Trash2 size={16} />
+                                                <BarChart2 size={16} />
+                                                View Grades
                                             </button>
-                                        )}
-                                    </div>
-                                </td>
+                                            {!isTA && (
+                                                <>
+                                                    <button 
+                                                        className={taIds.has(student.id) ? "ta-toggle-btn active" : "ta-toggle-btn"}
+                                                        onClick={() => setTaActionModal({ student, isAssign: !taIds.has(student.id) })}
+                                                        title={taIds.has(student.id) ? "Unassign as TA" : "Assign as TA"}
+                                                    >
+                                                        {taIds.has(student.id) ? <ShieldCheck size={16} /> : <UserPlus size={16} />}
+                                                        {taIds.has(student.id) ? "Revoke TA" : "Make TA"}
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        className="roster-delete-btn"
+                                                        onClick={() => setStudentToUnenroll({ id: student.id, name: student.name })}
+                                                        title="Unenroll student from course"
+                                                    >
+                                                        <Trash size={18} strokeWidth={2.5} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
 
-            {/* Individual Grade Report Modal */}
+            {studentToUnenroll && (
+                <div className="report-modal-overlay">
+                    <div className="report-modal-content" style={{ maxWidth: '420px', textAlign: 'center', padding: '2.5rem' }}>
+                        <div className="unenroll-icon-wrapper" style={{ margin: '0 auto 1.5rem', backgroundColor: '#fef2f2', color: '#ef4444' }}>
+                            <ShieldAlert size={32} />
+                        </div>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.8rem' }}>
+                            Unenroll Student?
+                        </h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: '1.5', marginBottom: '2.5rem' }}>
+                            Are you sure you want to remove <strong style={{ color: 'var(--text-primary)' }}>{studentToUnenroll.name}</strong> from this course? This action cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button className="ta-toggle-btn" style={{ flex: 1, border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setStudentToUnenroll(null)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="ta-toggle-btn active"
+                                style={{ flex: 1, justifyContent: 'center', width: 'auto', height: 'auto', padding: '0.75rem 1rem !important' }}
+                                onClick={async () => {
+                                    try {
+                                        await unenrollStudent(courseId!, studentToUnenroll.id);
+                                        await loadData();
+                                        setStudentToUnenroll(null);
+                                    } catch (err) {
+                                        console.error('Failed to unenroll student', err);
+                                    }
+                                }}
+                            >
+                                Confirm Unenroll
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TA Action Overlay */}
+            {taActionModal && (
+                <div className="report-modal-overlay">
+                    <div className="report-modal-content" style={{ maxWidth: '420px', textAlign: 'center', padding: '2rem' }}>
+                        <div className="unenroll-icon-wrapper" style={{ margin: '0 auto 1.5rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)' }}>
+                            <Users size={32} />
+                        </div>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                            {taActionModal.isAssign ? 'Assign Teaching Assistant?' : 'Revoke TA Privileges?'}
+                        </h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '2rem' }}>
+                            {taActionModal.isAssign 
+                                ? `Do you want to grant ${taActionModal.student.name} access to grade submissions and manage assignments for this course?`
+                                : `Are you sure you want to remove TA privileges for ${taActionModal.student.name}? They will still remain enrolled as a student.`
+                            }
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button className="ta-toggle-btn" style={{ flex: 1 }} onClick={() => setTaActionModal(null)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="ta-toggle-btn active"
+                                style={{ flex: 1, justifyContent: 'center' }}
+                                onClick={async () => {
+                                    try {
+                                        if (taActionModal.isAssign) {
+                                            await inviteTA(courseId!, { taId: taActionModal.student.id });
+                                        } else {
+                                            await removeTA(courseId!, taActionModal.student.id);
+                                        }
+                                        await loadTaData();
+                                        setTaActionModal(null);
+                                    } catch (err) {
+                                        console.error('Failed to toggle TA status', err);
+                                    }
+                                }}
+                            >
+                                {taActionModal.isAssign ? 'Assign TA' : 'Revoke TA'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {selectedStudent && report && (
                 <div className="report-modal-overlay" onClick={() => setSelectedStudentId(null)}>
                     <div className="report-modal-content" onClick={e => e.stopPropagation()}>

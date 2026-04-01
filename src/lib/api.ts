@@ -310,6 +310,9 @@ export interface Course {
     name: string;
     term: string;
     instructor_id?: string;
+    instructor_name?: string;
+    instructor_email?: string;
+    instructor_profile_picture?: string;
     is_archived?: boolean;
     student_count?: number;
     active_assignment_count?: number;
@@ -373,6 +376,7 @@ export interface GradebookData {
         id: string;
         name: string;
         email: string;
+        profile_picture?: string;
         grades: Record<string, number | null>;
         /** true if student has a submission for that assignment (may be ungraded) */
         submitted?: Record<string, boolean>;
@@ -570,7 +574,7 @@ export async function getAssignmentGroups(assignmentId: string): Promise<Assignm
 export async function gradeAssignmentGroup(
     assignmentId: string,
     groupId: string,
-    payload: { grade: number; feedback: string; status?: string }
+    payload: { grade: number | null; feedback: string; status?: string }
 ): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/assignments/${assignmentId}/grade-group/${groupId}`, {
         method: 'POST',
@@ -679,15 +683,16 @@ export async function createSubmission(
 
 export async function updateSubmission(
     id: number,
-    data: { files?: File[]; status?: string; grade?: number; feedback?: string }
+    data: { files?: File[]; status?: string; grade?: number | null; feedback?: string; sync_group?: boolean }
 ): Promise<Submission> {
     const formData = new FormData();
     if (data.files) {
         data.files.forEach(f => formData.append('files', f));
     }
     if (data.status) formData.append('status', data.status);
-    if (data.grade !== undefined) formData.append('grade', String(data.grade));
+    if (data.grade !== undefined) formData.append('grade', data.grade === null ? '' : String(data.grade));
     if (data.feedback !== undefined) formData.append('feedback', data.feedback);
+    if (data.sync_group !== undefined) formData.append('sync_group', String(data.sync_group));
 
     const response = await fetch(`${API_BASE}/submissions/${id}`, {
         method: 'PUT',

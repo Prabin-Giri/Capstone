@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Loader, Mail } from 'lucide-react';
+import { CheckCircle, Loader, Mail, ChevronLeft } from 'lucide-react';
 import { verifyEmailByOtp, verifyEmailByToken, resendVerificationEmail } from '../../lib/api';
 import { getSession, updateUser, redirectToDashboard } from '../../lib/auth';
 import './Login.css';
@@ -208,8 +208,8 @@ const VerifyEmail: React.FC = () => {
                             </div>
 
                             <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
-                                <Link to="/login" className="back-link-inline" style={{ fontSize: '0.78rem' }}>
-                                    Back to Login
+                                <Link to="/login" className="back-link-inline" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <ChevronLeft size={14} /> Back to Login
                                 </Link>
                             </div>
                         </>

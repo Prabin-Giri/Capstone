@@ -49,6 +49,7 @@
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
+    padding-top: 4px;
     padding-bottom: 4px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
@@ -262,6 +263,11 @@
     color: var(--text-primary);
 }
 
+.modal.btn-report:hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+}
+
 .modal-body {
     padding: 1.5rem;
     overflow-y: auto;
@@ -306,20 +312,54 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 1.25rem;
     border-radius: 8px;
     font-size: 0.8125rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     text-decoration: none;
-    border: none;
     line-height: 1.4;
+    white-space: nowrap;
 }
 
-.btn-dashboard-action:hover {
+/* Solid Buttons (Grade, Gradebook) */
+.grading-dashboard-container .btn-grade-entry,
+.grading-dashboard-container .btn-gradebook {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: white;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 6px -1px rgba(132, 0, 41, 0.2);
+}
+
+.grading-dashboard-container .btn-grade-entry:hover:not(:disabled),
+.grading-dashboard-container .btn-gradebook:hover {
+    background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
+    box-shadow: 0 8px 16px -4px rgba(132, 0, 41, 0.35);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    color: white;
+}
+
+/* Outlined Buttons (Run tests, AI, Plagiarism, Report) */
+.grading-dashboard-container .btn-autograde,
+.grading-dashboard-container .btn-ai-detection,
+.grading-dashboard-container .btn-plagiarism,
+.grading-dashboard-container .btn-report {
+    background-color: var(--bg-surface);
+    border: 2px solid var(--primary-light);
+    color: var(--primary-text);
+    box-shadow: var(--shadow-sm);
+}
+
+.grading-dashboard-container .btn-autograde:hover:not(:disabled),
+.grading-dashboard-container .btn-ai-detection:hover,
+.grading-dashboard-container .btn-plagiarism:hover,
+.grading-dashboard-container .btn-report:hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+    box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    color: var(--primary-text);
 }
 
 .btn-dashboard-action:active {
@@ -350,112 +390,11 @@
     cursor: pointer;
 }
 
-/* Link to assignment details */
-.btn-assignment {
-    background-color: var(--bg-surface);
-    border: 2px solid var(--primary-light);
-    color: var(--primary-text);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-assignment:hover {
-    background-color: var(--border-color);
-    border-color: var(--text-primary);
-    box-shadow: var(--shadow-md);
-    color: var(--primary-text);
-}
-
-/* Open grader (first submission) */
-.btn-grade-entry {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-    color: white;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-}
-
-.btn-grade-entry:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-    color: white;
-}
-
-.btn-grade-entry:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-}
-
-/* Auto-Grade Button (Premium Glass/Gold) */
-.btn-autograde {
-    background-color: var(--bg-surface);
-    border: 2px solid var(--primary-light);
-    color: var(--primary-text);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-autograde:hover:not(:disabled) {
-    background-color: var(--border-color);
-    border-color: var(--text-primary);
-    box-shadow: var(--shadow-md);
-}
-
+.btn-grade-entry:disabled,
 .btn-autograde:disabled {
-    opacity: 0.65;
+    opacity: 0.5;
     cursor: not-allowed;
-}
-
-/* AI detection (distinct accent) */
-.btn-ai-detection {
-    background-color: var(--bg-surface);
-    border: 2px solid rgba(88, 28, 135, 0.35);
-    color: var(--primary-text);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-ai-detection:hover {
-    background-color: var(--border-color);
-    border-color: rgba(88, 28, 135, 0.55);
-    box-shadow: var(--shadow-md);
-}
-
-/* Plagiarism Button (Glass/Maroon) */
-.btn-plagiarism {
-    background-color: var(--bg-surface);
-    border: 2px solid var(--primary-light);
-    color: var(--primary-text);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-plagiarism:hover {
-    background-color: var(--border-color);
-    border-color: var(--text-primary);
-    color: var(--primary-hover-text);
-    box-shadow: var(--shadow-md);
-}
-
-/* Gradebook/Reports Button (Maroon Gradient) */
-.btn-gradebook {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-    color: white;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-}
-
-.btn-gradebook:hover {
-    background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-    color: white;
-}
-
-.btn-report {
-    background-color: var(--bg-surface);
-    border: 2px solid var(--primary-light);
-    color: var(--primary-text);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-report:hover {
-    background-color: var(--border-color);
-    border-color: var(--text-primary);
-    box-shadow: var(--shadow-md);
-    color: var(--primary-text);
+    transform: none;
 }
 
 .btn-icon {

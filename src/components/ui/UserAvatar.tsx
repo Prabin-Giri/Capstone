@@ -3,25 +3,45 @@ import { UPLOADS_BASE } from '../../lib/api';
 import './UserAvatar.css';
 
 interface UserAvatarProps {
-    user: {
-        name?: string;
-        profile_picture?: string;
-        profilePicture?: string; // Support both snake_case and camelCase
+    user?: {
+        name?: string | null;
+        profile_picture?: string | null;
+        profilePicture?: string | null;
     };
-    size?: number;
+    size?: 'sm' | 'md' | 'lg' | 'xl' | number;
     className?: string;
+    style?: React.CSSProperties;
 }
 
-const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40, className = '' }) => {
+const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40, className = '', style }) => {
     const [imgError, setImgError] = React.useState(false);
+
+    // Resolve numeric size
+    const sizeMap: Record<string, number> = {
+        sm: 32,
+        md: 40,
+        lg: 48,
+        xl: 64
+    };
+    const numericSize = typeof size === 'number' ? size : sizeMap[size] || 40;
     
+    // Safety check for user
+    if (!user) {
+        return (
+            <div className={`user-avatar initial-avatar ${className}`} style={{ ...style, width: `${numericSize}px`, height: `${numericSize}px`, fontSize: `${numericSize * 0.4}px` }}>
+                ?
+            </div>
+        );
+    }
+
     const profilePic = user.profilePicture || user.profile_picture;
     const initial = user.name ? user.name.charAt(0).toUpperCase() : '?';
     
     const avatarStyle = {
-        width: `${size}px`,
-        height: `${size}px`,
-        fontSize: `${size * 0.4}px`
+        width: `${numericSize}px`,
+        height: `${numericSize}px`,
+        fontSize: `${numericSize * 0.4}px`,
+        ...style
     };
 
     if (profilePic && !imgError) {

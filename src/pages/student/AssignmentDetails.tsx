@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE } from '../../lib/api';
-import { Code, Download, Eye, FolderOpen } from 'lucide-react';
+import { Code, Download, Eye, FolderOpen, ChevronLeft } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
@@ -364,6 +364,12 @@ const AssignmentDetails: React.FC = () => {
 
     return (
         <div className="assignment-details">
+            <div className="breadcrumb">
+                 <Link to={`/student/courses/${assignment.course_id}/assignments`}>
+                     <ChevronLeft size={14} />
+                     Back to Assignments
+                 </Link>
+            </div>
             <div className="details-header">
                 <div className="details-header-left">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -403,7 +409,11 @@ const AssignmentDetails: React.FC = () => {
                     <div className="details-grade">
                         <div className="grade-label">Current Grade</div>
                         <div className="grade-value">
-                            {submission && submission.grade !== undefined && submission.grade !== null && (submission.status === 'graded' || submission.status === 'returned')
+                            {submission && (submission.grade !== undefined && submission.grade !== null) && 
+                              (
+                                ['graded', 'returned'].includes(submission.status?.toLowerCase() || '') || 
+                                (submission.grade !== undefined && submission.grade !== null)
+                              )
                                 ? `${Number(submission.grade).toFixed(2)}/${points.toFixed(2)}`
                                 : `-/${points.toFixed(2)}`}
                         </div>
@@ -549,7 +559,7 @@ const AssignmentDetails: React.FC = () => {
                     <h2 className="section-title">Submission History</h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {allSubmissions.map((sub, index) => {
-                            const isSubGraded = sub.status === 'graded' || sub.status === 'returned';
+                            const isSubGraded = ['graded', 'returned'].includes(sub.status?.toLowerCase() || '');
                             const attemptLabel = `Attempt ${allSubmissions.length - index}`;
 
                             return (
@@ -573,12 +583,13 @@ const AssignmentDetails: React.FC = () => {
                                                 color: isSubGraded ? '#16a34a' : '#d97706',
                                                 textTransform: 'capitalize'
                                             }}>
-                                                {sub.status}
+                                                {sub.status?.toLowerCase()}
                                             </span>
                                             {' • '}
                                             <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
-                                            {isSubGraded && sub.grade !== null && sub.grade !== undefined
-                                                ? `${sub.grade}/${points}`
+                                            {sub.grade !== null && sub.grade !== undefined && 
+                                             (isSubGraded || (sub.grade !== null && sub.grade !== undefined))
+                                                ? `${Number(sub.grade).toFixed(2)}/${points}`
                                                 : '-'}
                                         </div>
                                     </div>

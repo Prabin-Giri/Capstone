@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
     getCourseAssignments,
@@ -20,10 +20,23 @@ const FacultyAssignmentList: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    const [sortField, setSortField] = useState<'due_date' | 'title' | 'points'>('due_date');
+    const [showSortDropdown, setShowSortDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (courseId) loadData();
     }, [courseId]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowSortDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     async function loadData() {
         if (!courseId) return;
@@ -67,10 +80,28 @@ const FacultyAssignmentList: React.FC = () => {
         ? assignments.filter(a => a.title.toLowerCase().includes(q))
         : assignments;
     const sortedAssignments = [...filtered].sort((a, b) => {
-        const aTime = new Date(a.due_date).getTime();
-        const bTime = new Date(b.due_date).getTime();
-        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+        let comparison = 0;
+        if (sortField === 'title') {
+            comparison = a.title.localeCompare(b.title);
+        } else if (sortField === 'points') {
+            comparison = (a.points || 0) - (b.points || 0);
+        } else {
+            const aTime = new Date(a.due_date).getTime();
+            const bTime = new Date(b.due_date).getTime();
+            comparison = aTime - bTime;
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
     });
+
+    const handleSortChange = (field: 'due_date' | 'title' | 'points') => {
+        if (sortField === field) {
+            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortOrder('asc');
+        }
+        setShowSortDropdown(false);
+    };
 
     return (
         <div className="faculty-assignment-list-container">
@@ -108,16 +139,40 @@ const FacultyAssignmentList: React.FC = () => {
                         className="fal-search-input"
                     />
                 </div>
-                <div className="fal-sort-wrap">
+                <div className="fal-sort-wrap" ref={dropdownRef}>
                     <button
                         type="button"
-                        className={`fal-sort-btn ${sortOrder === 'asc' ? 'is-asc' : 'is-desc'}`}
-                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                        title={`Sort by deadline (${sortOrder === 'asc' ? 'ascending' : 'descending'})`}
-                        aria-label={`Sort by deadline (${sortOrder === 'asc' ? 'ascending' : 'descending'})`}
+                        className={`fal-sort-btn ${showSortDropdown ? 'is-active' : ''}`}
+                        onClick={() => setShowSortDropdown(!showSortDropdown)}
+                        title="Sort assignments"
+                        aria-label="Sort assignments"
                     >
                         <ArrowUpDown size={16} />
                     </button>
+
+                    {showSortDropdown && (
+                        <div className="fal-sort-dropdown">
+                            <div className="fal-sort-dropdown-header">Sort By</div>
+                            <button 
+                                className={`fal-sort-item ${sortField === 'title' ? 'is-selected' : ''}`}
+                                onClick={() => handleSortChange('title')}
+                            >
+                                Title {sortField === 'title' && (sortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                            <button 
+                                className={`fal-sort-item ${sortField === 'due_date' ? 'is-selected' : ''}`}
+                                onClick={() => handleSortChange('due_date')}
+                            >
+                                Deadline {sortField === 'due_date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                            <button 
+                                className={`fal-sort-item ${sortField === 'points' ? 'is-selected' : ''}`}
+                                onClick={() => handleSortChange('points')}
+                            >
+                                Points {sortField === 'points' && (sortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -170,7 +225,7 @@ const FacultyAssignmentList: React.FC = () => {
                                             Grades
                                         </button>
                                         <button
-                                            className="fal-action-btn"
+                                            className="fal-action-btn fal-action-primary"
                                             onClick={() => navigate(`/faculty/courses/${courseId}/assignments/${a.id}/grading`)}
                                             title="Grade Submissions"
                                         >

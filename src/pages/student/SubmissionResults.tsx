@@ -4,6 +4,7 @@ import { getSubmission, getFileUrl, getSubmissions, getAssignment } from '../../
 import type { Submission, Assignment } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import { parseUTC } from '../../lib/utils';
+import { ChevronLeft } from 'lucide-react';
 import './SubmissionResults.css';
 
 const SubmissionResults: React.FC = () => {
@@ -51,9 +52,10 @@ const SubmissionResults: React.FC = () => {
     if (error || !submission) {
         return (
             <div className="submission-results">
-                <div className="mb-4" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                    <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
-                        &larr; Back to Assignment
+                <div className="breadcrumb">
+                    <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`}>
+                        <ChevronLeft size={14} />
+                        Back to Assignment
                     </Link>
                 </div>
                 <div className="results-header">
@@ -66,20 +68,21 @@ const SubmissionResults: React.FC = () => {
 
     return (
         <div className="submission-results">
-            <div className="mb-4" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`} className="text-gray-500 hover:text-gray-900 back-link">
-                    &larr; Back to Assignment
+            <div className="breadcrumb">
+                <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`}>
+                    <ChevronLeft size={14} />
+                    Back to Assignment
                 </Link>
             </div>
 
             <div className="results-header">
                 <h1 className="results-title">Submission Details</h1>
-                <span className={`status-pill status-${submission.status}`} style={{
+                <span className={`status-pill status-${submission.status?.toLowerCase()}`} style={{
                     padding: '2px 8px',
                     borderRadius: '20px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    background: submission.status === 'graded' ? 'var(--success-bg)' : submission.status === 'pending' ? 'var(--secondary-color)' : 'var(--light-grey)',
+                    background: submission.status?.toLowerCase() === 'graded' ? 'var(--success-bg)' : submission.status?.toLowerCase() === 'pending' ? 'var(--secondary-color)' : 'var(--light-grey)',
                     color: 'var(--text-primary)',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -87,7 +90,7 @@ const SubmissionResults: React.FC = () => {
                     height: 'fit-content',
                     textTransform: 'capitalize'
                 }}>
-                    {submission.status}
+                    {submission.status?.toLowerCase()}
                 </span>
             </div>
 
@@ -121,7 +124,7 @@ const SubmissionResults: React.FC = () => {
                                     <td style={{ padding: '8px 0' }}>{parseUTC(submission.updated_at).toLocaleString()}</td>
                                 </tr>
                             )}
-                            {submission.grade !== null && submission.grade !== undefined && (submission.status === 'graded' || submission.status === 'returned') && (
+                            {submission.grade !== null && submission.grade !== undefined && (
                                 <tr>
                                     <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Grade:</td>
                                     <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>
@@ -133,7 +136,7 @@ const SubmissionResults: React.FC = () => {
                     </table>
                 </div>
 
-                {submission.feedback && (submission.status === 'graded' || submission.status === 'returned') && (
+                {submission.feedback && (
                     <div style={{
                         background: 'var(--bg-surface)',
                         padding: '20px',
@@ -173,7 +176,7 @@ const SubmissionResults: React.FC = () => {
                         <h2 className="section-title" style={{ fontSize: '18px', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '8px', marginBottom: '16px' }}>Submission History</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {allSubmissions.map((sub, index) => {
-                                const isSubGraded = sub.status === 'graded' || sub.status === 'returned';
+                                const isSubGraded = ['graded', 'returned'].includes(sub.status?.toLowerCase() || '');
                                 const attemptLabel = `Attempt ${allSubmissions.length - index}`;
                                 const isCurrent = sub.id === parseInt(submissionId || '0', 10);
 
@@ -212,11 +215,11 @@ const SubmissionResults: React.FC = () => {
                                                     color: isSubGraded ? '#16a34a' : '#d97706',
                                                     textTransform: 'capitalize'
                                                 }}>
-                                                    {sub.status}
+                                                    {sub.status?.toLowerCase()}
                                                 </span>
                                                 {' • '}
                                                 <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
-                                                {isSubGraded && sub.grade !== null && sub.grade !== undefined
+                                                {sub.grade !== null && sub.grade !== undefined
                                                     ? `${Number(sub.grade).toFixed(2)}/${(assignment?.points || 100).toFixed(2)}`
                                                     : `-/${(assignment?.points || 100).toFixed(2)}`}
                                             </div>

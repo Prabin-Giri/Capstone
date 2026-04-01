@@ -146,7 +146,7 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
         }
         if (grade !== undefined) {
             updates.push('grade = ?');
-            params.push(parseFloat(grade));
+            params.push(grade === null || grade === '' ? null : parseFloat(grade));
         }
         if (feedback !== undefined) {
             updates.push('feedback = ?');
@@ -158,8 +158,43 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
         }
 
         params.push(req.params.id);
-
         await db.execute(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, params);
+
+        // SYNC GRADES FOR GROUP ASSIGNMENTS (one_for_all)
+        const [currRows] = await db.execute('SELECT assignment_id, student_id FROM submissions WHERE id = ?', [req.params.id]);
+        if (currRows.length > 0) {
+            const { assignment_id, student_id } = currRows[0];
+            const [aRows] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignment_id]);
+            const assignment = aRows[0];
+
+            const sync_group = req.body.sync_group === 'true';
+            if (assignment && assignment.type === 'group' && assignment.group_submission_type === 'one_for_all' && sync_group) {
+                // Find all team members
+                const [gRows] = await db.execute(`
+                    SELECT student_id FROM group_members
+                    WHERE group_id IN (
+                        SELECT group_id FROM group_members
+                        JOIN assignment_groups ON group_members.group_id = assignment_groups.id
+                        WHERE assignment_groups.assignment_id = ? AND group_members.student_id = ?
+                    )
+                `, [assignment_id, student_id]);
+
+                if (gRows && gRows.length > 0) {
+                    const memberIds = gRows.map(r => r.student_id);
+                    for (const mid of memberIds) {
+                        if (mid === student_id) continue;
+                        // Update their LATEST submission for this assignment
+                        const [lastRows] = await db.execute('SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1', [assignment_id, mid]);
+                        if (lastRows.length > 0) {
+                            const lastId = lastRows[0].id;
+                            // Re-build update params for this specific ID
+                            const syncParams = [...params.slice(0, -1), lastId];
+                            await db.execute(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, syncParams);
+                        }
+                    }
+                }
+            }
+        }
 
         const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
         if (rows.length === 0) {

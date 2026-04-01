@@ -1,5 +1,7 @@
 .student-list-container {
-  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
   color: var(--text-primary);
 }
 
@@ -62,6 +64,13 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.student-table th:last-child,
+.student-table td:last-child {
+  width: 340px;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .student-table th {
   text-align: left;
   font-size: 0.8rem;
@@ -99,44 +108,130 @@
 .view-grades-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
+  padding: 0.55rem 0.95rem;
+  border-radius: 10px;
   border: 1px solid var(--border-color);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
+  width: 130px;
+  flex-shrink: 0;
 }
 
 .view-grades-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--text-secondary);
 }
 
 .student-actions-cell {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  width: 100%;
 }
 
-.unenroll-btn {
+.ta-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.04);
-  color: #9ca3af;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--primary-color);
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  width: 130px;
+  flex-shrink: 0;
 }
 
-.unenroll-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
+.ta-toggle-btn:hover {
+  background: var(--primary-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(132, 0, 41, 0.12);
+}
+
+.ta-toggle-btn.active {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 2px 8px rgba(132, 0, 41, 0.2);
+}
+
+.ta-toggle-btn.active:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(132, 0, 41, 0.28);
+}
+
+.roster-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(132, 0, 41, 0.25) !important;
+  background: rgba(132, 0, 41, 0.06) !important;
+  color: var(--primary-color) !important;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  padding: 0 !important;
+}
+
+.roster-delete-btn:hover {
+  background: var(--primary-color) !important;
+  color: white !important;
+  border-color: var(--primary-color) !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(132, 0, 41, 0.15);
+}
+
+.roster-delete-btn svg {
+  display: block;
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 2px !important;
+}
+
+/* Dark Mode visibility overrides */
+.dark-theme .ta-toggle-btn {
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.dark-theme .ta-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: white !important;
+}
+
+.dark-theme .ta-toggle-btn.active {
+  background: var(--primary-color) !important;
+  color: white !important;
+  border-color: var(--primary-color) !important;
+}
+
+.dark-theme .roster-delete-btn {
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark-theme .roster-delete-btn:hover {
+  background: var(--primary-color) !important;
+  color: white !important;
+  border-color: var(--primary-color) !important;
 }
 
 .report-modal-overlay {

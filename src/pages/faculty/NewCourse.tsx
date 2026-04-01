@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { createCourse } from '../../lib/api';
 import { getUser } from '../../lib/auth';
+import { ChevronLeft } from 'lucide-react';
 import './NewCourse.css';
+
 const NewCourse: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -31,6 +33,12 @@ const NewCourse: React.FC = () => {
 
     return (
         <div className="new-course-container">
+            <div className="breadcrumb">
+                <Link to="/faculty">
+                    <ChevronLeft size={14} />
+                    Back to Courses
+                </Link>
+            </div>
             <div className="new-course-card">
                 <h1 className="new-course-title">Create New Course</h1>
                 <p className="new-course-subtitle">Fill in the details below to add a new course to your dashboard.</p>

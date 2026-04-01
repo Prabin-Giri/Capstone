@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests } from '../../lib/api';
-import type { Submission, Assignment, RubricConfig, TestResult } from '../../lib/api';
+import { getSubmission, getSubmissions, updateSubmission, getFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
+import type { Submission, Assignment, RubricConfig, TestResult, AssignmentGroup } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 import UserAvatar from '../../components/ui/UserAvatar';
-import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, ArrowLeft, CalendarDays, Layers } from 'lucide-react';
+import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, PanelLeftOpen, ChevronLeft, CalendarDays, Layers } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
-import { showDialog } from '../../components/ui/Dialog';
 import { getCommentChar, getLanguageFromFilename } from '../../lib/utils';
 
 const SubmissionGrader: React.FC = () => {
@@ -40,6 +40,24 @@ const SubmissionGrader: React.FC = () => {
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
     const [testSummary, setTestSummary] = useState<{ passed: number | null; total: number | null }>({ passed: null, total: null });
 
+    // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
+    // Using refs instead of state so that saveDraftForCurrent() writes are
+    // immediately visible to loadData() even within the same React batch.
+    // A counter state triggers sidebar re-renders when drafts change.
+    type DraftEntry = { grade: string; feedback: string; rubricScores: Record<string, number | ''> };
+    const pendingGradesRef = useRef<Record<string, DraftEntry>>({});
+    const draftIdsRef = useRef<Set<string>>(new Set());
+    const [draftVersion, setDraftVersion] = useState(0); // bump to re-render sidebar
+    void draftVersion; // read to suppress lint — value only triggers re-renders
+
+    // Tracks what the form looked like when loaded from DB (or draft restore).
+    // saveDraftForCurrent compares against this to avoid marking unchanged students.
+    const cleanStateRef = useRef<DraftEntry>({ grade: '', feedback: '', rubricScores: {} });
+
+    // Group Grading State
+    const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
+    const [gradeByGroup, setGradeByGroup] = useState(() => localStorage.getItem('grader_group_mode') === 'true');
+
     // Anonymous grading — TA context detected from URL (same as basePath logic)
     const _isTA = basePath === '/ta';
     const [hideNames, setHideNames] = useState(false);
@@ -51,7 +69,7 @@ const SubmissionGrader: React.FC = () => {
     // Sidebar states initialized from localStorage for persistence across student switches
     const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() => {
         const saved = localStorage.getItem('grader_left_collapsed');
-        return saved === null ? true : saved === 'true';
+        return saved === null ? false : saved === 'true';
     });
     const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(() => {
         return localStorage.getItem('grader_right_collapsed') === 'true';
@@ -82,6 +100,7 @@ const SubmissionGrader: React.FC = () => {
         typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
     );
     const containerRef = useRef<HTMLDivElement>(null);
+    const loadedAttemptIdRef = useRef<number | null>(null);
 
     useEffect(() => {
         const mq = window.matchMedia('(max-width: 900px)');
@@ -174,74 +193,170 @@ const SubmissionGrader: React.FC = () => {
         return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
     }, [isResizingRight, rightWidth]);
 
-    // Called when user clicks a student — instantly paints UI with known data, fetches rest in background
+    // Sync workspace with current active attempt
+    useEffect(() => {
+        if (loading || !submission || allSubmissions.length === 0) return;
+
+        const activeAttempt = allSubmissions[activeAttemptIndex] || submission;
+        
+        // Conditions for loading:
+        // 1. Workspace is already open (user is navigating attempts while viewing code)
+        // 2. Initial load (auto-open on first arrival)
+        const shouldLoad = isWorkspaceOpen || !loadedAttemptIdRef.current;
+        const isNewAttempt = loadedAttemptIdRef.current !== activeAttempt.id;
+
+        if (shouldLoad && isNewAttempt) {
+            const files = activeAttempt.files || [{ name: activeAttempt.file_name, path: activeAttempt.file_path }];
+            const primary = files[0];
+            if (primary && primary.path) {
+                void loadAttemptWorkspace(files, primary.path);
+                loadedAttemptIdRef.current = activeAttempt.id;
+            }
+        }
+    }, [loading, submission?.id, activeAttemptIndex, allSubmissions.length, isWorkspaceOpen]);
+
+    // ─── Core: save current form to ref (synchronous, no batching issues) ─────
+    function saveDraftForCurrent() {
+        if (!submissionId) return;
+
+        // Only save if something actually changed from the loaded/clean state
+        const clean = cleanStateRef.current;
+        const isDirty = grade !== clean.grade ||
+            feedback !== clean.feedback ||
+            JSON.stringify(rubricScores) !== JSON.stringify(clean.rubricScores);
+
+        if (!isDirty) return; // Nothing changed — don't mark as draft
+
+        pendingGradesRef.current = {
+            ...pendingGradesRef.current,
+            [submissionId]: { grade, feedback, rubricScores }
+        };
+        draftIdsRef.current = new Set(draftIdsRef.current).add(submissionId);
+        setDraftVersion(v => v + 1);
+    }
+
+    // Helper: update a single field in the draft ref for current student
+    function markDraftField(field: Partial<DraftEntry>) {
+        if (!submissionId) return;
+        const existing = pendingGradesRef.current[submissionId] || { grade, feedback, rubricScores };
+        pendingGradesRef.current = {
+            ...pendingGradesRef.current,
+            [submissionId]: { ...existing, ...field }
+        };
+        draftIdsRef.current = new Set(draftIdsRef.current).add(submissionId);
+        setDraftVersion(v => v + 1);
+    }
+
+    // Switch to another student: auto-save current draft first, then navigate
     function switchToStudent(s: Submission) {
-        // Immediately show new student's known data — no waiting
-        setSubmission(s);
-        setGrade(s.grade !== undefined && s.grade !== null ? Number(s.grade).toFixed(2) : '');
-        setFeedback(s.feedback || '');
-        setAllSubmissions([s]); // placeholder; full history loads below
-        setActiveAttemptIndex(0);
+        // 1. Capture current form data into ref BEFORE navigating
+        saveDraftForCurrent();
+
+        // 2. Reset workspace UI
         setIsWorkspaceOpen(false);
         setWorkspaceFiles([]);
-        if (rubric) {
-            const initialScores: Record<string, number | ''> = {};
-            const items = rubric.sections ? rubric.sections.flatMap(sec => sec.items) : (rubric.criteria ?? []);
-            items.forEach(c => { if (c.id) initialScores[c.id] = ''; });
-            setRubricScores(initialScores);
-        }
         setSwitching(true);
+        setActiveAttemptIndex(0);
+        loadedAttemptIdRef.current = null;
+
+        // 3. Navigate — loadData reads from ref, which already has the draft
         navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading/${s.id}`);
     }
+
+    // ─── Staleness guard for loadData ─────────────────────────────────────────
+    // Each loadData invocation increments this. After every await, if the counter
+    // has moved on, the invocation is stale and must bail out to avoid overwriting
+    // a newer student's form state.
+    const loadSeqRef = useRef(0);
 
     async function loadData() {
         if (!submissionId || !assignmentId) return;
 
+        const seq = ++loadSeqRef.current;
+
         const isFirstLoad = !assignment;
         if (isFirstLoad) setLoading(true);
-        // On switch, switching flag is already set by switchToStudent — just fetch missing pieces
 
         try {
             const knownStudent = allStudentSubmissions.find(s => s.id === parseInt(submissionId));
 
-            const [subData, assignData, historyData] = await Promise.all([
-                // On switch we already have basic data — still fetch full record for auto_grade etc.
+            const [subData, assignData, historyData, groupsData] = await Promise.all([
                 getSubmission(parseInt(submissionId)),
                 assignment ? Promise.resolve(assignment) : getAssignment(assignmentId),
                 knownStudent
                     ? getSubmissions({ assignment_id: assignmentId, student_id: knownStudent.student_id })
                     : Promise.resolve([] as typeof allSubmissions),
+                getAssignmentGroups(assignmentId).catch(() => [] as AssignmentGroup[])
             ]);
+
+            // ── STALE CHECK 1: if another loadData started while we awaited, bail ──
+            if (loadSeqRef.current !== seq) return;
 
             const resolvedHistory = historyData.length > 0
                 ? historyData
                 : await getSubmissions({ assignment_id: assignmentId, student_id: subData.student_id });
 
+            // ── STALE CHECK 2 ──
+            if (loadSeqRef.current !== seq) return;
+
+            setAssignmentGroups(groupsData || []);
             setSubmission(subData);
             setAssignment(assignData);
             setHideNames(_isTA && !!assignData.hide_student_names);
+
+            // Parse rubric — build blank rubric scores for all criteria
+            let rubricCfg: RubricConfig | null = null;
+            let blankRubricScores: Record<string, number | ''> = {};
             if (assignData.rubric_config) {
                 try {
                     const parsed = typeof assignData.rubric_config === 'string'
                         ? JSON.parse(assignData.rubric_config)
                         : assignData.rubric_config;
                     if (parsed && (parsed.sections || parsed.criteria)) {
-                        const cfg = parsed as RubricConfig;
-                        setRubric(cfg);
-                        const initialScores: Record<string, number | ''> = {};
-                        const items = cfg.sections ? cfg.sections.flatMap(s => s.items) : (cfg.criteria ?? []);
-                        items.forEach(c => { if (c.id) initialScores[c.id] = ''; });
-                        setRubricScores(initialScores);
+                        rubricCfg = parsed as RubricConfig;
+                        const items = rubricCfg!.sections
+                            ? rubricCfg!.sections.flatMap(s => s.items)
+                            : (rubricCfg!.criteria ?? []);
+                        items.forEach(c => { if (c.id) blankRubricScores[c.id] = ''; });
+                        setRubric(rubricCfg);
                     }
                 } catch (e) {
                     console.warn('Failed to parse rubric_config', e);
                 }
             }
-            setAllSubmissions(resolvedHistory);
-            const selectedIdx = resolvedHistory.findIndex(h => h.id === subData.id);
-            setActiveAttemptIndex(selectedIdx >= 0 ? selectedIdx : 0);
-            setGrade(subData.grade !== undefined && subData.grade !== null ? Number(subData.grade).toFixed(2) : '');
-            setFeedback(subData.feedback || '');
+
+            // Sort history once: oldest first (index 0) to newest (last index)
+            const sortedHistory = [...resolvedHistory].sort((a, b) => 
+                new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
+            );
+            setAllSubmissions(sortedHistory);
+
+            // Default to the latest attempt
+            const latestIdx = sortedHistory.length > 0 ? sortedHistory.length - 1 : 0;
+            setActiveAttemptIndex(latestIdx);
+
+            // ── Restore form state ─────────────────────────────────────────────
+            // Read from REF (always current — no stale closure)
+            const pendingDraft = pendingGradesRef.current[submissionId];
+            let restoredGrade: string;
+            let restoredFeedback: string;
+            let restoredRubric: Record<string, number | ''>;
+            if (pendingDraft) {
+                restoredGrade = pendingDraft.grade;
+                restoredFeedback = pendingDraft.feedback;
+                restoredRubric = pendingDraft.rubricScores;
+            } else {
+                restoredGrade = subData.grade !== undefined && subData.grade !== null ? Number(subData.grade).toFixed(2) : '';
+                restoredFeedback = subData.feedback || '';
+                restoredRubric = blankRubricScores;
+            }
+            setGrade(restoredGrade);
+            setFeedback(restoredFeedback);
+            setRubricScores(restoredRubric);
+
+            // Record the "clean" state so saveDraftForCurrent can detect changes
+            cleanStateRef.current = { grade: restoredGrade, feedback: restoredFeedback, rubricScores: restoredRubric };
+
             setTestSummary(parseTestSummary(subData.auto_feedback || subData.feedback));
         } catch (err) {
             console.error(err);
@@ -404,23 +519,119 @@ const SubmissionGrader: React.FC = () => {
     }
 
     async function handleSave() {
-        if (!submissionId) return;
-        const maxPoints = assignment?.points || 100;
-        let enteredGrade = grade ? parseFloat(grade) : undefined;
-        if ((enteredGrade === undefined || isNaN(enteredGrade)) && rubric) {
-            const rubricTotal = computeRubricTotal();
-            if (rubricTotal !== null) { enteredGrade = rubricTotal; setGrade(rubricTotal.toFixed(2)); }
+        // Capture current student into ref first
+        saveDraftForCurrent();
+
+        // Read ALL drafts from ref (always current)
+        const allDrafts = { ...pendingGradesRef.current };
+        if (submissionId) allDrafts[submissionId] = { grade, feedback, rubricScores };
+
+        const idsToSave = Array.from(draftIdsRef.current);
+        // Also include current student if they have a draft but weren't already tracked
+        if (submissionId && !idsToSave.includes(submissionId)) {
+            const clean = cleanStateRef.current;
+            const isDirty = grade !== clean.grade || feedback !== clean.feedback;
+            if (isDirty) idsToSave.push(submissionId);
         }
-        if (enteredGrade !== undefined && enteredGrade > maxPoints) {
-            await showDialog({ title: 'Invalid Grade', message: `Grade cannot exceed ${maxPoints}.`, confirmText: 'OK' });
-            return;
-        }
+        if (idsToSave.length === 0) return;
+
+        setLoading(true);
         try {
-            await updateSubmission(parseInt(submissionId), { grade: enteredGrade, feedback, status: 'graded' });
-            navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`);
-        } catch (err) {
-            console.error(err);
-            setAlertConfig({ show: true, type: 'error', title: 'Error', message: 'Failed to save grade.' });
+            const savedGroups = new Set<string>();
+            let savedIndividualCount = 0;
+
+            const promises = idsToSave.map(async (id) => {
+                const subIdNum = parseInt(id);
+                const data = allDrafts[id];
+                if (!data) return;
+
+                // Empty grade = ungrade the student; non-empty = set as graded
+                const hasGrade = data.grade !== '' && data.grade !== null && data.grade !== undefined;
+                const gradeValue = hasGrade ? parseFloat(data.grade) : null;
+                const newStatus = hasGrade ? 'graded' : 'pending';
+
+                const subRef = allStudentSubmissions.find(s => s.id === subIdNum) ||
+                    (id === submissionId ? submission : null);
+
+                if (gradeByGroup && assignment?.type === 'group' && subRef) {
+                    const studentGroup = assignmentGroups.find(g =>
+                        g.students.some(s => s.id === (subRef as Submission).student_id)
+                    );
+                    if (studentGroup) {
+                        savedGroups.add(studentGroup.name);
+                        return gradeAssignmentGroup(assignment.id, studentGroup.id, {
+                            grade: gradeValue,
+                            feedback: data.feedback,
+                            status: newStatus
+                        });
+                    }
+                }
+
+                savedIndividualCount++;
+                return updateSubmission(subIdNum, {
+                    grade: gradeValue,
+                    feedback: data.feedback,
+                    status: newStatus
+                });
+            });
+
+            await Promise.all(promises);
+
+            // Clear ALL draft refs after successful finalize
+            pendingGradesRef.current = {};
+            draftIdsRef.current = new Set();
+            setDraftVersion(v => v + 1);
+
+            // Construct dynamic success message
+            let successMessage = '';
+            if (savedGroups.size > 0 && savedIndividualCount === 0) {
+                if (savedGroups.size === 1) {
+                    successMessage = `Successfully posted grades for ${Array.from(savedGroups)[0]}.`;
+                } else {
+                    successMessage = `Successfully posted grades for ${savedGroups.size} groups.`;
+                }
+            } else if (savedIndividualCount > 0 && savedGroups.size === 0) {
+                successMessage = `Successfully posted grades for ${savedIndividualCount} student(s).`;
+            } else {
+                const groupsPart = savedGroups.size > 0 
+                    ? `${savedGroups.size} group${savedGroups.size > 1 ? 's' : ''}` 
+                    : '';
+                const studentsPart = savedIndividualCount > 0 
+                    ? `${savedIndividualCount} student${savedIndividualCount > 1 ? 's' : ''}` 
+                    : '';
+                successMessage = `Successfully posted grades for ${groupsPart}${groupsPart && studentsPart ? ' and ' : ''}${studentsPart}.`;
+            }
+
+            setAlertConfig({
+                show: true,
+                type: 'success',
+                title: 'Grades Posted',
+                message: successMessage
+            });
+
+            // Reload to reflect new graded status in sidebar
+            await loadData();
+            if (assignmentId) {
+                getSubmissions({ assignment_id: assignmentId }).then(data => {
+                    const latestByStudent: Record<string, Submission> = {};
+                    data.forEach(s => {
+                        if (!latestByStudent[s.student_id] || new Date(s.submitted_at) > new Date(latestByStudent[s.student_id].submitted_at)) {
+                            latestByStudent[s.student_id] = s;
+                        }
+                    });
+                    setAllStudentSubmissions(Object.values(latestByStudent));
+                }).catch(console.error);
+            }
+        } catch (err: any) {
+            console.error('Grade save error:', err);
+            setAlertConfig({
+                show: true,
+                type: 'error',
+                title: 'Error',
+                message: err?.message || 'Failed to post some or all grades.'
+            });
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -438,9 +649,23 @@ const SubmissionGrader: React.FC = () => {
         return idx >= 0 ? `Student ${idx + 1}` : 'Student';
     };
 
-    const currentStudentIndex = allStudentSubmissions.findIndex(s => s.id === parseInt(submissionId || '0'));
-    const prevStudent = currentStudentIndex > 0 ? allStudentSubmissions[currentStudentIndex - 1] : null;
-    const nextStudent = currentStudentIndex < allStudentSubmissions.length - 1 ? allStudentSubmissions[currentStudentIndex + 1] : null;
+    const displayOrderedStudents = useMemo(() => {
+        if (gradeByGroup && assignment?.type === 'group') {
+            const ordered: Submission[] = [];
+            assignmentGroups.forEach(group => {
+                const groupStudents = filteredStudents.filter((s: Submission) => 
+                    group.students.some(gStud => gStud.id === s.student_id)
+                );
+                ordered.push(...groupStudents);
+            });
+            return ordered;
+        }
+        return filteredStudents;
+    }, [gradeByGroup, assignment, assignmentGroups, filteredStudents]);
+
+    const currentStudentIndex = displayOrderedStudents.findIndex(s => s.id === parseInt(submissionId || '0'));
+    const prevStudent = currentStudentIndex > 0 ? (displayOrderedStudents[currentStudentIndex - 1] as Submission) : undefined;
+    const nextStudent = currentStudentIndex < displayOrderedStudents.length - 1 ? (displayOrderedStudents[currentStudentIndex + 1] as Submission) : undefined;
 
     if (loading) return <div className="grader-container"><div className="grader-loading">Loading...</div></div>;
     if (!submission || !assignment) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
@@ -455,14 +680,7 @@ const SubmissionGrader: React.FC = () => {
     const isSubmissionGraded = submission.status === 'graded';
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
-    const handleStudentsButton = () => {
-        if (isNarrowLayout) {
-            setLeftDrawerOpen(true);
-            setRightDrawerOpen(false);
-            return;
-        }
-        toggleLeftSidebar(!isLeftSidebarCollapsed);
-    };
+
 
     /** On narrow screens, drawer width is controlled by CSS — do not set inline width (collapsed uses 0px and breaks slide/scroll). */
     const leftSidebarStyle = isNarrowLayout ? undefined : { width: isLeftSidebarCollapsed ? 0 : leftWidth };
@@ -514,36 +732,112 @@ const SubmissionGrader: React.FC = () => {
                     </div>
                 )}
 
+                {assignment?.type === 'group' && (
+                    <div className="grade-by-group-toggle">
+                        <span className="toggle-label">Grade by Group</span>
+                        <label className="switch">
+                            <input
+                                type="checkbox"
+                                checked={gradeByGroup}
+                                onChange={e => {
+                                    setGradeByGroup(e.target.checked);
+                                    localStorage.setItem('grader_group_mode', String(e.target.checked));
+                                }}
+                            />
+                            <span className="slider round"></span>
+                        </label>
+                    </div>
+                )}
+
                 <div className="student-list">
-                    {filteredStudents.length === 0 && (
-                        <div className="student-list-empty">No students found</div>
+                    {gradeByGroup && assignment?.type === 'group' ? (
+                        <>
+                            {assignmentGroups.length === 0 && (
+                                <div className="student-list-empty">No groups found</div>
+                            )}
+                            {assignmentGroups.map(group => {
+                                const groupStudents = filteredStudents.filter(s => group.students.some(gStud => gStud.id === s.student_id));
+                                if (groupStudents.length === 0) return null;
+                                return (
+                                    <div key={group.id} className="group-section">
+                                        <div className="group-section-header">
+                                            {group.name}
+                                        </div>
+                                        {groupStudents.map(s => {
+                                            const isActive = s.id === parseInt(submissionId || '0');
+                                            const pending = pendingGradesRef.current[s.id.toString()];
+                                            const isModified = draftIdsRef.current.has(s.id.toString());
+                                            const displayGrade = pending ? pending.grade : (s.grade !== null && s.grade !== undefined ? String(s.grade) : null);
+                                            const hasGradeValue = displayGrade !== null && displayGrade !== '';
+                                            const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
+                                            return (
+                                                <div
+                                                    key={s.id}
+                                                                                    className={`student-list-item ${isActive ? 'active' : ''} ${isModified ? 'modified' : ''}`}
+                                                                                    onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
+                                                                                >
+                                                                                    <UserAvatar
+                                                                                        user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
+                                                                                        size={34}
+                                                                                    />
+                                                                                    <div className="student-list-info">
+                                                                                        <span className="student-list-name">{displayName}</span>
+                                                                                        {isModified && <span className="unsaved-dot" title="Unsaved draft">●</span>}
+                                                                                    </div>
+                                                                                    <div className={`student-grade-badge ${isModified ? 'draft' : hasGradeValue ? 'graded' : 'pending'}`}>
+                                                                                        {isModified
+                                                                                            ? <><Clock size={11} />{hasGradeValue ? `${Number(displayGrade).toFixed(0)}/${maxPoints}` : `-/${maxPoints}`}</>
+                                                                                            : hasGradeValue
+                                                                                                ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/{maxPoints}</>
+                                                                                                : <><Clock size={11} />Pending</>
+                                                                                        }
+                                                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </>
+                    ) : (
+                        <>
+                            {filteredStudents.length === 0 && (
+                                <div className="student-list-empty">No students found</div>
+                            )}
+                            {filteredStudents.map(s => {
+                                const isActive = s.id === parseInt(submissionId || '0');
+                                const pending = pendingGradesRef.current[s.id.toString()];
+                                const isModified = draftIdsRef.current.has(s.id.toString());
+                                const displayGrade = pending ? pending.grade : (s.grade !== null && s.grade !== undefined ? String(s.grade) : null);
+                                const hasGradeValue = displayGrade !== null && displayGrade !== '';
+                                const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
+                                return (
+                                    <div
+                                        key={s.id}
+                                        className={`student-list-item ${isActive ? 'active' : ''} ${isModified ? 'modified' : ''}`}
+                                        onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
+                                    >
+                                        <UserAvatar
+                                            user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
+                                            size={34}
+                                        />
+                                        <div className="student-list-info">
+                                            <span className="student-list-name">{displayName}</span>
+                                            {isModified && <span className="unsaved-dot" title="Draft — not yet posted">●</span>}
+                                        </div>
+                                        <div className={`student-grade-badge ${isModified ? 'draft' : hasGradeValue ? 'graded' : 'pending'}`}>
+                                            {isModified
+                                                ? <><Clock size={11} />{hasGradeValue ? `${Number(displayGrade).toFixed(0)}/${maxPoints}` : `-/${maxPoints}`}</>
+                                                : hasGradeValue
+                                                    ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/{maxPoints}</>
+                                                    : <><Clock size={11} />Pending</>
+                                            }
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </>
                     )}
-                    {filteredStudents.map(s => {
-                        const isActive = s.id === parseInt(submissionId || '0');
-                        const isGraded = s.grade !== null && s.grade !== undefined;
-                        const displayName = hideNames ? anonLabel(s.student_id) : s.student_name;
-                        return (
-                            <div
-                                key={s.id}
-                                className={`student-list-item ${isActive ? 'active' : ''}`}
-                                onClick={() => { setLeftDrawerOpen(false); switchToStudent(s); }}
-                            >
-                                <UserAvatar
-                                    user={hideNames ? { name: displayName } : { name: s.student_name, profilePicture: s.student_profile_picture }}
-                                    size={34}
-                                />
-                                <div className="student-list-info">
-                                    <span className="student-list-name">{displayName}</span>
-                                </div>
-                                <div className={`student-grade-badge ${isGraded ? 'graded' : 'pending'}`}>
-                                    {isGraded
-                                        ? <><CheckCircle size={11} />{Number(s.grade).toFixed(0)}/{maxPoints}</>
-                                        : <><Clock size={11} />Pending</>
-                                    }
-                                </div>
-                            </div>
-                        );
-                    })}
                 </div>
 
                 <div className="sidebar-resize-handle-v" onMouseDown={() => setIsResizingLeft(true)} />
@@ -551,11 +845,23 @@ const SubmissionGrader: React.FC = () => {
 
             {/* ── MIDDLE: Submission + Preview ─────────────── */}
             <div className={`grader-panel-middle${switching ? ' switching' : ''}`}>
-                <div className="grader-top-actions desktop-only">
-                    <Button variant="outline" size="sm" className="grader-action-btn student-list-corner-btn" onClick={handleStudentsButton} title="Student list">
-                        <Users size={14} />
-                    </Button>
+                
+                {/* 1. Top Navigation Bar (Expand Sidebar + Back) */}
+                <div className="grader-top-nav-bar" style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '0 28px 16px' }}>
+                    {isLeftSidebarCollapsed && (
+                        <button className="sidebar-expand-btn" onClick={() => toggleLeftSidebar(false)} title="Expand Student List">
+                            <PanelLeftOpen size={18} />
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Student List</span>
+                        </button>
+                    )}
+                    <div className="breadcrumb grader-breadcrumb" style={{ padding: 0, margin: 0 }}>
+                        <Link to={`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`}>
+                            <ChevronLeft size={14} />
+                            Back to Grading List
+                        </Link>
+                    </div>
                 </div>
+
                 {/* Mobile toolbar — drawer toggles */}
                 <div className="mobile-drawer-toolbar">
                     <button className="mobile-drawer-btn" onClick={() => { setLeftDrawerOpen(true); setRightDrawerOpen(false); }}>
@@ -572,13 +878,6 @@ const SubmissionGrader: React.FC = () => {
                 <div className="grader-student-header">
                     <div className="grader-header-content">
                         <div className="grader-title-row">
-                            <button
-                                className="grader-back-btn"
-                                onClick={() => navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`)}
-                                title="Back to grading list"
-                            >
-                                <ArrowLeft size={15} />
-                            </button>
                             <h2 className="grader-title">{studentDisplayName}</h2>
                             {isSubmissionGraded && <span className="graded-by-pill">Graded</span>}
                             <div className="student-nav-btns right-end">
@@ -588,7 +887,7 @@ const SubmissionGrader: React.FC = () => {
                                     onClick={() => prevStudent && switchToStudent(prevStudent)}
                                     title={prevStudent ? `Previous: ${prevStudent.student_name}` : 'No previous student'}
                                 >&#8249;</button>
-                                <span className="student-nav-counter">{currentStudentIndex + 1} / {allStudentSubmissions.length}</span>
+                                <span className="student-nav-counter">{currentStudentIndex + 1} / {displayOrderedStudents.length}</span>
                                 <button
                                     className="student-nav-btn"
                                     disabled={!nextStudent}
@@ -647,7 +946,7 @@ const SubmissionGrader: React.FC = () => {
                         <div className="attempt-topbar">
                             <div className="attempt-label">
                                 <Layers size={14} />
-                                Attempt {allSubmissions.length - activeAttemptIndex}
+                                Attempt {activeAttemptIndex + 1}
                                 <span className="attempt-date-inline">
                                     <CalendarDays size={12} />
                                     {new Date(activeAttempt.submitted_at).toLocaleString()}
@@ -788,9 +1087,17 @@ const SubmissionGrader: React.FC = () => {
                                                                             onChange={e => {
                                                                                 if (!crit.id) return;
                                                                                 const raw = e.target.value;
-                                                                                if (raw === '') { setRubricScores(prev => ({ ...prev, [crit.id!]: '' })); return; }
-                                                                                const num = Number(raw);
-                                                                                setRubricScores(prev => ({ ...prev, [crit.id!]: crit.maxPoints != null ? Math.min(num, crit.maxPoints) : num }));
+                                                                                let nextScores: Record<string, number | ''>;
+                                                                                if (raw === '') { 
+                                                                                    nextScores = { ...rubricScores, [crit.id!]: '' };
+                                                                                } else {
+                                                                                    const num = Number(raw);
+                                                                                    nextScores = { ...rubricScores, [crit.id!]: crit.maxPoints != null ? Math.min(num, crit.maxPoints) : num };
+                                                                                }
+                                                                                setRubricScores(nextScores);
+                                                                                if (submissionId) {
+                                                                                    markDraftField({ rubricScores: nextScores });
+                                                                                }
                                                                             }} />
                                                                     </td>
                                                                 </tr>
@@ -820,9 +1127,17 @@ const SubmissionGrader: React.FC = () => {
                                                                     onChange={e => {
                                                                         if (!crit.id) return;
                                                                         const raw = e.target.value;
-                                                                        if (raw === '') { setRubricScores(prev => ({ ...prev, [crit.id!]: '' })); return; }
-                                                                        const num = Number(raw);
-                                                                        setRubricScores(prev => ({ ...prev, [crit.id!]: crit.maxPoints != null ? Math.min(num, crit.maxPoints) : num }));
+                                                                        let nextScores: Record<string, number | ''>;
+                                                                        if (raw === '') { 
+                                                                            nextScores = { ...rubricScores, [crit.id!]: '' };
+                                                                        } else {
+                                                                            const num = Number(raw);
+                                                                            nextScores = { ...rubricScores, [crit.id!]: crit.maxPoints != null ? Math.min(num, crit.maxPoints) : num };
+                                                                        }
+                                                                        setRubricScores(nextScores);
+                                                                        if (submissionId) {
+                                                                            markDraftField({ rubricScores: nextScores });
+                                                                        }
                                                                     }} />
                                                             </td>
                                                         </tr>
@@ -840,7 +1155,16 @@ const SubmissionGrader: React.FC = () => {
                                                         Rubric total: <strong>{total !== null ? `${total.toFixed(2)}/${maxPoints}` : `— /${maxPoints}`}</strong>
                                                     </span>
                                                     <Button type="button" size="sm" variant="outline"
-                                                        onClick={() => { const t = computeRubricTotal(); if (t !== null) setGrade(t.toString()); }}>
+                                                        onClick={() => { 
+                                                            const t = computeRubricTotal(); 
+                                                            if (t !== null) {
+                                                                const finalVal = t.toFixed(2);
+                                                                setGrade(finalVal);
+                                                                if (submissionId) {
+                                                                    markDraftField({ grade: finalVal });
+                                                                }
+                                                            }
+                                                        }}>
                                                         Use as final grade
                                                     </Button>
                                                 </div>
@@ -855,7 +1179,14 @@ const SubmissionGrader: React.FC = () => {
                                 <label className="form-label">Final Grade</label>
                                 <input type="number" min="0" max={maxPoints} className="form-input"
                                     value={grade}
-                                    onChange={e => { const v = e.target.value; setGrade(parseFloat(v) > maxPoints ? maxPoints.toString() : v); }} />
+                                    onChange={e => { 
+                                        const v = e.target.value; 
+                                        const finalVal = parseFloat(v) > maxPoints ? maxPoints.toString() : v;
+                                        setGrade(finalVal);
+                                        if (submissionId) {
+                                            markDraftField({ grade: finalVal });
+                                        }
+                                    }} />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Feedback</label>
@@ -863,13 +1194,29 @@ const SubmissionGrader: React.FC = () => {
                                     rows={4}
                                     className="form-textarea"
                                     value={feedback}
-                                    onChange={e => setFeedback(e.target.value)}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        setFeedback(v);
+                                        if (submissionId) {
+                                            markDraftField({ feedback: v });
+                                        }
+                                    }}
                                     placeholder="Add feedback for this submission..."
                                 />
                             </div>
 
                             <div className="form-actions single">
-                                <Button onClick={handleSave}>Save Final Grade</Button>
+                                <Button 
+                                    onClick={handleSave} 
+                                    variant="primary"
+                                    className={draftIdsRef.current.size > 0 ? 'modified-save' : ''}
+                                >
+                                    {draftIdsRef.current.size > 1 
+                                        ? `Finalize & Post ALL Grades (${draftIdsRef.current.size})` 
+                                        : draftIdsRef.current.size === 1 
+                                            ? 'Finalize & Post Grade' 
+                                            : 'Finalize & Post Grade'}
+                                </Button>
                             </div>
                         </div>
                 </div>

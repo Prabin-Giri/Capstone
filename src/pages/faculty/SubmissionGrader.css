@@ -169,7 +169,6 @@
     font-weight: 600;
     color: var(--text-secondary);
 }
-
 /* TA notice: names hidden by instructor */
 .anon-hidden-notice {
     display: flex;
@@ -182,6 +181,32 @@
     color: var(--primary-color);
     background: color-mix(in srgb, var(--primary-color) 8%, transparent);
     flex-shrink: 0;
+}
+
+.bulk-finalize-bar {
+    padding: 12px 14px;
+    background: #fffbeb;
+    border-bottom: 1px solid #fde68a;
+    display: flex;
+    justify-content: center;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.finalize-all-btn {
+    width: 100%;
+    background: #f59e0b !important;
+    border-color: #d97706 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 11px !important;
+}
+
+.finalize-all-btn:hover {
+    background: #d97706 !important;
 }
 
 /* Anonymous grading toggle */
@@ -367,9 +392,47 @@
     color: #16a34a;
 }
 
+.student-grade-badge.draft {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .student-grade-badge.pending {
     background: var(--light-grey);
     color: var(--text-tertiary);
+}
+
+.student-list-item.modified {
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.student-list-item.modified:hover {
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.unsaved-dot {
+    color: #f59e0b;
+    font-size: 10px;
+    margin-left: 6px;
+    animation: pulse-amber 2s infinite;
+}
+
+@keyframes pulse-amber {
+    0% { opacity: 0.4; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.modified-save {
+    background: #f59e0b !important;
+    border-color: #d97706 !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+}
+
+.modified-save:hover {
+    background: #d97706 !important;
 }
 
 /* ── Middle panel ───────────────────────────────────────────── */
@@ -437,6 +500,11 @@
     opacity: 0.5;
     pointer-events: none;
     transition: opacity 0.15s;
+}
+
+.grader-breadcrumb {
+    padding: 0 28px;
+    margin-bottom: 8px;
 }
 
 /* Student header strip */
@@ -891,7 +959,8 @@
     max-width: 240px;
     line-height: 1.4;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -1221,4 +1290,92 @@
 
     .file-box { flex-direction: column; align-items: flex-start; gap: 10px; }
     .file-actions { width: 100%; }
+}
+
+/* Group Grading Styles */
+.grade-by-group-toggle {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--bg-surface);
+}
+
+.grade-by-group-toggle .toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.group-section-header {
+    background: color-mix(in srgb, var(--primary-color) 6%, transparent);
+    padding: 5px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
+}
+
+.group-section:first-child .group-section-header {
+    border-top: none;
+}
+
+/* Switch UI */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-color);
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: var(--primary-color);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--primary-color);
+}
+
+input:checked + .slider:before {
+  transform: translateX(14px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
 }

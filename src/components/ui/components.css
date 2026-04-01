@@ -201,9 +201,9 @@
 
 /* Dashboard Layout Overhaul */
 .dashboard-container {
+    padding: 2.5rem 4rem;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 2.5rem 2rem;
 }
 
 .dashboard-header {
@@ -235,6 +235,34 @@
     margin-bottom: 1rem;
 }
 
+/* Global Navigation Breadcrumbs */
+.breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.breadcrumb a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.breadcrumb a:hover {
+    color: var(--primary-color);
+}
+
+.breadcrumb-divider {
+    opacity: 0.4;
+    padding: 0 0.25rem;
+}
+
 /* Analytics Summary Bar */
 .analytics-bar {
     display: grid;
@@ -252,9 +280,29 @@
     flex-direction: column;
 }
 
+.analytics-card.analytics-card-outlined {
+    background: var(--bg-surface) !important;
+    border: 2px solid var(--primary-light) !important;
+}
+
+.analytics-card.analytics-card-outlined .analytics-label {
+    color: var(--primary-color) !important;
+    opacity: 0.8;
+}
+
+.analytics-card.analytics-card-outlined .analytics-value {
+    color: var(--primary-color) !important;
+}
+
+.analytics-card.analytics-card-outlined .analytics-desc {
+    color: var(--text-secondary) !important;
+    opacity: 0.8;
+}
+
 .analytics-card--maroon {
-    background: linear-gradient(160deg, #991b1b 0%, #7f1d1d 55%, #450a0a 100%) !important;
-    border-color: rgba(255, 255, 255, 0.22) !important;
+    background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%) !important;
+    color: white !important;
+    border: none !important;
     box-shadow: 0 8px 24px rgba(69, 10, 10, 0.28);
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -298,25 +346,39 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 2rem;
+    align-items: start; /* Allows cards to have individual heights and stay as short as possible */
 }
 
 /* Course Card Premium Styling - Synced with Faculty Style */
 .course-card-premium {
-    height: auto;
+    height: auto !important;
+    min-height: 180px !important;
     position: relative;
+    background-color: var(--bg-surface); /* Card background */
+    border: 1px solid var(--border-color); /* Card border */
     border-top: 4px solid var(--primary-border);
-    display: block !important;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    display: flex !important;
+    flex-direction: column;
+    align-self: start;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.course-card-premium .card-body {
-    padding: 1.25rem !important;
+.course-card-premium:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-light);
 }
 
 .course-card-premium .course-card-header {
     display: flex !important;
     justify-content: space-between !important;
     align-items: flex-start !important;
-    margin-bottom: 1.25rem !important;
+    margin-bottom: 0 !important;
+    padding: 1.5rem 1.25rem 1rem 1.25rem !important; /* Proper internal padding */
+    flex: 1 !important;
 }
 
 .course-title-display {
@@ -338,14 +400,13 @@
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     gap: 1.5rem !important;
-    margin-top: 1rem !important;
-    margin-left: -1.25rem !important;
-    margin-right: -1.25rem !important;
-    margin-bottom: -1.25rem !important;
-    padding: 1rem 1.25rem 1.1rem !important;
+    margin-top: auto !important;
+    margin-left: 0 !important;
+    margin-right: -1px !important; /* Tiny adjustment for border overflow */
+    margin-bottom: 0 !important;
+    padding: 1.25rem 1.25rem !important;
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-hover) 50%, #4a0017 100%) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
-    background: linear-gradient(180deg, #991b1b 0%, #7f1d1d 50%, #450a0a 100%) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -478,4 +539,10 @@
     border: 1px solid rgba(132, 0, 41, 0.6) !important;
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.dark-theme .analytics-card.analytics-card-outlined .analytics-label,
+.dark-theme .analytics-card.analytics-card-outlined .analytics-value,
+.dark-theme .analytics-card.analytics-card-outlined .analytics-desc {
+    color: #ffffff !important;
 }

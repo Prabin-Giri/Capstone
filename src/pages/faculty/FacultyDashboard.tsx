@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, updateCourse, type Course } from '../../lib/api';
@@ -110,7 +109,30 @@ const FacultyDashboard: React.FC = () => {
 
     return (
         <div className="faculty-dashboard-container">
-            <div className="dashboard-header">
+            {/* Analytics Summary Bar - VERY TOP */}
+            <div className="analytics-bar" style={{ marginBottom: '2.5rem' }}>
+                <div className="analytics-card glass analytics-card-outlined">
+                    <span className="analytics-label">Active Courses</span>
+                    <span className="analytics-value">{courses.filter(c => !c.is_archived).length}</span>
+                    <span className="analytics-desc">Running this semester</span>
+                </div>
+                <div className="analytics-card glass analytics-card-outlined">
+                    <span className="analytics-label">Total Students</span>
+                    <span className="analytics-value">
+                        {courses.filter(c => !c.is_archived).reduce((acc, c) => acc + (c.student_count || 0), 0)}
+                    </span>
+                    <span className="analytics-desc">Across all your active courses</span>
+                </div>
+                <div className="analytics-card glass analytics-card-outlined">
+                    <span className="analytics-label">Active Assignments</span>
+                    <span className="analytics-value">
+                        {courses.filter(c => !c.is_archived).reduce((acc, c) => acc + (c.active_assignment_count || 0), 0)}
+                    </span>
+                    <span className="analytics-desc">Currently open for submissions</span>
+                </div>
+            </div>
+
+            <div className="dashboard-header" style={{ marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <button
                         className="btn-header-outline"
@@ -135,15 +157,15 @@ const FacultyDashboard: React.FC = () => {
                     </div>
                 ) : (
                     filteredCourses.map((course) => (
-                        <Card
+                        <div
                             key={course.id}
-                            className={`cursor-pointer ${course.is_archived ? 'archived-card' : ''}`}
+                            className={`course-card-premium cursor-pointer ${course.is_archived ? 'archived-card' : ''}`}
                             onClick={() => navigate(`/faculty/courses/${course.id}`)}
                             style={course.is_archived ? { opacity: 0.7, filter: 'grayscale(0.5)' } : {}}
                         >
                             <div className="course-card-header">
                                 <div>
-                                    <h3 className="course-id">{course.name}</h3>
+                                    <h3 className="course-title-display">{course.name}</h3>
                                     <p className="course-term">{course.term}</p>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
@@ -195,17 +217,17 @@ const FacultyDashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="course-stats">
-                                <div>
-                                    <span className="stat-value">{course.student_count || 0}</span>
-                                    <span>Students</span>
+                             <div className="course-stats-display">
+                                <div className="stat-item">
+                                    <span className="stat-v">{course.student_count || 0}</span>
+                                    <span className="stat-label">Students</span>
                                 </div>
-                                <div>
-                                    <span className="stat-value">{course.active_assignment_count || 0}</span>
-                                    <span>Active Assignments</span>
+                                <div className="stat-item">
+                                    <span className="stat-v">{course.active_assignment_count || 0}</span>
+                                    <span className="stat-label">Active Assignments</span>
                                 </div>
                             </div>
-                        </Card>
+                        </div>
                     ))
                 )}
             </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { getAssignment, getSubmissions, getFileUrl, updateAssignment, runAutograde } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
-import { BarChart2, Search, FlaskConical, Brain, PenLine, FileBarChart } from 'lucide-react';
+import { BarChart2, Search, FlaskConical, Brain, PenLine, FileBarChart, ChevronLeft } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import PlagiarismReportModal from './PlagiarismReportModal';
@@ -195,18 +195,19 @@ const GradingDashboard: React.FC = () => {
         navigate(`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading/${firstGradeSubmissionId}`);
     };
 
-    const backToAssignmentHref = isFaculty
-        ? `${basePath}/courses/${courseId}/assignments/${assignmentId}`
-        : `${basePath}/courses/${courseId}`;
+    const backToCourseHref = `${basePath}/courses/${courseId}`;
 
     return (
         <div className="grading-dashboard-container">
             <div className="grading-dashboard-top">
-                <div className="grading-back-row">
-                    <Link to={backToAssignmentHref} className="grading-back-link">
-                        {isFaculty ? 'Back to assignment' : 'Back to course'}
+                <div className="breadcrumb">
+                    <Link to={backToCourseHref}>
+                        <ChevronLeft size={14} />
+                        Back to course
                     </Link>
-                    <span className="grading-context-title">{assignment.title}</span>
+                </div>
+                <div className="grading-header-row">
+                    <h1 className="grading-context-title">{assignment.title}</h1>
                 </div>
                 <div className="action-group">
                     <button
@@ -451,13 +452,6 @@ const GradingDashboard: React.FC = () => {
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn btn-sm btn-outline"
-                                                        style={{
-                                                            textDecoration: 'none',
-                                                            color: 'var(--text-primary)',
-                                                            borderColor: 'var(--border-color)',
-                                                            boxShadow: 'none',
-                                                            outline: 'none'
-                                                        }}
                                                     >
                                                         Download
                                                     </a>

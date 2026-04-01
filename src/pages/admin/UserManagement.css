@@ -198,6 +198,12 @@
     background: #fff5f5;
 }
 
+.um-user-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 /* Status badges */
 .um-status {
     display: inline-flex;
