@@ -25,11 +25,17 @@ module.exports = {
         return 30000;
     })(),
 
-    /** Docker run: memory limit */
-    memoryMb: 256,
+    /** Docker run: memory limit (MB) */
+    memoryMb: 128,
 
     /** Docker run: CPU limit (e.g. 0.5 = half a CPU) */
     cpus: 0.5,
+
+    /** Docker run: Maximum number of processes/threads in container */
+    pidsLimit: 64,
+
+    /** Docker run: Hard kernel CPU-time limit (seconds) */
+    ulimitCpuSec: 10,
 
     /** Default late penalty when enabled and no assignment-specific value */
     defaultLatePenaltyPercentPerDay: 10,
