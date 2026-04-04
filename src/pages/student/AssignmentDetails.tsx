@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-<<<<<<< HEAD
 import { getAssignment, getFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
-=======
-import { getAssignment, getFileUrl, getSubmissionFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE } from '../../lib/api';
->>>>>>> feat: make uploads EC2 and S3 compatible
 import { Code, Download, Eye, FolderOpen, ChevronLeft } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
