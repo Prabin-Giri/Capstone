@@ -27,6 +27,7 @@ interface AssignmentEditorProps {
     points: number;
     onChange?: (files: EditorFile[]) => void;
     readOnly?: boolean;
+    defaultSidebarOpen?: boolean;
 }
 
 const getLanguageFromFilename = (filename: string, defaultLang: string) => {
@@ -55,7 +56,8 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     isRunning,
     points,
     onChange,
-    readOnly = false
+    readOnly = false,
+    defaultSidebarOpen
 }) => {
     const [files, setFiles] = useState<EditorFile[]>(initialFiles.length ? initialFiles : [
         { id: '1', name: `main.${language === 'python' ? 'py' : language === 'java' ? 'java' : 'js'}`, content: '// Write your code here\n', language: language }
@@ -63,12 +65,15 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     const [activeFileId, setActiveFileId] = useState<string>(files[0].id);
     const [openFileIds, setOpenFileIds] = useState<string[]>([files[0].id]);
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;
-    const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobile());
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+        if (defaultSidebarOpen !== undefined) return defaultSidebarOpen;
+        return !isMobile();
+    });
     const [sidebarWidth, setSidebarWidth] = useState(200);
     const [isResizing, setIsResizing] = useState(false);
     const [testResults, setTestResults] = useState<TestResult[] | null>(null);
     const [testLog, setTestLog] = useState<string | null>(null);
-    const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+    const [isTerminalOpen, setIsTerminalOpen] = useState(true);
     const [terminalHeight, setTerminalHeight] = useState(240);
     const [isTerminalResizing, setIsTerminalResizing] = useState(false);
     const [terminalTab, setTerminalTab] = useState<'tests' | 'custom'>('tests');
@@ -489,17 +494,19 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                 </button>
                                 <span>EXPLORER</span>
                             </div>
-                            <div className="sidebar-actions">
-                                <button onClick={handleAddFileClick} title="New File"><Plus size={15} /></button>
-                                <button onClick={handleFileUploadClick} title="Upload File"><Upload size={15} /></button>
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    style={{ display: 'none' }} 
-                                    onChange={handleFileUpload} 
-                                    multiple 
-                                />
-                            </div>
+                            {!readOnly && (
+                                <div className="sidebar-actions">
+                                    <button onClick={handleAddFileClick} title="New File"><Plus size={15} /></button>
+                                    <button onClick={handleFileUploadClick} title="Upload File"><Upload size={15} /></button>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        style={{ display: 'none' }} 
+                                        onChange={handleFileUpload} 
+                                        multiple 
+                                    />
+                                </div>
+                            )}
                         </div>
                         <div className="sidebar-files-label">PROJECT</div>
                         <div className="file-list">
@@ -540,7 +547,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                     ) : (
                                         <span className="file-name">{f.name}</span>
                                     )}
-                                    {!f.isStarter && renamingFileId !== f.id && (
+                                    {!f.isStarter && renamingFileId !== f.id && !readOnly && (
                                         <button className="file-delete-btn" onClick={(e) => handleDeleteFile(e, f.id)}>
                                             <X size={13} />
                                         </button>
@@ -555,6 +562,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                                 onClick={e => e.stopPropagation()}
                             >
                                 {(() => {
+                                    if (readOnly) return null;
                                     const targetFile = files.find(f => f.id === contextMenu.fileId);
                                     const canRename = targetFile && !targetFile.isStarter;
                                     return (
@@ -660,7 +668,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
                         ) : (
                             <div className="monaco-empty-state">
                                 <Folder size={36} style={{ opacity: 0.25 }} />
-                                <span style={{ fontSize: '0.9rem', opacity: 0.5 }}>Open a file from the Explorer to start editing</span>
+                                <span style={{ fontSize: '0.9rem', opacity: 0.5 }}>Open a file from explorer to view</span>
                             </div>
                         )}
                     </div>

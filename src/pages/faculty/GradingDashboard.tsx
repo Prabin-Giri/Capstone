@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { getAssignment, getSubmissions, getSubmissionFileUrl, updateAssignment, runAutograde } from '../../lib/api';
 import type { Assignment, Submission } from '../../lib/api';
-import { BarChart2, Search, FlaskConical, Brain, PenLine, FileBarChart, ChevronLeft } from 'lucide-react';
+import { BarChart2, Search, FlaskConical, Brain, PenLine, ChevronLeft } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import PlagiarismReportModal from './PlagiarismReportModal';
@@ -250,13 +250,6 @@ const GradingDashboard: React.FC = () => {
                     >
                         <BarChart2 size={18} />
                         Gradebook
-                    </Link>
-                    <Link
-                        to={`${basePath}/courses/${courseId}/gradebook`}
-                        className="btn-dashboard-action btn-report"
-                    >
-                        <FileBarChart size={18} />
-                        Report
                     </Link>
                 </div>
             </div>

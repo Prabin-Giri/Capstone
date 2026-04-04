@@ -15,7 +15,7 @@ interface GlobalSidebarProps {
     unreadCount?: number;
 }
 
-const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen, unreadCount = 0 }) => {
+const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onToggleAccount, isAccountOpen, onOpenSupport, unreadCount = 0 }) => {
     const role = getRole();
     const dashboardPath =
         role === AUTH_ROLES.FACULTY ? '/faculty' :
@@ -119,10 +119,13 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
 
                 <div style={{ flex: 1 }} />
 
-                <span className="global-nav-link disabled" title="Coming Soon">
+                <button 
+                    onClick={onOpenSupport}
+                    className="global-nav-link"
+                >
                     <HelpCircle size={24} />
                     <span className="global-nav-text">Help</span>
-                </span>
+                </button>
             </nav>
         </aside>
     );

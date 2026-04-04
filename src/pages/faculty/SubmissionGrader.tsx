@@ -1017,6 +1017,7 @@ const SubmissionGrader: React.FC = () => {
                                 onRunTests={handleRunTests}
                                 onRunCustomInput={handleRunCustomInput}
                                 readOnly={true}
+                                defaultSidebarOpen={false}
                             />
                         </div>
                     ) : (
@@ -1042,6 +1043,21 @@ const SubmissionGrader: React.FC = () => {
                         </div>
 
                         <div className="grading-form">
+                            <div className="form-actions single" style={{ marginBottom: '1.5rem' }}>
+                                <Button 
+                                    onClick={handleSave} 
+                                    variant="primary"
+                                    className={draftIdsRef.current.size > 0 ? 'modified-save' : ''}
+                                    style={{ width: '100%', padding: '10px 0' }}
+                                >
+                                    {draftIdsRef.current.size > 1 
+                                        ? `Finalize & Post ALL Grades (${draftIdsRef.current.size})` 
+                                        : draftIdsRef.current.size === 1 
+                                            ? 'Finalize & Post Grade' 
+                                            : 'Finalize & Post Grade'}
+                                </Button>
+                            </div>
+
                             {/* 1. Test case summary */}
                             <div className="autograde-result-box">
                                 <div>
@@ -1205,19 +1221,6 @@ const SubmissionGrader: React.FC = () => {
                                 />
                             </div>
 
-                            <div className="form-actions single">
-                                <Button 
-                                    onClick={handleSave} 
-                                    variant="primary"
-                                    className={draftIdsRef.current.size > 0 ? 'modified-save' : ''}
-                                >
-                                    {draftIdsRef.current.size > 1 
-                                        ? `Finalize & Post ALL Grades (${draftIdsRef.current.size})` 
-                                        : draftIdsRef.current.size === 1 
-                                            ? 'Finalize & Post Grade' 
-                                            : 'Finalize & Post Grade'}
-                                </Button>
-                            </div>
                         </div>
                 </div>
             </div>

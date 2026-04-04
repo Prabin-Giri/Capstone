@@ -340,7 +340,12 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                                             <>
                                                 <div className="topbar-notif-section-title">Upcoming Deadlines</div>
                                                 {upcomingDeadlines.map(a => (
-                                                    <div key={a.id} className="topbar-notif-item" onClick={() => { setNotifOpen(false); navigate(user?.role === AUTH_ROLES.FACULTY ? `/faculty/courses/${a.course_id}/assignments/${a.id}` : `/student/courses/${a.course_id}/assignments/${a.id}`); }}>
+                                                    <div key={a.id} className="topbar-notif-item" onClick={() => { 
+                                                        setNotifOpen(false); 
+                                                        const isInstructor = user?.role === AUTH_ROLES.FACULTY || user?.role === AUTH_ROLES.TA;
+                                                        const basePath = isInstructor ? '/faculty' : '/student';
+                                                        navigate(`${basePath}/courses/${a.course_id}/assignments/${a.id}${isInstructor ? '/grading' : ''}`); 
+                                                    }}>
                                                         <div className="topbar-notif-icon-wrap deadline">
                                                             <CalendarIcon size={18} />
                                                         </div>
