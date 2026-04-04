@@ -399,14 +399,14 @@ const SubmissionGrader: React.FC = () => {
                         id: `${f.path}-${idx}`,
                         name: f.name,
                         content,
-                        language: getLanguageFromFilename(f.name, assignment?.language || 'python'),
+                        language: getLanguageFromFilename(f.name, assignment?.language || ''),
                     } as EditorFile;
                 } catch {
                     return {
                         id: `${f.path}-${idx}`,
                         name: f.name,
                         content: 'Unable to render this file in editor preview. Please use Download.',
-                        language: getLanguageFromFilename(f.name, assignment?.language || 'python'),
+                        language: getLanguageFromFilename(f.name, assignment?.language || ''),
                     } as EditorFile;
                 }
             }));
@@ -446,7 +446,7 @@ const SubmissionGrader: React.FC = () => {
         setIsRunningCustom(true);
         try {
             const primaryFile = files[0];
-            const detectedLang = assignment.language || (primaryFile ? getLanguageFromFilename(primaryFile.name) : 'python');
+            const detectedLang = assignment.language || (primaryFile ? getLanguageFromFilename(primaryFile.name, '') : '');
             const comment = getCommentChar(detectedLang);
             const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
@@ -463,7 +463,7 @@ const SubmissionGrader: React.FC = () => {
         setIsRunningCustom(true);
         try {
             const primaryFile = files[0];
-            const detectedLang = assignment.language || (primaryFile ? getLanguageFromFilename(primaryFile.name) : 'python');
+            const detectedLang = assignment.language || (primaryFile ? getLanguageFromFilename(primaryFile.name, '') : '');
             const comment = getCommentChar(detectedLang);
             const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
             const data = await runTests(assignment.id, codeToRun, detectedLang);
@@ -788,7 +788,7 @@ const SubmissionGrader: React.FC = () => {
                                                                                         {isModified
                                                                                             ? <><Clock size={11} />{hasGradeValue ? `${Number(displayGrade).toFixed(0)}/${maxPoints}` : `-/${maxPoints}`}</>
                                                                                             : hasGradeValue
-                                                                                                ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/{maxPoints}</>
+                                                                                                ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/${maxPoints}</>
                                                                                                 : <><Clock size={11} />Pending</>
                                                                                         }
                                                                                     </div>
@@ -829,7 +829,7 @@ const SubmissionGrader: React.FC = () => {
                                             {isModified
                                                 ? <><Clock size={11} />{hasGradeValue ? `${Number(displayGrade).toFixed(0)}/${maxPoints}` : `-/${maxPoints}`}</>
                                                 : hasGradeValue
-                                                    ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/{maxPoints}</>
+                                                    ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/${maxPoints}</>
                                                     : <><Clock size={11} />Pending</>
                                             }
                                         </div>
@@ -1010,7 +1010,7 @@ const SubmissionGrader: React.FC = () => {
                         <div className="code-preview-container">
                             <AssignmentEditor
                                 initialFiles={workspaceFiles}
-                                language={assignment.language || 'python'}
+                                language={assignment.language || ''}
                                 theme="light"
                                 isRunning={isRunningCustom}
                                 points={0}

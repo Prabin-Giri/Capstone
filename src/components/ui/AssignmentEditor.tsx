@@ -43,7 +43,7 @@ const getLanguageFromFilename = (filename: string, defaultLang: string) => {
         case 'cpp': return 'cpp';
         case 'html': return 'html';
         case 'css': return 'css';
-        default: return defaultLang;
+        default: return (defaultLang && defaultLang.trim() !== '') ? defaultLang : 'text';
     }
 };
 

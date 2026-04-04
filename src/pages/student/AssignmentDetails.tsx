@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE } from '../../lib/api';
+import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
 import { Code, Download, Eye, FolderOpen, ChevronLeft } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
@@ -61,8 +61,10 @@ const AssignmentDetails: React.FC = () => {
                 try {
                     const loadedFiles = await Promise.all(
                         submission.files.map(async (file, index) => {
-                            const url = `${UPLOADS_BASE}/uploads/${file.path}`;
-                            const res = await fetch(url);
+                            const url = getSubmissionFileUrl(submission.id, file.name);
+                            const res = await fetch(url, {
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                            });
                             let content = '// Failed to load prior submission';
                             if (res.ok) {
                                 content = await res.text();
@@ -72,7 +74,7 @@ const AssignmentDetails: React.FC = () => {
                                 id: `submission-${index}`,
                                 name: file.name,
                                 content: content,
-                                language: getLanguageFromFilename(file.name, assignment?.language || 'python'),
+                                language: getLanguageFromFilename(file.name, assignment?.language || ''),
                                 isStarter: false
                             };
                         })
@@ -87,7 +89,7 @@ const AssignmentDetails: React.FC = () => {
                     id: 'submission-0',
                     name: `submission.${assignment?.language === 'python' ? 'py' : assignment?.language === 'java' ? 'java' : 'js'}`,
                     content: '// Prior submission loaded (no files retrieved).\n// Run tests to fetch code or paste new code here.',
-                    language: getLanguageFromFilename(`submission.${assignment?.language === 'python' ? 'py' : assignment?.language === 'java' ? 'java' : 'js'}`, assignment?.language || 'python'),
+                    language: getLanguageFromFilename(`submission.${assignment?.language === 'python' ? 'py' : assignment?.language === 'java' ? 'java' : 'js'}`, assignment?.language || ''),
                     isStarter: false
                 }]);
             }
@@ -201,12 +203,12 @@ const AssignmentDetails: React.FC = () => {
                         .map(async (f: JSZip.JSZipObject) => {
                             const content = await f.async('string');
                             const name = f.name.split('/').pop() || f.name;
-                            return { id: `starter-${Date.now()}-${f.name}`, name, content, language: getLanguageFromFilename(name, assignment?.language || 'python') } as EditorFile;
+                            return { id: `starter-${Date.now()}-${f.name}`, name, content, language: getLanguageFromFilename(name, assignment?.language || '') } as EditorFile;
                         })
                 );
             } else {
                 const content = await blob.text();
-                newFiles = [{ id: `starter-${Date.now()}`, name: filename, content, language: getLanguageFromFilename(filename, assignment?.language || 'python') }];
+                newFiles = [{ id: `starter-${Date.now()}`, name: filename, content, language: getLanguageFromFilename(filename, assignment?.language || '') }];
             }
 
             if (newFiles.length === 0) {
@@ -249,7 +251,7 @@ const AssignmentDetails: React.FC = () => {
         try {
             // Prioritize the language detected from the files over the assignment requirement
             const fileLang = editorFiles.length > 0 ? getLanguageFromFilename(editorFiles[0].name, '') : '';
-            const detectedLang = normalizeLanguage(fileLang || assignment.language || 'python');
+            const detectedLang = normalizeLanguage(fileLang || assignment.language || '');
             
             const comment = getCommentChar(detectedLang);
             const codeToRun = editorFiles.length === 1 ? editorFiles[0].content : editorFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
@@ -272,7 +274,7 @@ const AssignmentDetails: React.FC = () => {
         try {
             // Prioritize the language detected from the files over the assignment requirement
             const fileLang = files.length > 0 ? getLanguageFromFilename(files[0].name, '') : '';
-            const detectedLang = normalizeLanguage(fileLang || assignment.language || 'python');
+            const detectedLang = normalizeLanguage(fileLang || assignment.language || '');
             
             const comment = getCommentChar(detectedLang);
             const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
@@ -330,7 +332,7 @@ const AssignmentDetails: React.FC = () => {
             const formData = new FormData();
             formData.append('student_id', user.id);
             formData.append('assignment_id', assignment.id);
-            formData.append('language', assignment.language || 'python');
+            formData.append('language', assignment.language || '');
 
             // Append each file separately to preserve multiple file structures
             editorFiles.forEach(f => {
@@ -496,7 +498,7 @@ const AssignmentDetails: React.FC = () => {
                 <div style={{ marginTop: '1rem' }}>
                     <AssignmentEditor
                         initialFiles={initialFiles}
-                        language={assignment.language || 'python'}
+                        language={assignment.language || ''}
                         theme={theme}
                         onRunTests={handleRunEditorTests}
                         onRunCustomInput={handleRunCustomInput}
