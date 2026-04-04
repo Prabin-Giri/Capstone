@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
+<<<<<<< HEAD
+import { getAssignment, getFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
+=======
+import { getAssignment, getFileUrl, getSubmissionFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE } from '../../lib/api';
+>>>>>>> feat: make uploads EC2 and S3 compatible
 import { Code, Download, Eye, FolderOpen, ChevronLeft } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
@@ -187,7 +191,7 @@ const AssignmentDetails: React.FC = () => {
     }
 
     async function handleLoadIntoEditor(starterPath: string) {
-        const url = `${UPLOADS_BASE}/uploads/${starterPath}`;
+        const url = getFileUrl(starterPath);
         const filename = cleanFilename(starterPath.split('/').pop() || starterPath);
         try {
             const res = await fetch(url);
@@ -516,7 +520,7 @@ const AssignmentDetails: React.FC = () => {
                         {parseStarterPaths(assignment.starter_code_path).map((starterPath, idx) => {
                             const storedFilename = starterPath.split('/').pop() || starterPath;
                             const displayName = cleanFilename(storedFilename);
-                            const downloadUrl = `${UPLOADS_BASE}/uploads/${starterPath}`;
+                            const downloadUrl = getFileUrl(starterPath);
                             return (
                                 <div key={idx} className="material-item">
                                     <div className="material-info">

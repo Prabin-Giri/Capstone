@@ -717,12 +717,11 @@ export async function deleteSubmission(id: number): Promise<void> {
     await apiFetch<{ message: string }>(`/submissions/${id}`, { method: 'DELETE' });
 }
 
-// Helper to get the full URL for a submitted file.
-// For submission files stored in S3, use getSubmissionFileUrl instead — it routes
-// through the backend proxy which reads from S3.
+// Helper to get the full URL for any stored backend file path/key.
+// This routes through the backend proxy so S3-backed and legacy local files
+// both work without a public /uploads directory.
 export function getFileUrl(filePath: string): string {
-    // Legacy: non-JSON, non-S3 paths (e.g. course syllabi on local disk)
-    return `${API_BASE.replace('/api', '')}/uploads/${filePath}`;
+    return `${API_BASE}/uploads/file?path=${encodeURIComponent(filePath)}`;
 }
 
 /**

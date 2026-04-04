@@ -34,7 +34,7 @@
 5. Copy `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 
 ### 3. EC2 Instance
-1. Launch an **Ubuntu 22.04** instance (`t2.micro` for free tier / `t3.small` for better grading)
+1. Launch an **Ubuntu 24.04 LTS** instance (`t2.micro` for free tier / `t3.small` for better grading)
 2. Storage: 20GB gp3
 3. Security Group inbound rules:
    | Port | Protocol | Source | Purpose |
@@ -45,7 +45,7 @@
 
 ---
 
-## EC2 Server Setup (Ubuntu)
+## EC2 Server Setup (Ubuntu 24.04)
 
 SSH into your instance, then run:
 

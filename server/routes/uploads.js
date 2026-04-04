@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { getDb, queryOne } = require('../db');
-const { uploadToS3, deleteFromS3, s3Enabled } = require('../s3');
+const { uploadToS3, getFromS3, deleteFromS3, s3Enabled } = require('../s3');
 
 // ── Local disk fallback ─────────────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -22,6 +22,20 @@ async function persistFile(buffer, originalName, category) {
     const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + originalName;
     fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
     return uniqueName;
+}
+
+function resolveLocalUploadPath(filePath) {
+    const normalized = String(filePath || '').replace(/\\/g, '/').trim();
+    if (!normalized || normalized.includes('..') || path.isAbsolute(normalized)) {
+        return null;
+    }
+    const candidate = path.join(uploadsDir, normalized);
+    const resolved = path.resolve(candidate);
+    const allowedRoot = path.resolve(uploadsDir) + path.sep;
+    if (resolved === path.resolve(uploadsDir) || resolved.startsWith(allowedRoot)) {
+        return resolved;
+    }
+    return null;
 }
 
 // Helper to update document path in DB
@@ -80,6 +94,34 @@ router.get('/documents/:courseId', async (req, res, next) => {
         const result = await db.execute('SELECT * FROM course_documents WHERE course_id = ?', [req.params.courseId]);
         const row = queryOne(result);
         res.json(row || {});
+    } catch (err) { next(err); }
+});
+
+// GET /api/uploads/file?path=...
+// Proxy any stored upload path/key through the backend so S3-backed assets
+// work without exposing a public uploads directory.
+router.get('/file', async (req, res, next) => {
+    try {
+        const filePath = String(req.query.path || '').trim();
+        if (!filePath) return res.status(400).json({ error: 'path is required' });
+
+        if (s3Enabled) {
+            try {
+                const buffer = await getFromS3(filePath);
+                res.type(path.extname(filePath) || 'application/octet-stream');
+                res.set('Access-Control-Allow-Origin', '*');
+                return res.send(buffer);
+            } catch (_) {
+                // Fall through to local fallback for legacy files.
+            }
+        }
+
+        const localPath = resolveLocalUploadPath(path.basename(filePath));
+        if (!localPath || !fs.existsSync(localPath)) {
+            return res.status(404).send('File not found');
+        }
+        res.set('Access-Control-Allow-Origin', '*');
+        return res.sendFile(localPath);
     } catch (err) { next(err); }
 });
 

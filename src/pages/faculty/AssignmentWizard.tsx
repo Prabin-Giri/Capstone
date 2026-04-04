@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, getSubmissions, deleteAssignment, UPLOADS_BASE } from '../../lib/api';
+import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, getSubmissions, deleteAssignment, getFileUrl, UPLOADS_BASE } from '../../lib/api';
 import type { TestCase, RubricConfig, User } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
@@ -171,7 +171,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         const res = await fetch(`${API_BASE}/uploads/attachments`, { method: 'POST', body: form });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
-        const fileUrl = `${UPLOADS_BASE}/uploads/${data.filePath}`;
+        const fileUrl = getFileUrl(data.filePath);
         const safeName = String(data.originalName || file.name).replace(/[<>]/g, '');
         exec(
             'insertHTML',

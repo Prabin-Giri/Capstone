@@ -1,5 +1,5 @@
 import React from 'react';
-import { UPLOADS_BASE } from '../../lib/api';
+import { getFileUrl } from '../../lib/api';
 import './UserAvatar.css';
 
 interface UserAvatarProps {
@@ -48,7 +48,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40, className = ''
         const isDataOrBlob = profilePic.startsWith('data:') || profilePic.startsWith('blob:');
         const imageUrl = (profilePic.startsWith('http') || isDataOrBlob)
             ? profilePic 
-            : `${UPLOADS_BASE}/uploads/${profilePic}`;
+            : getFileUrl(profilePic);
             
         return (
             <div className={`user-avatar ${className}`} style={avatarStyle}>
