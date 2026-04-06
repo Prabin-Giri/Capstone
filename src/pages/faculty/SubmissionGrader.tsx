@@ -209,7 +209,7 @@ const SubmissionGrader: React.FC = () => {
             const files = activeAttempt.files || [{ name: activeAttempt.file_name, path: activeAttempt.file_path }];
             const primary = files[0];
             if (primary && primary.path) {
-                void loadAttemptWorkspace(files, primary.path);
+                void loadAttemptWorkspace(files, activeAttempt.id, primary.path);
                 loadedAttemptIdRef.current = activeAttempt.id;
             }
         }
@@ -383,14 +383,14 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
-    async function loadAttemptWorkspace(files: { name: string; path: string }[], preferredPath?: string) {
+    async function loadAttemptWorkspace(files: { name: string; path: string }[], targetSubmissionId: number, preferredPath?: string) {
         setIsPreviewLoading(true);
         try {
             const ordered = preferredPath
                 ? [...files].sort((a, b) => (a.path === preferredPath ? -1 : b.path === preferredPath ? 1 : 0))
                 : files;
             const loaded = await Promise.all(ordered.map(async (f, idx) => {
-                const url = getSubmissionFileUrl(submission!.id, f.name);
+                const url = getSubmissionFileUrl(targetSubmissionId, f.name);
                 try {
                     const res = await fetch(url);
                     if (!res.ok) throw new Error();
@@ -963,7 +963,7 @@ const SubmissionGrader: React.FC = () => {
                                             setIsWorkspaceOpen(false);
                                             setWorkspaceFiles([]);
                                         } else {
-                                            void loadAttemptWorkspace(activeAttemptFiles, attemptPrimaryFile.path);
+                                            void loadAttemptWorkspace(activeAttemptFiles, activeAttempt.id, attemptPrimaryFile.path);
                                         }
                                     }}
                                     disabled={!attemptPrimaryFile}

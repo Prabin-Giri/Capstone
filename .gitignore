@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+docs/PROJECT_REFERENCE.local.md
+autograder-key.pem
 
 # Editor directories and files
 .vscode/*

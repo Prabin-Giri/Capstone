@@ -18,6 +18,25 @@ function submissionKey(submissionId, filename) {
     return `submissions/${submissionId}/${filename}`;
 }
 
+function parseStoredFiles(filePath, fileName) {
+    try {
+        let parsed = JSON.parse(filePath);
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        if (Array.isArray(parsed)) return parsed;
+    } catch {
+        // Legacy single-file rows store a bare path string.
+    }
+    return [{ name: fileName, path: filePath }];
+}
+
+function findStoredFile(files, filename) {
+    return files.find((file) => (
+        file?.name === filename ||
+        file?.path === filename ||
+        path.basename(file?.path || '') === filename
+    ));
+}
+
 /**
  * Persist a single file: to S3 if configured, otherwise local disk.
  * Returns the value to store in `file_path` column (S3 key or local filename).
@@ -72,31 +91,44 @@ router.get('/:id', async (req, res, next) => {
 router.get('/:id/file/:filename', async (req, res, next) => {
     try {
         const { id, filename } = req.params;
+        const db = getDb();
+        const [rows] = await db.execute('SELECT file_name, file_path FROM submissions WHERE id = ?', [id]);
+        if (!rows || rows.length === 0) return res.status(404).send('Submission not found');
+
+        const files = parseStoredFiles(rows[0].file_path, rows[0].file_name);
+        const matchedFile = findStoredFile(files, filename);
+        const storedPath = matchedFile?.path;
+
         if (s3Enabled) {
-            const key = submissionKey(id, filename);
-            try {
-                const buffer = await getFromS3(key);
-                res.set('Content-Type', 'text/plain; charset=utf-8');
-                res.set('Access-Control-Allow-Origin', '*');
-                return res.send(buffer);
-            } catch (err) {
-                // Key not found in S3 — try legacy local path
+            const candidateKeys = [
+                storedPath,
+                submissionKey(id, filename),
+            ].filter((value, index, list) => value && list.indexOf(value) === index);
+
+            for (const key of candidateKeys) {
+                try {
+                    const buffer = await getFromS3(key);
+                    res.set('Content-Type', 'text/plain; charset=utf-8');
+                    res.set('Access-Control-Allow-Origin', '*');
+                    return res.send(buffer);
+                } catch (err) {
+                    // Try the next possible key, then fall through to local fallback.
+                }
             }
         }
-        // Local fallback: find the file by scanning uploads dir for legacy uploads
-        const db = getDb();
-        const [rows] = await db.execute('SELECT file_path FROM submissions WHERE id = ?', [id]);
-        if (!rows || rows.length === 0) return res.status(404).send('Submission not found');
-        const filePath = rows[0].file_path;
-        let localPath;
-        try {
-            const filesData = JSON.parse(filePath);
-            const match = Array.isArray(filesData) ? filesData.find(f => f.name === filename || f.path === filename) : null;
-            localPath = match ? path.join(uploadsDir, match.path) : path.join(uploadsDir, filePath);
-        } catch {
-            localPath = path.join(uploadsDir, filePath);
-        }
-        if (!fs.existsSync(localPath)) return res.status(404).send('File not found');
+
+        // Local fallback: use the stored disk filename when available.
+        const localCandidates = [
+            storedPath,
+            matchedFile?.path ? path.basename(matchedFile.path) : null,
+            rows[0].file_path,
+            filename,
+        ]
+            .filter((value, index, list) => value && list.indexOf(value) === index)
+            .map((value) => path.join(uploadsDir, value));
+
+        const localPath = localCandidates.find((candidate) => fs.existsSync(candidate));
+        if (!localPath) return res.status(404).send('File not found');
         res.set('Content-Type', 'text/plain; charset=utf-8');
         res.set('Access-Control-Allow-Origin', '*');
         res.sendFile(localPath);

@@ -5,7 +5,7 @@ const { query, run, saveDb } = require('../db');
 const { runCode } = require('./runCode');
 const { compare, pointsForTest } = require('./outputCompare');
 const config = require('./config');
-const { getFromS3, s3Enabled } = require('../s3');
+const { ensureLocalUpload, parseStoredFiles, readStoredUpload, resolveLocalUploadPath } = require('../uploadStorage');
 
 /**
  * Download a submission's files from S3 (or verify they exist locally)
@@ -13,38 +13,42 @@ const { getFromS3, s3Enabled } = require('../s3');
  * primary file path for the grader to use.
  */
 async function downloadForGrading(submission) {
-    const uploadsDir = path.join(__dirname, '../uploads');
-    let filesData = [];
-    try {
-        const parsed = JSON.parse(submission.file_path);
-        if (Array.isArray(parsed)) filesData = parsed;
-        else filesData = [{ name: submission.file_name, path: submission.file_path }];
-    } catch {
-        filesData = [{ name: submission.file_name, path: submission.file_path }];
+    const filesData = parseStoredFiles(submission.file_path, submission.file_name);
+    const first = filesData[0];
+    if (!first) throw new Error(`Submission ${submission.id} has no files`);
+
+    if (filesData.length === 1) {
+        const single = await ensureLocalUpload(first.path, { prefix: `autograde-${submission.id}-`, filename: first.name });
+        return {
+            primaryPath: single.path,
+            sourcePath: single.path,
+            workspacePath: path.dirname(single.path),
+            isTemp: single.isTemp,
+            tmpDir: single.tmpDir,
+        };
     }
 
-    if (!s3Enabled) {
-        // Local mode: just verify files exist, return first file path
-        const first = filesData[0];
-        const localPath = path.join(uploadsDir, first.path);
-        return { primaryPath: localPath, uploadsDir, isTemp: false };
-    }
-
-    // S3 mode: download to a temp directory
+    // Multi-file submissions are always staged into a dedicated directory so
+    // the grader only sees this submission's files.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `autograde-${submission.id}-`));
     let primaryPath = null;
     for (const file of filesData) {
         const dest = path.join(tmpDir, file.name);
         try {
-            const buf = await getFromS3(file.path);
-            fs.writeFileSync(dest, buf);
+            const localPath = resolveLocalUploadPath(file.path);
+            if (localPath) {
+                fs.copyFileSync(localPath, dest);
+            } else {
+                const buf = await readStoredUpload(file.path);
+                fs.writeFileSync(dest, buf);
+            }
             if (!primaryPath) primaryPath = dest;
         } catch (err) {
-            console.warn(`[grader] Could not download from S3: ${file.path}`, err.message);
+            console.warn(`[grader] Could not stage submission file: ${file.path}`, err.message);
         }
     }
-    if (!primaryPath) throw new Error(`Submission files not found in S3 for submission ${submission.id}`);
-    return { primaryPath, uploadsDir: tmpDir, isTemp: true, tmpDir };
+    if (!primaryPath) throw new Error(`Submission files not found in storage for submission ${submission.id}`);
+    return { primaryPath, sourcePath: tmpDir, workspacePath: tmpDir, isTemp: true, tmpDir };
 }
 
 /**
@@ -93,15 +97,20 @@ async function gradeSubmission(submissionId, opts = {}) {
     if (assignments.length === 0) throw new Error('Assignment not found');
     const assignment = assignments[0];
 
-    const uploadsDir = path.join(__dirname, '../uploads');
-
     // --- Custom Grader / JSON Test Case File Logic ---
     let testCases = [];
     let usingCustomGrader = false;
+    let graderUploadTmpDir = null;
 
     if (assignment.test_case_file_path) {
-        const graderPath = path.join(uploadsDir, assignment.test_case_file_path);
-        if (fs.existsSync(graderPath)) {
+        try {
+            const graderUpload = await ensureLocalUpload(assignment.test_case_file_path, {
+                prefix: `autograde-grader-${submissionId}-`,
+                filename: path.basename(assignment.test_case_file_path),
+            });
+            graderUploadTmpDir = graderUpload.tmpDir;
+            const graderPath = graderUpload.path;
+
             if (graderPath.toLowerCase().endsWith('.json')) {
                 try {
                     const content = fs.readFileSync(graderPath, 'utf8');
@@ -126,41 +135,57 @@ async function gradeSubmission(submissionId, opts = {}) {
                 usingCustomGrader = true;
                 try {
                     const result = await gradeWithCustomFile(submission, assignment, graderPath, opts);
-                    if (!opts.dryRun) {
-                        if (opts.testResultsOnly) {
-                            await updateSubmissionGrade(submissionId, {
-                                auto_grade: result.grade,
-                                auto_feedback: result.feedback,
-                                status: 'pending',
-                            });
-                        } else {
-                            await updateSubmissionGrade(submissionId, {
-                                grade: result.grade,
-                                feedback: result.feedback,
-                                status: 'graded',
-                            });
+                    try {
+                        if (!opts.dryRun) {
+                            if (opts.testResultsOnly) {
+                                await updateSubmissionGrade(submissionId, {
+                                    auto_grade: result.grade,
+                                    auto_feedback: result.feedback,
+                                    status: 'pending',
+                                });
+                            } else {
+                                await updateSubmissionGrade(submissionId, {
+                                    grade: result.grade,
+                                    feedback: result.feedback,
+                                    status: 'graded',
+                                });
+                            }
+                            await saveDb();
                         }
-                        await saveDb();
+                        return result;
+                    } finally {
+                        if (graderUploadTmpDir) {
+                            try { fs.rmSync(graderUploadTmpDir, { recursive: true, force: true }); } catch (_) {}
+                            graderUploadTmpDir = null;
+                        }
                     }
-                    return result;
                 } catch (err) {
                     console.error('Custom grader failed:', err);
                     const feedback = `Custom grader execution failed: ${err.message}`;
-                    if (!opts.dryRun) {
-                        if (opts.testResultsOnly) {
-                            await updateSubmissionGrade(submissionId, {
-                                auto_grade: 0,
-                                auto_feedback: feedback,
-                                status: 'pending',
-                            });
-                        } else {
-                            await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'failed' });
+                    try {
+                        if (!opts.dryRun) {
+                            if (opts.testResultsOnly) {
+                                await updateSubmissionGrade(submissionId, {
+                                    auto_grade: 0,
+                                    auto_feedback: feedback,
+                                    status: 'pending',
+                                });
+                            } else {
+                                await updateSubmissionGrade(submissionId, { grade: 0, feedback, status: 'failed' });
+                            }
+                            await saveDb();
                         }
-                        await saveDb();
+                        return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
+                    } finally {
+                        if (graderUploadTmpDir) {
+                            try { fs.rmSync(graderUploadTmpDir, { recursive: true, force: true }); } catch (_) {}
+                            graderUploadTmpDir = null;
+                        }
                     }
-                    return { grade: 0, feedback, results: [], rawScore: 0, maxPossible: 0, latePenaltyPercent: 0 };
                 }
             }
+        } catch (err) {
+            console.error('Failed to prepare grader upload:', err);
         }
     }
 
@@ -177,7 +202,7 @@ async function gradeSubmission(submissionId, opts = {}) {
     }
 
     // Resolve source path (handle S3 or JSON array or plain filename)
-    const { primaryPath: sourcePath, uploadsDir: graderUploadsDir, isTemp, tmpDir: graderTmpDir } = await downloadForGrading(submission);
+    const { sourcePath, isTemp, tmpDir: graderTmpDir } = await downloadForGrading(submission);
 
     try {
         if (!fs.existsSync(sourcePath)) {
@@ -373,6 +398,9 @@ async function gradeSubmission(submissionId, opts = {}) {
         if (isTemp && graderTmpDir) {
             try { fs.rmSync(graderTmpDir, { recursive: true, force: true }); } catch (_) {}
         }
+        if (graderUploadTmpDir) {
+            try { fs.rmSync(graderUploadTmpDir, { recursive: true, force: true }); } catch (_) {}
+        }
     }
 }
 
@@ -407,7 +435,7 @@ async function updateSubmissionGrade(submissionId, opts) {
  * Expects the script to output JSON to stdout.
  */
 async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}) {
-    const { primaryPath: studentPath, isTemp, tmpDir } = await downloadForGrading(submission);
+    const { sourcePath: studentPath, isTemp, tmpDir } = await downloadForGrading(submission);
 
     try {
 

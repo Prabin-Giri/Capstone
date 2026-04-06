@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
+const { parseStoredFiles, readStoredUpload } = require('../uploadStorage');
 
 // GET /api/assignments - Get all assignments
 router.get('/', async (req, res, next) => {
@@ -300,7 +301,6 @@ router.get('/:id/grades/export', async (req, res, next) => {
 // POST /api/assignments/:id/test - Run tests for a specific assignment (Docker, same as autograder)
 router.post('/:id/test', async (req, res, next) => {
     const fs = require('fs');
-    const path = require('path');
     const os = require('os');
     const { runCode } = require('../grader/runCode');
     const config = require('../grader/config');
@@ -324,29 +324,25 @@ router.post('/:id/test', async (req, res, next) => {
         }
 
         let testCases = [];
-        const uploadsDir = path.join(__dirname, '../uploads');
 
         if (assignment.test_case_file_path && assignment.test_case_file_path.toLowerCase().endsWith('.json')) {
-            const graderPath = path.join(uploadsDir, assignment.test_case_file_path);
-            if (fs.existsSync(graderPath)) {
-                try {
-                    const content = fs.readFileSync(graderPath, 'utf8');
-                    const jsonCases = JSON.parse(content);
-                    testCases = jsonCases.map((tc, idx) => ({
-                        id: tc.id || `file-${idx}`,
-                        input: tc.input || '',
-                        expected_output: tc.expectedOutput || tc.expected_output || '',
-                        points: Number(tc.points) || 0,
-                        is_public: tc.isHidden === true ? 0 : 1,
-                        input_type: tc.inputType || tc.input_type || 'stdin',
-                        input_filename: tc.inputFilename || tc.input_filename,
-                        output_filename: tc.outputFilename || tc.output_filename,
-                        run_args: tc.runArgs || tc.run_args,
-                        compare_mode: tc.compareMode || tc.compare_mode || 'exact'
-                    }));
-                } catch (e) {
-                    console.error('Failed to parse JSON test cases in /test:', e);
-                }
+            try {
+                const content = (await readStoredUpload(assignment.test_case_file_path)).toString('utf8');
+                const jsonCases = JSON.parse(content);
+                testCases = jsonCases.map((tc, idx) => ({
+                    id: tc.id || `file-${idx}`,
+                    input: tc.input || '',
+                    expected_output: tc.expectedOutput || tc.expected_output || '',
+                    points: Number(tc.points) || 0,
+                    is_public: tc.isHidden === true ? 0 : 1,
+                    input_type: tc.inputType || tc.input_type || 'stdin',
+                    input_filename: tc.inputFilename || tc.input_filename,
+                    output_filename: tc.outputFilename || tc.output_filename,
+                    run_args: tc.runArgs || tc.run_args,
+                    compare_mode: tc.compareMode || tc.compare_mode || 'exact'
+                }));
+            } catch (e) {
+                console.error('Failed to parse JSON test cases in /test:', e);
             }
         }
 
@@ -531,8 +527,6 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
     try {
         const db = getDb();
         const assignmentId = req.params.id;
-        const fs = require('fs');
-        const path = require('path');
         const startTime = Date.now();
 
         const [submissions] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ?', [assignmentId]);
@@ -579,32 +573,18 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
         const students = Array.from(submissionMap.values());
         const flaggedPairs = [];
         const threshold = 50;
-        const uploadsDir = path.join(__dirname, '../uploads');
-
-        const readSubmissionFiles = (sub) => {
-            let fileList = [];
-            try {
-                let parsed = JSON.parse(sub.file_path);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                if (Array.isArray(parsed)) {
-                    fileList = parsed;
-                } else {
-                    fileList = [{ name: sub.file_name, path: sub.file_path }];
-                }
-            } catch (e) {
-                fileList = [{ name: sub.file_name, path: sub.file_path }];
-            }
-
+        const readSubmissionFiles = async (sub) => {
+            const fileList = parseStoredFiles(sub.file_path, sub.file_name);
             let combinedCode = '';
             for (const file of fileList) {
-                const fullPath = path.join(uploadsDir, file.path);
-                if (fs.existsSync(fullPath)) {
-                    const content = fs.readFileSync(fullPath, 'utf8');
-                    // Inject a visual separator if there are multiple files so we can stitch them for display
+                try {
+                    const content = (await readStoredUpload(file.path)).toString('utf8');
                     if (fileList.length > 1) {
                         combinedCode += `\n\n# --- ${file.name} ---\n\n`;
                     }
                     combinedCode += content;
+                } catch (err) {
+                    console.warn(`[plagiarism] Skipping unreadable file ${file.path}:`, err.message);
                 }
             }
             return combinedCode.trim();
@@ -615,8 +595,8 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
                 const sub1 = students[i];
                 const sub2 = students[j];
 
-                const code1 = readSubmissionFiles(sub1);
-                const code2 = readSubmissionFiles(sub2);
+                const code1 = await readSubmissionFiles(sub1);
+                const code2 = await readSubmissionFiles(sub2);
 
                 if (code1 && code2) {
                     const tokens1 = new Set(tokenize(code1));
@@ -669,12 +649,10 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
 router.post('/:id/autograde', async (req, res, next) => {
     try {
         const { latePenalty, timeout = 2000 } = req.body;
+        void latePenalty;
+        void timeout;
         const assignmentId = req.params.id;
         const db = getDb();
-        const fs = require('fs');
-        const path = require('path');
-        const { exec } = require('child_process');
-        const os = require('os');
 
         // 1. Get Assignment
         const [aRows] = await db.execute('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
@@ -687,15 +665,12 @@ router.post('/:id/autograde', async (req, res, next) => {
         testCases = dbCases;
 
         if (testCases.length === 0 && assignment.test_case_file_path && assignment.test_case_file_path.toLowerCase().endsWith('.json')) {
-            const graderPath = path.join(__dirname, '../uploads', assignment.test_case_file_path);
-            if (fs.existsSync(graderPath)) {
-                try {
-                    const content = fs.readFileSync(graderPath, 'utf8');
-                    const jsonCases = JSON.parse(content);
-                    testCases = jsonCases; // gradeSubmission handles the mapping
-                } catch (e) {
-                    console.error('Failed to parse JSON test cases in /autograde:', e);
-                }
+            try {
+                const content = (await readStoredUpload(assignment.test_case_file_path)).toString('utf8');
+                const jsonCases = JSON.parse(content);
+                testCases = jsonCases; // gradeSubmission handles the mapping
+            } catch (e) {
+                console.error('Failed to parse JSON test cases in /autograde:', e);
             }
         }
 
