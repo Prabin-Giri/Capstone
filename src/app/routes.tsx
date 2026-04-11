@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/layout/ProtectedRoute';
+import LandingPage from '../pages/LandingPage';
 import Login from '../pages/auth/Login';
 import SignUp from '../pages/auth/SignUp';
 import VerifyEmail from '../pages/auth/VerifyEmail';
@@ -40,7 +41,7 @@ import Inbox from '../pages/Inbox';
 export const router = createBrowserRouter([
     {
         path: '/',
-        element: <Login />,
+        element: <LandingPage />,
     },
     {
         path: '/login',
@@ -115,6 +116,7 @@ export const router = createBrowserRouter([
                     { path: 'courses/:courseId/assignments/:assignmentId/grading', element: <GradingDashboard /> },
                     { path: 'courses/:courseId/assignments/:assignmentId/grading/:submissionId', element: <SubmissionGrader /> },
                     { path: 'courses/:courseId/gradebook', element: <CourseGradebook /> },
+                    { path: 'plagscan', element: <PlagScanDashboard /> },
                 ]
             },
             {

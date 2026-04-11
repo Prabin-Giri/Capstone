@@ -35,7 +35,7 @@ function getEmailProvider() {
         if (!process.env.SMTP_PASS) whySmtp.push('SMTP_PASS missing');
         if (hasPlaceholderSmtpConfig()) whySmtp.push('Placeholder detected');
         
-        console.warn(`[AutoGrade Email] Skipping "auto" SMTP selection: ${whySmtp.join(', ')}`);
+        console.warn(`[Agnos Email] Skipping "auto" SMTP selection: ${whySmtp.join(', ')}`);
         return 'unconfigured';
     }
 
@@ -56,7 +56,7 @@ function getFromAddress(provider) {
 
     if (provider === 'resend') {
         if (process.env.NODE_ENV !== 'production') {
-            return 'AutoGrade <onboarding@resend.dev>';
+            return 'Agnos <onboarding@resend.dev>';
         }
         const error = new Error('EMAIL_FROM is required when using Resend in production.');
         error.code = 'ERESENDFROM';
@@ -68,7 +68,7 @@ function getFromAddress(provider) {
         return configuredFrom;
     }
 
-    return process.env.SMTP_USER ? `"AutoGrade" <${process.env.SMTP_USER}>` : '"AutoGrade" <no-reply@localhost>';
+    return process.env.SMTP_USER ? `"Agnos" <${process.env.SMTP_USER}>` : '"Agnos" <no-reply@localhost>';
 }
 
 function normalizeMailError(error) {
@@ -188,9 +188,9 @@ async function sendViaResend({ from, to, subject, html }) {
 async function deliverEmail({ to, subject, html, debug }) {
     const provider = getEmailProvider();
     const from = getFromAddress(provider);
-    console.log(`[AutoGrade Email Delivery] Using provider: ${provider} to: ${to}`);
+    console.log(`[Agnos Email Delivery] Using provider: ${provider} to: ${to}`);
     if (provider === 'smtp') {
-        console.log(`[AutoGrade SMTP Config] Host: ${process.env.SMTP_HOST || 'smtp.gmail.com'}, User: ${process.env.SMTP_USER}`);
+        console.log(`[Agnos SMTP Config] Host: ${process.env.SMTP_HOST || 'smtp.gmail.com'}, User: ${process.env.SMTP_USER}`);
     }
 
     try {
@@ -223,13 +223,13 @@ async function sendVerificationEmail(toEmail, userName, token, otp) {
 
     return deliverEmail({
         to: toEmail,
-        subject: 'Verify Your Email - AutoGrade',
+        subject: 'Verify Your Email - Agnos',
         debug: { otp, link: verifyLink },
         html: `
             <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 20px;">
                 <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e1e4e8;">
                     <div style="background: linear-gradient(135deg, #840029 0%, #a00032 100%); padding: 32px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; text-transform: uppercase;">AutoGrade</h1>
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; text-transform: uppercase;">Agnos</h1>
                         <div style="height: 3px; width: 40px; background-color: #FDB913; margin: 12px auto 0; border-radius: 2px;"></div>
                     </div>
                     
@@ -257,7 +257,7 @@ async function sendVerificationEmail(toEmail, userName, token, otp) {
                     </div>
                 </div>
                 <div style="text-align: center; margin-top: 20px;">
-                    <p style="color: #9ca3af; font-size: 12px;">&copy; 2026 AutoGrade. All rights reserved.</p>
+                    <p style="color: #9ca3af; font-size: 12px;">&copy; 2026 Agnos. All rights reserved.</p>
                 </div>
             </div>
         `,
@@ -270,20 +270,20 @@ async function sendPasswordResetEmail(toEmail, userName, token) {
 
     return deliverEmail({
         to: toEmail,
-        subject: 'Password Reset Request - AutoGrade',
+        subject: 'Password Reset Request - Agnos',
         debug: { link: resetLink },
         html: `
             <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 20px;">
                 <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e1e4e8;">
                     <div style="background: linear-gradient(135deg, #840029 0%, #a00032 100%); padding: 32px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; text-transform: uppercase;">AutoGrade</h1>
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; text-transform: uppercase;">Agnos</h1>
                         <div style="height: 3px; width: 40px; background-color: #FDB913; margin: 12px auto 0; border-radius: 2px;"></div>
                     </div>
                     
                     <div style="padding: 40px 32px;">
                         <h2 style="color: #1a1d23; margin: 0 0 16px; font-size: 22px; font-weight: 700;">Password Reset Request</h2>
                         <p style="color: #4b5563; line-height: 1.6; margin: 0 0 24px; font-size: 16px;">Hi ${userName},</p>
-                        <p style="color: #4b5563; line-height: 1.6; margin: 0 0 32px; font-size: 16px;">We received a request to reset your password for your AutoGrade account. If you made this request, please click the button below to set a new password.</p>
+                        <p style="color: #4b5563; line-height: 1.6; margin: 0 0 32px; font-size: 16px;">We received a request to reset your password for your Agnos account. If you made this request, please click the button below to set a new password.</p>
 
                         <div style="text-align: center; margin-bottom: 32px;">
                             <a href="${resetLink}" style="display: inline-block; background-color: #840029; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 6px rgba(132, 0, 41, 0.2); transition: background-color 0.2s;">Reset Password</a>
@@ -299,7 +299,7 @@ async function sendPasswordResetEmail(toEmail, userName, token) {
                     </div>
                 </div>
                 <div style="text-align: center; margin-top: 20px;">
-                    <p style="color: #9ca3af; font-size: 12px;">&copy; 2026 AutoGrade. All rights reserved.</p>
+                    <p style="color: #9ca3af; font-size: 12px;">&copy; 2026 Agnos. All rights reserved.</p>
                 </div>
             </div>
         `,

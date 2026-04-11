@@ -464,6 +464,7 @@ const GradingDashboard: React.FC = () => {
                 <PlagiarismReportModal
                     assignmentId={assignment.id}
                     assignmentTitle={assignment.title}
+                    basePath={basePath}
                     onClose={() => setShowPlagiarismModal(false)}
                 />
             )}

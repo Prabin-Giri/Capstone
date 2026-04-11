@@ -5,6 +5,28 @@ import { getUser } from '../../lib/auth';
 import { ChevronLeft } from 'lucide-react';
 import './NewCourse.css';
 
+function generateTermOptions(): string[] {
+    const seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const terms: string[] = [];
+    for (let year = currentYear; year <= currentYear + 3; year++) {
+        for (const season of seasons) {
+            terms.push(`${season} ${year}`);
+        }
+    }
+
+    // Find the current/upcoming term and start from there
+    const seasonIndex = currentMonth < 5 ? 0 : currentMonth < 7 ? 1 : currentMonth < 11 ? 2 : 3;
+    const startTerm = `${seasons[seasonIndex]} ${currentYear}`;
+    const startIdx = terms.indexOf(startTerm);
+    return startIdx > 0 ? terms.slice(startIdx) : terms;
+}
+
+const TERM_OPTIONS = generateTermOptions();
+
 const NewCourse: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -12,7 +34,7 @@ const NewCourse: React.FC = () => {
     const [formData, setFormData] = useState({
         id: '',
         name: '',
-        term: 'Spring 2026'
+        term: TERM_OPTIONS[0]
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -72,13 +94,16 @@ const NewCourse: React.FC = () => {
 
                     <div className="form-group">
                         <label className="form-label">Term</label>
-                        <input
-                            type="text"
+                        <select
                             className="form-input"
                             value={formData.term}
                             onChange={(e) => setFormData({ ...formData, term: e.target.value })}
                             required
-                        />
+                        >
+                            {TERM_OPTIONS.map(term => (
+                                <option key={term} value={term}>{term}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="form-actions">

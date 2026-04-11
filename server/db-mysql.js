@@ -281,7 +281,7 @@ async function initDb() {
     const config = getConfig();
     activePoolConfig = buildPoolConfig(config);
     const host = activePoolConfig.host || activePoolConfig.uri;
-    console.log(`[AutoGrade DB] Initializing MySQL pool for host: ${host}`);
+    console.log(`[Agnos DB] Initializing MySQL pool for host: ${host}`);
     
     // When using MYSQL_* vars, create the database if it doesn't exist (no manual step needed)
     if (typeof config === 'object' && config.database) {
@@ -298,17 +298,17 @@ async function initDb() {
     pool = mysql.createPool(activePoolConfig);
 
     try {
-        console.log('[AutoGrade DB] Testing connection...');
+        console.log('[Agnos DB] Testing connection...');
         await pool.execute('SELECT 1');
-        console.log('[AutoGrade DB] Connection successful.');
+        console.log('[Agnos DB] Connection successful.');
 
         for (const tableSql of CREATE_TABLES) {
             await pool.execute(tableSql);
         }
-        console.log('[AutoGrade DB] Tables initialized.');
+        console.log('[Agnos DB] Tables initialized.');
     } catch (error) {
-        console.error('[AutoGrade DB] Initialization FAILED:', error.message);
-        console.error('[AutoGrade DB] Error Code:', error.code);
+        console.error('[Agnos DB] Initialization FAILED:', error.message);
+        console.error('[Agnos DB] Error Code:', error.code);
         // Do not rethrow, let the app start but it will fail on queries which we catch in diag
     }
 

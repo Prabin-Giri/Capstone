@@ -18,10 +18,11 @@ interface AssignmentEditorProps {
     initialFiles: EditorFile[];
     language: string;
     theme: 'dark' | 'light' | 'system';
-    onRunTests?: (files: EditorFile[]) => Promise<{ results: TestResult[], log?: string }>;
+    onRunTests?: (files: EditorFile[], activeFileId: string) => Promise<{ results: TestResult[], log?: string }>;
     onRunCustomInput?: (
         files: EditorFile[],
-        stdin: string
+        stdin: string,
+        activeFileId: string
     ) => Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }>;
     isRunning: boolean;
     points: number;
@@ -398,7 +399,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             setTerminalTab('tests');
             setIsTerminalOpen(true);
             setTestLog('Running tests...\n');
-            const response = await onRunTests(files);
+            const response = await onRunTests(files, activeFileId);
             setTestResults(response.results);
             if (response.log) setTestLog(prev => prev + '\n' + response.log);
             else setTestLog(prev => prev + '\nExecution finished.');
@@ -414,7 +415,7 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
             setTerminalTab('custom');
             setIsTerminalOpen(true);
             setCustomRunResult(null);
-            const response = await onRunCustomInput(files, customStdin);
+            const response = await onRunCustomInput(files, customStdin, activeFileId);
             setCustomRunResult(response);
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);

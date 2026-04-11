@@ -1,13 +1,10 @@
-/* ─── Google Fonts ─────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@200..800&display=swap');
-
 /* ─── Root Layout ──────────────────────────────────────────────────────────── */
 .ps-root {
   display: flex;
   min-height: 100vh;
   background: #F8F9FA;
   color: #121317;
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* ─── Sidebar ──────────────────────────────────────────────────────────────── */
@@ -116,6 +113,37 @@
 .ps-queue-sub {
   font-size: 0.65rem;
   color: rgba(100, 100, 105, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ps-same-group-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #fef08a;
+  color: #854d0e;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ps-same-group-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: #fef08a;
+  color: #854d0e;
+  border-radius: 8px;
+  margin-left: 12px;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .ps-sidebar-divider {
@@ -190,7 +218,7 @@
 .ps-empty-icon { font-size: 3rem; }
 
 .ps-empty-title {
-  font-family: 'Newsreader', serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: #121317;
@@ -237,7 +265,7 @@
 }
 
 .ps-stat-value {
-  font-family: 'Newsreader', serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 3.5rem;
   font-weight: 900;
   line-height: 1;
@@ -279,7 +307,7 @@
 }
 
 .ps-hero-title {
-  font-family: 'Newsreader', serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 3.5rem;
   font-weight: 700;
   color: #121317;
@@ -398,7 +426,7 @@
 }
 
 .ps-diff-file-name {
-  font-family: 'Manrope', monospace;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
   color: #121317;
@@ -558,7 +586,7 @@
 }
 
 .ps-summary-val {
-  font-family: 'Newsreader', serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
   color: #121317;
