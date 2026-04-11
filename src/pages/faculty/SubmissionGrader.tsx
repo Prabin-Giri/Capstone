@@ -10,7 +10,7 @@ import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, Pa
 import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
-import { getCommentChar, getLanguageFromFilename } from '../../lib/utils';
+import { getLanguageFromFilename, resolveWorkspaceRunContext } from '../../lib/utils';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -441,14 +441,11 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
-    async function handleRunCustomInput(files: EditorFile[], stdin: string) {
+    async function handleRunCustomInput(files: EditorFile[], stdin: string, activeFileId: string) {
         if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
         setIsRunningCustom(true);
         try {
-            const primaryFile = files[0];
-            const detectedLang = assignment.language || (primaryFile ? getLanguageFromFilename(primaryFile.name, '') : '');
-            const comment = getCommentChar(detectedLang);
-            const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(files, activeFileId, assignment.language || '');
             const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
             return data;
         } catch (err) {
@@ -458,14 +455,11 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
-    async function handleRunTests(files: EditorFile[]) {
+    async function handleRunTests(files: EditorFile[], activeFileId: string) {
         if (!assignment) throw new Error('No assignment loaded');
         setIsRunningCustom(true);
         try {
-            const primaryFile = files[0];
-            const detectedLang = assignment.language || (primaryFile ? getLanguageFromFilename(primaryFile.name, '') : '');
-            const comment = getCommentChar(detectedLang);
-            const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(files, activeFileId, assignment.language || '');
             const data = await runTests(assignment.id, codeToRun, detectedLang);
             const results = data.results || [];
             const passedCount = results.filter((r: TestResult) => !!r.passed).length;
@@ -788,7 +782,7 @@ const SubmissionGrader: React.FC = () => {
                                                                                         {isModified
                                                                                             ? <><Clock size={11} />{hasGradeValue ? `${Number(displayGrade).toFixed(0)}/${maxPoints}` : `-/${maxPoints}`}</>
                                                                                             : hasGradeValue
-                                                                                                ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/${maxPoints}</>
+                                                                                                ? <><CheckCircle size={11} />{`${Number(displayGrade).toFixed(0)}/${maxPoints}`}</>
                                                                                                 : <><Clock size={11} />Pending</>
                                                                                         }
                                                                                     </div>
@@ -829,7 +823,7 @@ const SubmissionGrader: React.FC = () => {
                                             {isModified
                                                 ? <><Clock size={11} />{hasGradeValue ? `${Number(displayGrade).toFixed(0)}/${maxPoints}` : `-/${maxPoints}`}</>
                                                 : hasGradeValue
-                                                    ? <><CheckCircle size={11} />{Number(displayGrade).toFixed(0)}/${maxPoints}</>
+                                                    ? <><CheckCircle size={11} />{`${Number(displayGrade).toFixed(0)}/${maxPoints}`}</>
                                                     : <><Clock size={11} />Pending</>
                                             }
                                         </div>
@@ -952,35 +946,36 @@ const SubmissionGrader: React.FC = () => {
                                     {new Date(activeAttempt.submitted_at).toLocaleString()}
                                 </span>
                             </div>
-                            <div className="file-actions">
-                                <Button
-                                    variant="outline"
-                                    className="btn-pill"
-                                    size="sm"
-                                    onClick={() => {
-                                        if (!attemptPrimaryFile) return;
-                                        if (isWorkspaceOpen) {
-                                            setIsWorkspaceOpen(false);
-                                            setWorkspaceFiles([]);
-                                        } else {
-                                            void loadAttemptWorkspace(activeAttemptFiles, activeAttempt.id, attemptPrimaryFile.path);
-                                        }
-                                    }}
-                                    disabled={!attemptPrimaryFile}
-                                >
-                                    {isWorkspaceOpen ? 'Hide' : 'Preview'}
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    className="btn-pill"
-                                    size="sm"
-                                    onClick={() => attemptPrimaryFile && handleDownload(getSubmissionFileUrl(activeAttempt.id, attemptPrimaryFile.name), attemptPrimaryFile.name)}
-                                    disabled={!attemptPrimaryFile}
-                                >
-                                    Download
-                                </Button>
-                            </div>
-                            <div className="student-nav-btns">
+                            <div className="attempt-topbar-right">
+                                <div className="file-actions">
+                                    <Button
+                                        variant="outline"
+                                        className="btn-pill"
+                                        size="sm"
+                                        onClick={() => {
+                                            if (!attemptPrimaryFile) return;
+                                            if (isWorkspaceOpen) {
+                                                setIsWorkspaceOpen(false);
+                                                setWorkspaceFiles([]);
+                                            } else {
+                                                void loadAttemptWorkspace(activeAttemptFiles, activeAttempt.id, attemptPrimaryFile.path);
+                                            }
+                                        }}
+                                        disabled={!attemptPrimaryFile}
+                                    >
+                                        {isWorkspaceOpen ? 'Hide' : 'Preview'}
+                                    </Button>
+                                    <Button
+                                        variant="primary"
+                                        className="btn-pill"
+                                        size="sm"
+                                        onClick={() => attemptPrimaryFile && handleDownload(getSubmissionFileUrl(activeAttempt.id, attemptPrimaryFile.name), attemptPrimaryFile.name)}
+                                        disabled={!attemptPrimaryFile}
+                                    >
+                                        Download
+                                    </Button>
+                                </div>
+                                <div className="student-nav-btns">
                                 <button
                                     className="student-nav-btn"
                                     disabled={!canGoPrevAttempt}
@@ -998,6 +993,7 @@ const SubmissionGrader: React.FC = () => {
                                 >
                                     &#8250;
                                 </button>
+                                </div>
                             </div>
                         </div>
                     </div>

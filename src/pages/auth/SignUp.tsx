@@ -93,169 +93,154 @@ const SignUp: React.FC = () => {
 
     return (
         <div className="login-container">
-            <div className="auth-shell auth-shell-signup">
-                {/* Left: maroon branding (exact layout from image) */}
-                <div className="auth-brand-side">
-                    <div className="auth-logo-circle-signup">
-                        <img src="/ulm-logo.png" alt="ULM Logo" className="auth-logo-img" />
-                    </div>
-                    <h1 className="auth-brand-title">Automated Grading tool</h1>
-                    <p className="auth-brand-subtitle">
-                        Submit code, run test cases, and manage grades for every class in one place.
-                    </p>
-                    <div className="auth-pill-list">
-                        <span className="auth-pill-btn">Auto-graded assignments</span>
-                        <span className="auth-pill-btn">Python / Java code runner</span>
-                        <span className="auth-pill-btn">Faculty & TA dashboards</span>
-                        <span className="auth-pill-btn">Student gradebook</span>
-                    </div>
+            <div className="auth-card auth-card-wide">
+                <div className="auth-card-logo">
+                    <img src="/ulm-logo.png" alt="Agnos" />
+                    <h1 className="auth-card-logo-name">Agnos</h1>
                 </div>
 
-                {/* Right: white form */}
-                <div className="auth-form-side">
-                    <div className="auth-form-header auth-form-header-row">
-                        <h2 className="auth-form-title">Create new Account</h2>
-                        <p className="auth-form-subtitle auth-form-subtitle-right">
-                            Already registered? <Link to="/login" className="auth-switch-link">Login</Link>
-                        </p>
+                <div className="auth-form-header">
+                    <h2 className="auth-form-title">Create your account</h2>
+                    <p className="auth-form-subtitle">Get started with Agnos</p>
+                </div>
+
+                <form className="login-form" onSubmit={handleSubmit}>
+                    {error && <div className="login-error">{error}</div>}
+
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="name">Full name</label>
+                        <input
+                            id="name"
+                            type="text"
+                            className="form-input"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="John Doe"
+                            required
+                        />
                     </div>
 
-                    <form className="login-form" onSubmit={handleSubmit}>
-                        {error && (
-                            <div className="login-error">{error}</div>
-                        )}
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="email">Email</label>
+                        <input
+                            id="email"
+                            type="email"
+                            className="form-input"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="name@university.edu"
+                            required
+                        />
+                        <span className="form-hint">
+                            {inferredRole === 'student'
+                                ? 'Detected as Student account from @warhawks.ulm.edu email.'
+                                : inferredRole === 'faculty'
+                                    ? 'Detected as Faculty account from @ulm.edu email.'
+                                    : 'Use @warhawks.ulm.edu for students or @ulm.edu for faculty.'}
+                        </span>
+                    </div>
 
+                    {isStudentSignup && (
                         <div className="form-group">
-                            <label className="form-label" htmlFor="name">Please enter your name</label>
+                            <label className="form-label" htmlFor="studentId">Student ID</label>
                             <input
-                                id="name"
+                                id="studentId"
                                 type="text"
                                 className="form-input"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="John Doe"
-                                required
+                                value={studentId}
+                                onChange={(e) => setStudentId(e.target.value)}
+                                placeholder="e.g. 20054321"
+                                required={isStudentSignup}
                             />
                         </div>
+                    )}
 
+                    {inferredRole && (
                         <div className="form-group">
-                            <label className="form-label" htmlFor="email">Please enter Email</label>
-                            <input
-                                id="email"
-                                type="email"
-                                className="form-input"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="name@university.edu"
-                                required
-                            />
                             <span className="form-hint">
-                                {inferredRole === 'student'
-                                    ? 'Detected as Student account from @warhawks.ulm.edu email.'
-                                    : inferredRole === 'faculty'
-                                        ? 'Detected as Faculty account from @ulm.edu email.'
-                                        : 'Use @warhawks.ulm.edu for students or @ulm.edu for faculty.'}
+                                {inferredRole === 'faculty'
+                                    ? 'Faculty accounts require admin approval before dashboard access.'
+                                    : 'Students are added to classes by faculty after signup.'}
                             </span>
                         </div>
+                    )}
 
-                        {isStudentSignup && (
-                            <div className="form-group">
-                                <label className="form-label" htmlFor="studentId">Please enter Student ID</label>
-                                <input
-                                    id="studentId"
-                                    type="text"
-                                    className="form-input"
-                                    value={studentId}
-                                    onChange={(e) => setStudentId(e.target.value)}
-                                    placeholder="e.g. 20054321"
-                                    required={isStudentSignup}
-                                />
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="password">Password</label>
+                        <div className="form-input-wrap">
+                            <input
+                                id="password"
+                                type={showPasswords ? 'text' : 'password'}
+                                className="form-input"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Letters, numbers & special characters"
+                                autoComplete="new-password"
+                                required
+                            />
+                            <button
+                                type="button"
+                                className="form-password-toggle"
+                                onClick={() => setShowPasswords((prev) => !prev)}
+                                aria-label={showPasswords ? 'Hide password' : 'Show password'}
+                            >
+                                {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+                        {password && (
+                            <div className="form-requirements">
+                                {([
+                                    ['length', '8+ characters'],
+                                    ['letter', 'Letter'],
+                                    ['number', 'Number'],
+                                    ['special', 'Special char'],
+                                ] as const).map(([key, label]) => (
+                                    <span
+                                        key={key}
+                                        className={`form-requirement ${passwordChecks[key] ? 'is-valid' : ''}`}
+                                    >
+                                        {passwordChecks[key] ? <Check size={12} /> : <X size={12} />}
+                                        {label}
+                                    </span>
+                                ))}
                             </div>
                         )}
+                    </div>
 
-                        {inferredRole && (
-                            <div className="form-group">
-                                <span className="form-hint">
-                                    {inferredRole === 'faculty'
-                                        ? 'Faculty accounts require admin approval before dashboard access.'
-                                        : 'Students are added to classes by faculty after signup.'}
-                                </span>
-                            </div>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
+                        <div className="form-input-wrap">
+                            <input
+                                id="confirmPassword"
+                                type={showPasswords ? 'text' : 'password'}
+                                className="form-input"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="Re-enter password"
+                                autoComplete="new-password"
+                                required
+                            />
+                            <button
+                                type="button"
+                                className="form-password-toggle"
+                                onClick={() => setShowPasswords((prev) => !prev)}
+                                aria-label={showPasswords ? 'Hide password' : 'Show password'}
+                            >
+                                {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+                        {confirmPassword && !passwordsMatch && (
+                            <span className="form-inline-error">Passwords do not match</span>
                         )}
+                    </div>
 
-                        <div className="form-group">
-                            <label className="form-label" htmlFor="password">Please enter password</label>
-                            <div className="form-input-wrap">
-                                <input
-                                    id="password"
-                                    type={showPasswords ? 'text' : 'password'}
-                                    className="form-input"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Letters, numbers & special characters"
-                                    autoComplete="new-password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="form-password-toggle"
-                                    onClick={() => setShowPasswords((prev) => !prev)}
-                                    aria-label={showPasswords ? 'Hide password' : 'Show password'}
-                                >
-                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                            {password && (
-                                <div className="form-requirements">
-                                    {([
-                                        ['length', '8+ characters'],
-                                        ['letter', 'Letter'],
-                                        ['number', 'Number'],
-                                        ['special', 'Special char'],
-                                    ] as const).map(([key, label]) => (
-                                        <span
-                                            key={key}
-                                            className={`form-requirement ${passwordChecks[key] ? 'is-valid' : ''}`}
-                                        >
-                                            {passwordChecks[key] ? <Check size={12} /> : <X size={12} />}
-                                            {label}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                    <button type="submit" className="submit-btn submit-btn-primary submit-btn-signup" disabled={loading}>
+                        {loading ? 'Creating account...' : 'Sign Up'}
+                    </button>
+                </form>
 
-                        <div className="form-group">
-                            <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
-                            <div className="form-input-wrap">
-                                <input
-                                    id="confirmPassword"
-                                    type={showPasswords ? 'text' : 'password'}
-                                    className="form-input"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Re-enter password"
-                                    autoComplete="new-password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="form-password-toggle"
-                                    onClick={() => setShowPasswords((prev) => !prev)}
-                                    aria-label={showPasswords ? 'Hide password' : 'Show password'}
-                                >
-                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                            {confirmPassword && !passwordsMatch && (
-                                <span className="form-inline-error">Passwords do not match</span>
-                            )}
-                        </div>
-
-                        <button type="submit" className="submit-btn submit-btn-primary submit-btn-signup" disabled={loading}>
-                            {loading ? 'Creating account...' : 'SIGN UP'}
-                        </button>
-                    </form>
+                <div className="auth-card-footer">
+                    Already have an account? <Link to="/login">Log in</Link>
                 </div>
             </div>
         </div>

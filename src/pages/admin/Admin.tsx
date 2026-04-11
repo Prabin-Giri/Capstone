@@ -11,7 +11,7 @@ const Admin: React.FC = () => {
 
     useEffect(() => {
         const prevTitle = document.title;
-        document.title = 'Admin Dashboard · AutoGrade';
+        document.title = 'Admin Dashboard · Agnos';
         return () => {
             document.title = prevTitle;
         };

@@ -12,7 +12,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
     const session = getSession();
 
     if (!currentRole) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/login" replace />;
     }
 
     // Redirect to email verification if not verified
@@ -24,7 +24,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
         ? requiredRole.includes(currentRole)
         : currentRole === requiredRole;
     if (!allowed) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/login" replace />;
     }
 
     return <Outlet />;

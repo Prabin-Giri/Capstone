@@ -11,7 +11,7 @@ import type { EditorFile } from '../../components/ui/AssignmentEditor';
 
 import { getUser } from '../../lib/auth';
 import { showDialog } from '../../components/ui/Dialog';
-import { getCommentChar, getLanguageFromFilename, getValidExtensions, normalizeLanguage, parseUTC } from '../../lib/utils';
+import { getLanguageFromFilename, getValidExtensions, parseUTC, resolveWorkspaceRunContext } from '../../lib/utils';
 
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
@@ -245,21 +245,16 @@ const AssignmentDetails: React.FC = () => {
         displayStatus = 'late';
     }
 
-    const handleRunEditorTests = async (editorFiles: EditorFile[]): Promise<{ results: TestResult[], log?: string }> => {
+    const handleRunEditorTests = async (editorFiles: EditorFile[], activeFileId: string): Promise<{ results: TestResult[], log?: string }> => {
         if (!assignment) throw new Error("No assignment loaded");
         setIsRunningTests(true);
         try {
-            // Prioritize the language detected from the files over the assignment requirement
-            const fileLang = editorFiles.length > 0 ? getLanguageFromFilename(editorFiles[0].name, '') : '';
-            const detectedLang = normalizeLanguage(fileLang || assignment.language || '');
-            
-            const comment = getCommentChar(detectedLang);
-            const codeToRun = editorFiles.length === 1 ? editorFiles[0].content : editorFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(editorFiles, activeFileId, assignment.language || '');
             const data = await runTests(assignment.id, codeToRun, detectedLang);
             setIsRunningTests(false);
             return {
                 results: data.results,
-                log: `Sent ${editorFiles.length} file(s) to execution engine.\nLanguage: ${detectedLang}\nTotal length: ${codeToRun.length} bytes.`
+                log: `Running active tab.\nLanguage: ${detectedLang}\nPayload: ${codeToRun.length} bytes.`
             };
         } catch (err) {
             setIsRunningTests(false);
@@ -268,16 +263,11 @@ const AssignmentDetails: React.FC = () => {
         }
     };
 
-    const handleRunCustomInput = async (files: EditorFile[], stdin: string) => {
+    const handleRunCustomInput = async (files: EditorFile[], stdin: string, activeFileId: string) => {
         if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
         setIsRunningTests(true);
         try {
-            // Prioritize the language detected from the files over the assignment requirement
-            const fileLang = files.length > 0 ? getLanguageFromFilename(files[0].name, '') : '';
-            const detectedLang = normalizeLanguage(fileLang || assignment.language || '');
-            
-            const comment = getCommentChar(detectedLang);
-            const codeToRun = files.length === 1 ? files[0].content : files.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(files, activeFileId, assignment.language || '');
             const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
             setIsRunningTests(false);
             return data;

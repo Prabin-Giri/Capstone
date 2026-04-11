@@ -1033,14 +1033,15 @@ export interface PlagiarismFileData {
 }
 
 export interface PlagiarismResult {
-    student1: { name: string; id: string };
-    student2: { name: string; id: string };
+    student1: { name: string; id: string; profile_picture?: string | null };
+    student2: { name: string; id: string; profile_picture?: string | null };
     similarity: number;
     matchedTokens: number;
     totalTokens: number;
     file1?: PlagiarismFileData;
     file2?: PlagiarismFileData;
     assignmentId?: string;
+    sameGroup?: string | null;
 }
 
 export interface PlagiarismResponse {
@@ -1049,6 +1050,7 @@ export interface PlagiarismResponse {
     flaggedPairs: PlagiarismResult[];
     latencyMs: number;
     message?: string;
+    isGroupAssignment?: boolean;
 }
 
 export async function runPlagiarismCheck(assignmentId: string): Promise<PlagiarismResponse> {

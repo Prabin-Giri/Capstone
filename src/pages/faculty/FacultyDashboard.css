@@ -257,14 +257,6 @@
     margin-top: 0.5rem;
 }
 
-/* /* Course Card Refinements - Cleaned up to allow global course-card-premium to take over */
-.dashboard-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
-    gap: 1.5rem !important;
-    align-items: start !important;
-}
-
 .tag-pill {
     background: var(--primary-light) !important;
     color: var(--primary-text) !important;

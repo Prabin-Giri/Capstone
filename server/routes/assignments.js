@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 const { parseStoredFiles, readStoredUpload } = require('../uploadStorage');
+
+function normalizeRunLang(language) {
+    const l = (language == null || language === '') ? 'python' : String(language).trim().toLowerCase();
+    if (l === 'node' || l === 'nodejs') return 'javascript';
+    return l;
+}
 
 // GET /api/assignments - Get all assignments
 router.get('/', async (req, res, next) => {
@@ -355,7 +362,7 @@ router.post('/:id/test', async (req, res, next) => {
             return res.json({ results: [], summary: 'No test cases defined.' });
         }
 
-        const lang = ((language === 'node' ? 'javascript' : language) || 'python').toLowerCase();
+        const lang = normalizeRunLang(language);
         const supported = ['python', 'javascript', 'java', 'php'];
         if (!supported.includes(lang)) {
             return res.json({
@@ -364,7 +371,7 @@ router.post('/:id/test', async (req, res, next) => {
                     input: tc.input,
                     expected: tc.expected_output,
                     actual: '',
-                    error: `Unsupported language for testing: ${language}. Use python, javascript, or java.`,
+                    error: `Unsupported language for testing: ${language}. Use python, javascript, java, or php.`,
                     passed: false,
                     is_public: tc.is_public,
                     points: tc.points ?? 0
@@ -450,7 +457,6 @@ router.post('/:id/test', async (req, res, next) => {
 // POST /api/assignments/:id/run - Run code against custom stdin (Manual Input)
 router.post('/:id/run', async (req, res, next) => {
     const fs = require('fs');
-    const path = require('path');
     const os = require('os');
     const { runCode } = require('../grader/runCode');
     const config = require('../grader/config');
@@ -465,7 +471,7 @@ router.post('/:id/run', async (req, res, next) => {
             return res.status(400).json({ error: 'Code is required' });
         }
 
-        const lang = ((language === 'node' ? 'javascript' : language) || 'python').toLowerCase();
+        const lang = normalizeRunLang(language);
         const supported = ['python', 'javascript', 'java', 'php'];
         
         if (!supported.includes(lang)) {
@@ -528,6 +534,23 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
         const db = getDb();
         const assignmentId = req.params.id;
         const startTime = Date.now();
+
+        const [[assignmentRow]] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignmentId]);
+        const isGroupOneForAll = assignmentRow && assignmentRow.type === 'group' && assignmentRow.group_submission_type === 'one_for_all';
+
+        // Build a map of student_id -> { group_id, group_name } to tag same-group pairs
+        const studentGroupMap = new Map();
+        if (isGroupOneForAll) {
+            const [groupMembers] = await db.execute(
+                `SELECT gm.student_id, gm.group_id, ag.name AS group_name
+                 FROM group_members gm
+                 JOIN assignment_groups ag ON gm.group_id = ag.id
+                 WHERE ag.assignment_id = ?`, [assignmentId]
+            );
+            for (const row of groupMembers) {
+                studentGroupMap.set(row.student_id, { groupId: row.group_id, groupName: row.group_name });
+            }
+        }
 
         const [submissions] = await db.execute('SELECT * FROM submissions WHERE assignment_id = ?', [assignmentId]);
         const submissionMap = new Map();
@@ -608,22 +631,33 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
                     const similarity = (intersection.size / union.size) * 100;
 
                     if (similarity >= threshold) {
-                        const [s1Rows] = await db.execute('SELECT name FROM users WHERE id = ?', [sub1.student_id]);
+                        const [s1Rows] = await db.execute('SELECT name, profile_picture FROM users WHERE id = ?', [sub1.student_id]);
                         const s1 = s1Rows[0];
-                        const [s2Rows] = await db.execute('SELECT name FROM users WHERE id = ?', [sub2.student_id]);
+                        const [s2Rows] = await db.execute('SELECT name, profile_picture FROM users WHERE id = ?', [sub2.student_id]);
                         const s2 = s2Rows[0];
 
                         const { matched1, matched2 } = findMatchedLines(code1, code2);
 
+                        // Check if both students are in the same group
+                        let sameGroup = null;
+                        if (isGroupOneForAll) {
+                            const g1 = studentGroupMap.get(sub1.student_id);
+                            const g2 = studentGroupMap.get(sub2.student_id);
+                            if (g1 && g2 && g1.groupId === g2.groupId) {
+                                sameGroup = g1.groupName || g1.groupId;
+                            }
+                        }
+
                         flaggedPairs.push({
-                            student1: { id: sub1.student_id, name: s1 ? s1.name : sub1.student_id },
-                            student2: { id: sub2.student_id, name: s2 ? s2.name : sub2.student_id },
+                            student1: { id: sub1.student_id, name: s1 ? s1.name : sub1.student_id, profile_picture: s1?.profile_picture || null },
+                            student2: { id: sub2.student_id, name: s2 ? s2.name : sub2.student_id, profile_picture: s2?.profile_picture || null },
                             similarity: Math.round(similarity),
                             matchedTokens: intersection.size,
                             totalTokens: union.size,
                             file1: { name: sub1.file_name, content: code1, matchedLines: matched1 },
                             file2: { name: sub2.file_name, content: code2, matchedLines: matched2 },
                             assignmentId,
+                            sameGroup,
                         });
                     }
                 }
@@ -638,6 +672,7 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
             totalSubmissions: students.length,
             flaggedPairs,
             latencyMs,
+            isGroupAssignment: isGroupOneForAll,
         });
 
     } catch (err) {
