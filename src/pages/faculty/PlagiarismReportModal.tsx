@@ -17,6 +17,7 @@ interface PlagiarismResult {
     similarity: number;
     matchedTokens: number;
     totalTokens: number;
+    sameGroup?: string | null;
 }
 
 interface PlagiarismReportProps {
