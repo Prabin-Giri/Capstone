@@ -123,6 +123,10 @@ class ModelConfig:
     num_epochs: int = 1
     warmup_ratio: float = 0.1
     gradient_accumulation_steps: int = 1
+    save_total_limit: int = 2
+    logging_steps: int = 10
+    metric_for_best_model: str = "f1"
+    early_stopping_patience: int | None = 2
     resume_from_checkpoint: bool = True
 
 
@@ -130,6 +134,9 @@ class ModelConfig:
 class CalibrationConfig:
     method: str = "temperature_scaling"
     enabled: bool = False
+    ece_bins: int = 10
+    risk_target: float = 0.05
+    report_top_k_thresholds: int = 5
 
 
 @dataclass(slots=True)

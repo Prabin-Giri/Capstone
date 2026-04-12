@@ -30,11 +30,18 @@ model:
   num_epochs: 1
   warmup_ratio: 0.1
   gradient_accumulation_steps: 4
+  save_total_limit: 2
+  logging_steps: 10
+  metric_for_best_model: f1
+  early_stopping_patience: 2
   resume_from_checkpoint: true
 
 calibration:
   method: temperature_scaling
-  enabled: false
+  enabled: true
+  ece_bins: 10
+  risk_target: 0.05
+  report_top_k_thresholds: 5
 
 thresholds:
   lower: 0.35

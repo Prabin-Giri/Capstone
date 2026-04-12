@@ -1,4 +1,4 @@
-"""Placeholder entry point for calibration."""
+"""Fit a validation-time calibrator for the offline detector."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import load_train_config
-from src.models.calibration import supported_calibration_methods
+from src.models.calibration import run_calibration, supported_calibration_methods
 from src.utils.logging_utils import configure_logging
 
 
@@ -26,7 +26,10 @@ def main() -> None:
     config = load_train_config(PROJECT_ROOT / args.config)
     logger.info("Calibration enabled in config: %s", config.calibration.enabled)
     logger.info("Supported calibration methods: %s", ", ".join(supported_calibration_methods()))
-    logger.info("Phase 1 scaffold only: calibration logic is deferred to Phase 8.")
+    artifacts = run_calibration(config)
+    logger.info("Calibration artifact written to %s", artifacts.calibration_path)
+    logger.info("Calibration report written to %s", artifacts.report_path)
+    logger.info("Suggested thresholds: %s", artifacts.artifact.threshold_recommendation)
 
 
 if __name__ == "__main__":

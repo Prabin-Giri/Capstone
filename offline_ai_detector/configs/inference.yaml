@@ -1,9 +1,9 @@
-# Phase 1 scaffold only.
-# Inference stays CLI-first and conservative.
+# Phase 8 keeps inference config conservative.
+# Phase 9 will use this for actual offline CLI scoring.
 
 runtime:
   model_dir: artifacts/models/m1_code_detector_smoke
-  calibration_path: null
+  calibration_path: artifacts/models/m1_code_detector_smoke/calibration.json
   language_allowlist:
     - python
     - java

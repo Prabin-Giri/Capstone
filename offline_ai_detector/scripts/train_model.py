@@ -1,4 +1,4 @@
-"""Placeholder entry point for model training."""
+"""Entry point for Phase 7 baseline training."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.config import load_train_config
 from src.models.classifier import recommended_v1_classifier
+from src.models.training import run_training, training_plan_notes
 from src.utils.logging_utils import configure_logging
 
 
@@ -27,7 +28,15 @@ def main() -> None:
     recommendation = recommended_v1_classifier()
     logger.info("Configured experiment: %s", config.project.experiment_name)
     logger.info("Current recommended baseline: %s", recommendation.model_name)
-    logger.info("Phase 1 scaffold only: actual training begins in Phase 7 after dataset validation.")
+    logger.info("Why this baseline: %s", recommendation.reason)
+    for note in training_plan_notes():
+        logger.info("Training note: %s", note)
+
+    artifacts = run_training(config)
+    logger.info("Training complete. Model saved to %s", artifacts.model_dir)
+    logger.info("Validation F1: %s", artifacts.validation_metrics.get("f1"))
+    logger.info("Test F1: %s", artifacts.test_metrics.get("f1"))
+    logger.info("Training report written to %s", artifacts.report_path)
 
 
 if __name__ == "__main__":

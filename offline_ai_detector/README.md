@@ -145,6 +145,56 @@ Validate before moving on:
 - inspect feature values on a few real Python and Java samples once datasets are available
 - confirm we should avoid AST-heavy features until after the baseline model is working
 
+## Phase 7 Status
+
+Completed in this phase:
+- replaced the model placeholders with a real Phase 7 baseline training flow in [`src/models/training.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/training.py)
+- kept the baseline explicit as `microsoft/codebert-base` in [`src/models/classifier.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/classifier.py)
+- implemented processed-split loading and tokenized training datasets in [`src/models/dataset.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/dataset.py)
+- added full-split metrics with false positive/negative rates and Python-vs-Java breakdowns in [`src/models/evaluation.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/evaluation.py)
+- upgraded [`scripts/train_model.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/scripts/train_model.py) and [`scripts/evaluate_model.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/scripts/evaluate_model.py) into real CLI entry points
+
+Assumptions made:
+- `microsoft/codebert-base` is a reasonable first compact code-aware baseline for Python and Java on an M1 before trying heavier variants
+- checkpoint selection should optimize validation `f1` first so false positives do not disappear behind accuracy
+- the current processed JSONL splits are the source of truth for training, not direct raw/interim files
+- calibration and abstain-band tuning remain a separate concern for Phase 8
+
+Main risks still open:
+- model download and fine-tuning still depend on local `torch` and `transformers` availability
+- processed splits must exist and must already be leakage-safe, or the metrics will still be misleading
+- one-language underperformance can still happen even with balanced training counts, which is why per-language metrics remain mandatory
+
+Validate before moving on:
+- run a 1-epoch smoke test before any longer experiment
+- inspect the saved Phase 7 training report in `artifacts/reports/`
+- compare Python and Java false-positive behavior before trusting combined metrics
+
+## Phase 8 Status
+
+Completed in this phase:
+- replaced the calibration placeholder with real calibration helpers in [`src/models/calibration.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/calibration.py)
+- added support for `temperature_scaling` and `platt_scaling`, with calibration artifacts saved to the model directory
+- added threshold sweep logic and conservative lower/upper threshold recommendations derived from validation data
+- added abstain-band decision helpers in [`src/models/inference.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/inference.py)
+- upgraded [`scripts/calibrate_model.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/scripts/calibrate_model.py) so calibration is now a real CLI step rather than a placeholder
+
+Assumptions made:
+- calibration should be fit on validation predictions only, never on test predictions
+- exact threshold boundaries should remain in the unclear band to keep edge cases conservative
+- the default risk target should prioritize low false positives and low false negatives over maximum coverage
+- Phase 8 should prepare the inference decision layer even though the full CLI inference experience comes in Phase 9
+
+Main risks still open:
+- calibration quality still depends on the validation split being representative of real student submissions
+- threshold recommendations can still drift if the dataset mix changes sharply by assignment or semester
+- temperature scaling requires `torch`, and Platt scaling requires `scikit-learn`, so dependency gaps can still block execution on a fresh machine
+
+Validate before moving on:
+- run calibration only after a real Phase 7 checkpoint exists
+- inspect `artifacts/reports/phase8_calibration_report.md` before trusting suggested thresholds
+- confirm the abstain rate is acceptable for your intended instructor review workflow
+
 ## What Each Folder Is For
 
 - `configs/` stores reproducible YAML configs for data paths, training defaults, and inference defaults.
