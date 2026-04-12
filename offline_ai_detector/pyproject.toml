@@ -1,0 +1,13 @@
+[project]
+name = "offline-ai-code-detector"
+version = "0.1.0"
+description = "Standalone offline AI-written code detector scaffold"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  ".",
+]
+testpaths = [
+  "tests",
+]

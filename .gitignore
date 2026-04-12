@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 docs/PROJECT_REFERENCE.local.md
+PROJECT_CONTEXT_AI_DETECTOR.md
+PROJECT_CONTEXT_AI_CODE_DETECTOR.md
 autograder-key.pem
 
 # Editor directories and files

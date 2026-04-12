@@ -7,6 +7,12 @@ const mysql = require('mysql2/promise');
 let pool = null;
 let activePoolConfig = null;
 
+function shouldSeedSampleData() {
+    const explicit = process.env.AUTO_SEED_SAMPLE_DATA;
+    if (explicit != null) return /^(1|true|yes)$/i.test(String(explicit));
+    return true;
+}
+
 function getConfig() {
     if (process.env.DATABASE_URL) {
         const url = process.env.DATABASE_URL;
@@ -399,7 +405,7 @@ async function initDb() {
 
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;
-    if (count === 0) {
+    if (count === 0 && shouldSeedSampleData()) {
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
@@ -416,6 +422,8 @@ async function initDb() {
         await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI2100', 'student-001')");
         await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI1100', 'student-001')");
         console.log('Database initialized with sample data (MySQL)');
+    } else if (count === 0) {
+        console.log('Users table is empty; sample data seeding skipped because AUTO_SEED_SAMPLE_DATA is disabled.');
     }
 
     return pool;

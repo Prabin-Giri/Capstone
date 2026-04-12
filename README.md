@@ -67,3 +67,12 @@ s
 ```bash
 npm run build
 ```
+
+## AWS Deployment
+
+This repo is now set up for an AWS-first deployment flow:
+
+- Frontend: AWS Amplify Hosting via `amplify.yml`
+- Backend: AWS EC2 with PM2, auto-deployed from GitHub Actions via `.github/workflows/deploy-backend.yml`
+
+Full setup steps are in `docs/AWS_DEPLOYMENT.md`.

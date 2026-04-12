@@ -103,14 +103,19 @@ pm2 restart autograde-backend   # restart
 pm2 stop autograde-backend      # stop
 ```
 
-## Vercel Frontend Config
+## Amplify Frontend Config
 
-In your **Vercel project settings → Environment Variables**, set:
+In your **AWS Amplify app → Environment variables**, set:
 ```
-VITE_API_URL = http://<EC2-PUBLIC-DNS>:3001/api
+VITE_API_URL=https://<YOUR-BACKEND-DOMAIN>/api
 ```
 
-Or better, put the EC2 behind a domain and use HTTPS.
+If you are testing without a domain yet, you can temporarily use:
+```
+VITE_API_URL=http://<EC2-PUBLIC-DNS>:3001/api
+```
+
+Using HTTPS with a domain is strongly recommended for production.
 
 ---
 
@@ -131,5 +136,5 @@ AWS_SECRET_ACCESS_KEY=xxxxxx
 
 GRADER_RUN_MODE=docker   # Docker available on EC2
 PORT=3001
-FRONTEND_ORIGIN=https://your-frontend.vercel.app
+FRONTEND_ORIGIN=https://main.<your-amplify-app-id>.amplifyapp.com
 ```

@@ -1,0 +1,16 @@
+# Phase 8 keeps inference config conservative.
+# Phase 9 will use this for actual offline CLI scoring.
+
+runtime:
+  model_dir: artifacts/models/m1_code_detector_smoke
+  calibration_path: artifacts/models/m1_code_detector_smoke/calibration.json
+  language_allowlist:
+    - python
+    - java
+  min_tokens: 50
+  max_length: 256
+  local_files_only: false
+
+thresholds:
+  lower: 0.35
+  upper: 0.65

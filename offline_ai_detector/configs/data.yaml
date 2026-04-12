@@ -1,0 +1,65 @@
+# Phase 3 data config.
+# Raw sources are inspected independently first, then normalized into
+# data/interim/ before any merge or split work happens.
+
+datasets:
+  codenet:
+    root_dir: data/raw/codenet
+    role: human
+    enabled: true
+  multiaigcd:
+    root_dir: data/raw/multiaigcd
+    role: ai
+    enabled: true
+  codemirage:
+    root_dir: data/raw/codemirage
+    role: ai
+    enabled: true
+  aigcodeset:
+    root_dir: data/raw/aigcodeset
+    role: validation
+    enabled: true
+
+filters:
+  languages:
+    - python
+    - java
+  min_tokens: 50
+
+cleaning:
+  normalize_line_endings: true
+  strip_trailing_spaces: true
+  expand_tabs: false
+  tab_width: 4
+  trim_terminal_blank_lines: true
+  preserve_comments: true
+
+merge:
+  primary_human_sources:
+    - codenet
+  primary_ai_sources:
+    - multiaigcd
+    - codemirage
+  supplemental_eval_sources:
+    - aigcodeset
+  target_counts_per_bucket:
+    python_human: 15000
+    python_ai: 15000
+    java_human: 15000
+    java_ai: 15000
+  train_ratio: 0.70
+  validation_ratio: 0.15
+  test_ratio: 0.15
+  max_imbalance_pct: 20.0
+  random_seed: 42
+
+outputs:
+  interim_dir: data/interim
+  processed_dir: data/processed
+  report_path: artifacts/reports/dataset_report.md
+  source_report_dir: artifacts/reports/source_inspection
+  merged_dataset_path: data/processed/merged_dataset.jsonl
+  supplemental_eval_path: data/processed/supplemental_eval.jsonl
+  train_path: data/processed/train.jsonl
+  validation_path: data/processed/val.jsonl
+  test_path: data/processed/test.jsonl
