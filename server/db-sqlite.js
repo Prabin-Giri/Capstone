@@ -9,6 +9,12 @@ const path = require('path');
 const dbPath = path.join(__dirname, 'autograde.db');
 let db = null;
 
+function shouldSeedSampleData() {
+    const explicit = process.env.AUTO_SEED_SAMPLE_DATA;
+    if (explicit != null) return /^(1|true|yes)$/i.test(String(explicit));
+    return true;
+}
+
 async function initDb() {
     const SQL = await initSqlJs();
     if (fs.existsSync(dbPath)) {
@@ -194,7 +200,7 @@ async function initDb() {
 
     const result = db.exec('SELECT COUNT(*) as count FROM users');
     const count = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : 0;
-    if (count === 0) {
+    if (count === 0 && shouldSeedSampleData()) {
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
@@ -268,6 +274,8 @@ async function initDb() {
 
         console.log('Database initialized with sample data');
         saveDbSync();
+    } else if (count === 0) {
+        console.log('Users table is empty; sample data seeding skipped because AUTO_SEED_SAMPLE_DATA is disabled.');
     }
     return db;
 }

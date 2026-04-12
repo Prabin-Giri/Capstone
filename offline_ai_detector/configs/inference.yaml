@@ -1,0 +1,16 @@
+# Phase 1 scaffold only.
+# Inference stays CLI-first and conservative.
+
+runtime:
+  model_dir: artifacts/models/m1_code_detector_smoke
+  calibration_path: null
+  language_allowlist:
+    - python
+    - java
+  min_tokens: 50
+  max_length: 256
+  local_files_only: false
+
+thresholds:
+  lower: 0.35
+  upper: 0.65

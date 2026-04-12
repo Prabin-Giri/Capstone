@@ -1,0 +1,46 @@
+# Phase 1 scaffold only.
+# Phase 7 will finalize the actual baseline model once the dataset pipeline is validated.
+
+project:
+  name: offline_ai_code_detector
+  experiment_name: m1_code_detector_smoke
+  random_seed: 42
+
+data:
+  train_path: data/processed/train.jsonl
+  validation_path: data/processed/val.jsonl
+  test_path: data/processed/test.jsonl
+  file_format: jsonl
+  code_column: code
+  label_column: label
+  language_column: language
+  source_dataset_column: source_dataset
+  language_allowlist:
+    - python
+    - java
+  min_tokens: 50
+
+model:
+  model_name: microsoft/codebert-base
+  local_files_only: false
+  max_length: 256
+  batch_size: 4
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  num_epochs: 1
+  warmup_ratio: 0.1
+  gradient_accumulation_steps: 4
+  resume_from_checkpoint: true
+
+calibration:
+  method: temperature_scaling
+  enabled: false
+
+thresholds:
+  lower: 0.35
+  upper: 0.65
+
+outputs:
+  model_dir: artifacts/models/m1_code_detector_smoke
+  report_dir: artifacts/reports
+  figures_dir: artifacts/figures

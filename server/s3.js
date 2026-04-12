@@ -16,6 +16,8 @@ const {
     PutObjectCommand,
     GetObjectCommand,
     DeleteObjectCommand,
+    DeleteObjectsCommand,
+    ListObjectsV2Command,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
@@ -92,6 +94,42 @@ async function deleteFromS3(key) {
 }
 
 /**
+ * Delete every object under an S3 prefix.
+ * @param {string} prefix
+ * @returns {Promise<number>} Number of deleted objects
+ */
+async function deletePrefixFromS3(prefix) {
+    if (!s3Enabled) return 0;
+    const client = getClient();
+    let continuationToken;
+    let deleted = 0;
+
+    do {
+        const listRes = await client.send(new ListObjectsV2Command({
+            Bucket: BUCKET,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+        }));
+
+        const contents = listRes.Contents || [];
+        if (contents.length > 0) {
+            await client.send(new DeleteObjectsCommand({
+                Bucket: BUCKET,
+                Delete: {
+                    Objects: contents.map((item) => ({ Key: item.Key })),
+                    Quiet: true,
+                },
+            }));
+            deleted += contents.length;
+        }
+
+        continuationToken = listRes.IsTruncated ? listRes.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return deleted;
+}
+
+/**
  * Generate a temporary pre-signed GET URL for browser preview (default 15 min).
  * @param {string} key
  * @param {number} [expiresIn=900] seconds
@@ -103,4 +141,4 @@ async function getPresignedUrl(key, expiresIn = 900) {
     return getSignedUrl(client, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn });
 }
 
-module.exports = { uploadToS3, getFromS3, deleteFromS3, getPresignedUrl, s3Enabled };
+module.exports = { uploadToS3, getFromS3, deleteFromS3, deletePrefixFromS3, getPresignedUrl, s3Enabled };
