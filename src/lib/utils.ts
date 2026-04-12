@@ -143,8 +143,51 @@ export function getLanguageFromFilename(filename: string, defaultLang: string = 
  * Normalizes language names for the execution engine.
  */
 export function normalizeLanguage(lang: string): string {
-    const l = lang.toLowerCase();
-    if (l === 'js' || l === 'javascript') return 'nodejs';
+    const l = (lang || 'python').toLowerCase();
+    if (l === 'js' || l === 'nodejs' || l === 'node') return 'javascript';
     if (l === 'c++') return 'cpp';
     return l;
+}
+
+/**
+ * Resolve language + source code for "Run Tests" / "Run with Input".
+ * Uses the active editor tab to pick the language, then sends only
+ * files matching that language (never mixes .java into a .py run).
+ */
+export function resolveWorkspaceRunContext(
+    files: Array<{ id: string; name: string; content: string }>,
+    activeFileId: string | undefined,
+    assignmentLanguage: string
+): { detectedLang: string; code: string } {
+    const active =
+        (activeFileId ? files.find(f => f.id === activeFileId) : null)
+        || files[0]
+        || null;
+
+    if (!active) {
+        return { detectedLang: normalizeLanguage(assignmentLanguage || 'python'), code: '' };
+    }
+
+    const fromExt = getLanguageFromFilename(active.name, '');
+    const baseLang = fromExt && fromExt.trim() !== '' ? fromExt : (assignmentLanguage || 'python');
+    const detectedLang = normalizeLanguage(baseLang);
+
+    // Only include files whose extension matches the active tab's language
+    const matchingExts = new Set(getValidExtensions(detectedLang));
+    const sameLanguageFiles = files.filter(f => {
+        const ext = f.name.split('.').pop()?.toLowerCase() || '';
+        return matchingExts.has(ext);
+    });
+    // Fallback: if no extension match found, just use the active file
+    const relevantFiles = sameLanguageFiles.length > 0 ? sameLanguageFiles : [active];
+
+    let code: string;
+    if (relevantFiles.length === 1) {
+        code = relevantFiles[0].content;
+    } else {
+        const comment = getCommentChar(detectedLang);
+        code = relevantFiles.map(f => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+    }
+
+    return { detectedLang, code };
 }

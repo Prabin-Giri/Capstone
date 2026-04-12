@@ -2,27 +2,37 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, AlertTriangle, FileText, CheckCircle, Search } from 'lucide-react';
 import { runPlagiarismCheck } from '../../lib/api';
+import UserAvatar from '../../components/ui/UserAvatar';
 import './PlagiarismReportModal.css';
 
+interface PlagiarismStudent {
+    name: string;
+    id: string;
+    profile_picture?: string | null;
+}
+
 interface PlagiarismResult {
-    student1: { name: string; id: string };
-    student2: { name: string; id: string };
+    student1: PlagiarismStudent;
+    student2: PlagiarismStudent;
     similarity: number;
     matchedTokens: number;
     totalTokens: number;
+    sameGroup?: string | null;
 }
 
 interface PlagiarismReportProps {
     assignmentId: string;
     assignmentTitle: string;
+    basePath?: string;
     onClose: () => void;
 }
 
-const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, assignmentTitle, onClose }) => {
+const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, assignmentTitle, basePath = '/faculty', onClose }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<PlagiarismResult[] | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isGroupAssignment, setIsGroupAssignment] = useState(false);
 
     const runAnalysis = async () => {
         setLoading(true);
@@ -30,6 +40,7 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
         try {
             const data = await runPlagiarismCheck(assignmentId);
             setResults(data.flaggedPairs);
+            setIsGroupAssignment(!!data.isGroupAssignment);
         } catch (err) {
             setError('Failed to run plagiarism analysis. Please try again.');
             console.error(err);
@@ -91,6 +102,16 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
 
                     {results && (
                         <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                            {isGroupAssignment && (
+                                <div className="pm-group-notice">
+                                    <span className="pm-group-notice-icon">👥</span>
+                                    <div>
+                                        <strong>Group Assignment</strong> — This is a one-submission-per-group assignment.
+                                        Pairs tagged <span className="pm-same-group-tag" style={{ display: 'inline-flex', verticalAlign: 'middle', fontSize: '0.7rem', padding: '1px 6px' }}>Same Group</span> share
+                                        the same submission and are expected to match.
+                                    </div>
+                                </div>
+                            )}
                             <div className="pm-results-header">
                                 <div className="pm-results-title">
                                     Analysis Results
@@ -112,7 +133,7 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
                             ) : (
                                 <div>
                                     {results.map((match, idx) => (
-                                        <div key={idx} className="pm-match-card">
+                                        <div key={idx} className={`pm-match-card ${match.sameGroup ? 'pm-match-same-group' : ''}`}>
                                             <div className="pm-match-left">
                                                 <div className={`pm-score-box ${match.similarity > 80 ? 'pm-score-high' :
                                                     match.similarity > 60 ? 'pm-score-med' :
@@ -124,31 +145,30 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     <div className="pm-student-pair">
                                                         <div className="pm-student-badge">
-                                                            <div className="pm-student-avatar">
-                                                                {match.student1.name.charAt(0)}
-                                                            </div>
+                                                            <UserAvatar user={match.student1} size="sm" />
                                                             {match.student1.name}
+                                                            {match.sameGroup && <span className="pm-same-group-tag">Same Group</span>}
                                                         </div>
                                                         <span className="pm-vs">VS</span>
                                                         <div className="pm-student-badge">
-                                                            <div className="pm-student-avatar">
-                                                                {match.student2.name.charAt(0)}
-                                                            </div>
+                                                            <UserAvatar user={match.student2} size="sm" />
                                                             {match.student2.name}
+                                                            {match.sameGroup && <span className="pm-same-group-tag">Same Group</span>}
                                                         </div>
                                                     </div>
                                                     <div style={{ fontSize: '0.75rem', color: '#9ca3af', paddingLeft: '4px' }}>
                                                         Matched Tokens: {match.matchedTokens} • Total Tokens: {match.totalTokens}
+                                                        {match.sameGroup && <> • <strong>{match.sameGroup}</strong></>}
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <button 
                                                 onClick={() => {
+                                                    navigate(`${basePath}/plagscan?assignment=${assignmentId}&s1=${match.student1.id}&s2=${match.student2.id}`);
                                                     onClose();
-                                                    navigate(`/faculty/plagscan?assignment=${assignmentId}&s1=${match.student1.id}&s2=${match.student2.id}`);
                                                 }}
-                                                style={{ color: '#2563eb', background: '#eff6ff', padding: '8px 16px', borderRadius: '8px', border: 'none', fontWeight: '500', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                                className="pm-btn-view-diff"
                                             >
                                                 <FileText size={16} />
                                                 View Diff

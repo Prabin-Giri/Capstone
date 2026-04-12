@@ -34,11 +34,11 @@ async function testSmtp() {
 
     console.log(`Sending test email to: ${targetEmail}...`);
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `AutoGrade <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `Agnos <${process.env.SMTP_USER}>`,
       to: targetEmail,
-      subject: 'AutoGrade SMTP Diagnostic Test',
-      text: 'This is a test email from the AutoGrade diagnostic script.',
-      html: '<b>This is a test email from the AutoGrade diagnostic script.</b>',
+      subject: 'Agnos SMTP Diagnostic Test',
+      text: 'This is a test email from the Agnos diagnostic script.',
+      html: '<b>This is a test email from the Agnos diagnostic script.</b>',
     });
 
     console.log('✓ Email sent successfully!');

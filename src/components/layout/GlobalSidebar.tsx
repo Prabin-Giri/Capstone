@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Mail, HelpCircle, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Calendar, Mail, HelpCircle } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
 import UserAvatar from '../ui/UserAvatar';
 import { cancelDialog } from '../ui/Dialog';
@@ -36,8 +36,6 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
         location.pathname.startsWith('/admin');
 
     const isCalendarActive = location.pathname.startsWith('/calendar');
-    const isPlagScanActive = location.pathname.startsWith('/faculty/plagscan');
-
     return (
         <aside
             className={`global-sidebar ${isOpen ? 'mobile-open' : ''}`}
@@ -49,7 +47,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
         >
             <div className="global-sidebar-header">
                 <NavLink to={dashboardPath} onClick={onNavigate} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '44px', height: '44px', objectFit: 'contain' }} />
+                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
                 </NavLink>
             </div>
 
@@ -105,17 +103,6 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     </div>
                     <span className="global-nav-text">Inbox</span>
                 </NavLink>
-
-                {role === AUTH_ROLES.FACULTY && (
-                    <NavLink
-                        to="/faculty/plagscan"
-                        onClick={onNavigate}
-                        className={() => `global-nav-link ${isPlagScanActive && !isAccountOpen ? 'active' : ''}`}
-                    >
-                        <ShieldAlert size={24} />
-                        <span className="global-nav-text">PlagScan</span>
-                    </NavLink>
-                )}
 
                 <div style={{ flex: 1 }} />
 

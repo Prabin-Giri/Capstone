@@ -151,6 +151,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
 
     const getPageTitle = () => {
         const path = location.pathname;
+        if (path.includes('/inbox')) return 'Inbox';
         if (path.includes('/calendar')) return 'Calendar';
         if (path === '/student' || path === '/student/') {
             return getRole() === AUTH_ROLES.TA ? 'TA Dashboard' : 'Student Dashboard';
@@ -178,7 +179,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         if (/^\/faculty\/courses\/[^/]+\/?$/.test(path)) return 'Faculty Command Center';
         if (path.includes('/faculty')) return 'Faculty Dashboard';
         if (path.includes('/student') || path.includes('/ta')) return 'Dashboard';
-        return 'AutoGrade';
+        return 'Agnos';
     };
 
     const themeLabel = themeMode === 'system' ? 'System' : themeMode === 'dark' ? 'Dark' : 'Light';

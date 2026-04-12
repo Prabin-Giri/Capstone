@@ -168,7 +168,10 @@ export default function PlagScanDashboard() {
                     {pair.similarity}% Match
                   </span>
                 </div>
-                <div className="ps-queue-sub">{assignmentId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Assignment</div>
+                <div className="ps-queue-sub">
+                  {assignmentId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Assignment
+                  {pair.sameGroup && <span className="ps-same-group-tag">Same Group</span>}
+                </div>
               </div>
             );
           })}
@@ -228,11 +231,14 @@ export default function PlagScanDashboard() {
                 </nav>
                 <h1 className="ps-hero-title">
                   {activePair.student1.name} vs {activePair.student2.name}
+                  {activePair.sameGroup && <span className="ps-same-group-badge">{activePair.sameGroup} — Same Group</span>}
                 </h1>
                 <p className="ps-hero-desc">
                   Academic review of cross-student source correlation. Token-based similarity analysis detected{' '}
                   <strong>{activePair.matchedTokens} matched tokens</strong> out of {activePair.totalTokens} total.
-                  Manual refactoring attempts identified — variable names differ but logic structure is identical.
+                  {activePair.sameGroup
+                    ? ' These students share the same group submission — this match is expected.'
+                    : ' Manual refactoring attempts identified — variable names differ but logic structure is identical.'}
                 </p>
               </header>
             ) : (

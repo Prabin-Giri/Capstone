@@ -46,79 +46,75 @@ const Login: React.FC = () => {
 
     return (
         <div className="login-container">
-            <div className="auth-shell">
-                {/* Left: white form card */}
-                <div className="auth-form-side">
-                    <div className="auth-form-header">
-                        <h2 className="auth-form-title">Welcome again!</h2>
-                        <p className="auth-form-subtitle">Please enter your details</p>
-                    </div>
-
-                    <form className="login-form" onSubmit={handleSubmit}>
-                        {error && (
-                            <div className="login-error">{error}</div>
-                        )}
-                        <div className="form-group">
-                            <label className="form-label" htmlFor="email">Email</label>
-                            <input
-                                id="email"
-                                type="email"
-                                className="form-input form-input-underline"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="name@university.edu"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label" htmlFor="password">Password</label>
-                            <div className="form-input-wrap-underline">
-                                <input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    className="form-input form-input-underline"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="form-password-toggle"
-                                    onClick={() => setShowPassword((p) => !p)}
-                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="login-options">
-                            <label className="login-remember">
-                                <input
-                                    type="checkbox"
-                                    checked={remember}
-                                    onChange={(e) => setRemember(e.target.checked)}
-                                />
-                                <span>Remember</span>
-                            </label>
-                            <Link to="/forgot-password" className="login-forgot">Forgot Password?</Link>
-                        </div>
-
-                        <button type="submit" className="submit-btn submit-btn-primary" disabled={loading}>
-                            {loading ? 'Signing in...' : 'Log In'}
-                        </button>
-                        <Link to="/signup" className="submit-btn submit-btn-secondary">
-                            Sign up
-                        </Link>
-                    </form>
+            <div className="auth-card">
+                <div className="auth-card-logo">
+                    <img src="/ulm-logo.png" alt="Agnos" />
+                    <h1 className="auth-card-logo-name">Agnos</h1>
                 </div>
 
-                {/* Right: maroon branding */}
-                <div className="auth-brand-side">
-                    <img src="/ulm-logo.png" alt="ULM Logo" className="auth-logo-img" />
-                    <h1 className="auth-brand-title">Automated Grading tool</h1>
+                <div className="auth-form-header">
+                    <h2 className="auth-form-title">Welcome back</h2>
+                    <p className="auth-form-subtitle">Sign in to your account</p>
+                </div>
+
+                <form className="login-form" onSubmit={handleSubmit}>
+                    {error && <div className="login-error">{error}</div>}
+
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="email">Email</label>
+                        <input
+                            id="email"
+                            type="email"
+                            className="form-input"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="name@university.edu"
+                            required
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="password">Password</label>
+                        <div className="form-input-wrap">
+                            <input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                className="form-input"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                            />
+                            <button
+                                type="button"
+                                className="form-password-toggle"
+                                onClick={() => setShowPassword((p) => !p)}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="login-options">
+                        <label className="login-remember">
+                            <input
+                                type="checkbox"
+                                checked={remember}
+                                onChange={(e) => setRemember(e.target.checked)}
+                            />
+                            <span>Remember me</span>
+                        </label>
+                        <Link to="/forgot-password" className="login-forgot">Forgot password?</Link>
+                    </div>
+
+                    <button type="submit" className="submit-btn submit-btn-primary" disabled={loading}>
+                        {loading ? 'Signing in...' : 'Log In'}
+                    </button>
+                </form>
+
+                <div className="auth-card-footer">
+                    Don't have an account? <Link to="/signup">Sign up</Link>
                 </div>
             </div>
         </div>

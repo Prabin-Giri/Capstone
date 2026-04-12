@@ -10,7 +10,7 @@ const PendingDisclaimer: React.FC = () => {
     const session = getSession();
 
     if (!session || session.role !== 'faculty') {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/login" replace />;
     }
     if (session.verified) {
         return <Navigate to="/faculty" replace />;

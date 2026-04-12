@@ -752,6 +752,13 @@
     font-weight: 600;
 }
 
+.attempt-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
 .file-actions {
     display: flex;
     gap: 10px;
