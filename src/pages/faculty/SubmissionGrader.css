@@ -580,6 +580,165 @@
     white-space: nowrap;
 }
 
+.grader-title-row .plagiarism-flag-wrapper {
+    position: relative;
+}
+
+.grader-title-row .plagiarism-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.grader-title-row .plagiarism-flag:hover {
+    background: #fee2e2;
+    box-shadow: 0 2px 8px rgba(185, 28, 28, 0.15);
+}
+
+.grader-title-row .plagiarism-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 200;
+    min-width: 300px;
+    background: var(--bg-surface, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+    animation: plagPopIn 0.15s ease-out;
+}
+
+@keyframes plagPopIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.grader-title-row .plagiarism-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.grader-title-row .plagiarism-popover-header h4 {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+}
+
+.grader-title-row .plagiarism-popover-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: none;
+    background: none;
+    color: var(--text-tertiary, #9ca3af);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.grader-title-row .plagiarism-popover-close:hover {
+    color: var(--text-primary, #111827);
+    background: var(--light-grey, #f3f4f6);
+}
+
+.grader-title-row .plagiarism-popover-body {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.grader-title-row .plagiarism-popover-match {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    transition: background 0.1s;
+}
+
+.grader-title-row .plagiarism-popover-match:hover {
+    background: var(--light-grey, #f9fafb);
+}
+
+.grader-title-row .plagiarism-popover-match-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.grader-title-row .plagiarism-popover-name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-primary, #111827);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.grader-title-row .plagiarism-popover-score {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.grader-title-row .plagiarism-popover-score.score-high {
+    color: #991b1b;
+    background: #fee2e2;
+}
+
+.grader-title-row .plagiarism-popover-score.score-med {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+.grader-title-row .plagiarism-popover-score.score-low {
+    color: #065f46;
+    background: #d1fae5;
+}
+
+.grader-title-row .plagiarism-popover-diff-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--primary-text, #6b0023);
+    background: var(--bg-surface, #fff);
+    border: 1px solid var(--primary-light, #e8c6d4);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+
+.grader-title-row .plagiarism-popover-diff-btn:hover {
+    background: var(--primary-light, #fce4ec);
+    border-color: var(--primary-color, #840029);
+}
+
 .student-nav-btns {
     display: flex;
     align-items: center;

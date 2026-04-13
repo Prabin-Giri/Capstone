@@ -5,13 +5,13 @@ import { runPlagiarismCheck } from '../../lib/api';
 import UserAvatar from '../../components/ui/UserAvatar';
 import './PlagiarismReportModal.css';
 
-interface PlagiarismStudent {
+export interface PlagiarismStudent {
     name: string;
     id: string;
     profile_picture?: string | null;
 }
 
-interface PlagiarismResult {
+export interface PlagiarismMatch {
     student1: PlagiarismStudent;
     student2: PlagiarismStudent;
     similarity: number;
@@ -25,12 +25,13 @@ interface PlagiarismReportProps {
     assignmentTitle: string;
     basePath?: string;
     onClose: () => void;
+    onPlagiarismResults?: (results: PlagiarismMatch[]) => void;
 }
 
-const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, assignmentTitle, basePath = '/faculty', onClose }) => {
+const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, assignmentTitle, basePath = '/faculty', onClose, onPlagiarismResults }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [results, setResults] = useState<PlagiarismResult[] | null>(null);
+    const [results, setResults] = useState<PlagiarismMatch[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isGroupAssignment, setIsGroupAssignment] = useState(false);
 
@@ -41,6 +42,7 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
             const data = await runPlagiarismCheck(assignmentId);
             setResults(data.flaggedPairs);
             setIsGroupAssignment(!!data.isGroupAssignment);
+            onPlagiarismResults?.(data.flaggedPairs);
         } catch (err) {
             setError('Failed to run plagiarism analysis. Please try again.');
             console.error(err);

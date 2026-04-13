@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 import UserAvatar from '../../components/ui/UserAvatar';
-import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, PanelLeftOpen, ChevronLeft, CalendarDays, Layers } from 'lucide-react';
+import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, PanelLeftOpen, ChevronLeft, CalendarDays, Layers, ShieldAlert, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
@@ -661,6 +661,32 @@ const SubmissionGrader: React.FC = () => {
     const prevStudent = currentStudentIndex > 0 ? (displayOrderedStudents[currentStudentIndex - 1] as Submission) : undefined;
     const nextStudent = currentStudentIndex < displayOrderedStudents.length - 1 ? (displayOrderedStudents[currentStudentIndex + 1] as Submission) : undefined;
 
+    const [showPlagPopover, setShowPlagPopover] = useState(false);
+    const plagPopoverRef = useRef<HTMLDivElement>(null);
+
+    const studentPlagiarismMatches = useMemo(() => {
+        if (!assignmentId || !submission) return [];
+        try {
+            const stored = localStorage.getItem(`plagiarism-flags-${assignmentId}`);
+            if (!stored) return [];
+            const all: { student1: { id: string; name: string }; student2: { id: string; name: string }; similarity: number; sameGroup?: string | null }[] = JSON.parse(stored);
+            return all.filter(
+                m => !m.sameGroup && (m.student1.id === submission.student_id || m.student2.id === submission.student_id)
+            );
+        } catch { return []; }
+    }, [assignmentId, submission]);
+
+    useEffect(() => {
+        if (!showPlagPopover) return;
+        function handleClick(e: MouseEvent) {
+            if (plagPopoverRef.current && !plagPopoverRef.current.contains(e.target as Node)) {
+                setShowPlagPopover(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [showPlagPopover]);
+
     if (loading) return <div className="grader-container"><div className="grader-loading">Loading...</div></div>;
     if (!submission || !assignment) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
 
@@ -672,6 +698,7 @@ const SubmissionGrader: React.FC = () => {
     const canGoNextAttempt = activeAttemptIndex < allSubmissions.length - 1;
     const studentDisplayName = hideNames ? anonLabel(submission.student_id) : (submission.student_name || 'Student');
     const isSubmissionGraded = submission.status === 'graded';
+
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
 
@@ -874,6 +901,64 @@ const SubmissionGrader: React.FC = () => {
                         <div className="grader-title-row">
                             <h2 className="grader-title">{studentDisplayName}</h2>
                             {isSubmissionGraded && <span className="graded-by-pill">Graded</span>}
+                            {studentPlagiarismMatches.length > 0 && (
+                                <div className="plagiarism-flag-wrapper">
+                                    <button
+                                        type="button"
+                                        className="plagiarism-flag"
+                                        onClick={() => setShowPlagPopover(prev => !prev)}
+                                        title="Click to view plagiarism details"
+                                    >
+                                        <ShieldAlert size={14} />
+                                        Plagiarism
+                                    </button>
+                                    {showPlagPopover && (
+                                        <div className="plagiarism-popover" ref={plagPopoverRef}>
+                                            <div className="plagiarism-popover-header">
+                                                <h4>Plagiarism Matches</h4>
+                                                <button
+                                                    type="button"
+                                                    className="plagiarism-popover-close"
+                                                    onClick={() => setShowPlagPopover(false)}
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="plagiarism-popover-body">
+                                                {studentPlagiarismMatches.map((match, i) => {
+                                                    const other = match.student1.id === submission.student_id
+                                                        ? match.student2 : match.student1;
+                                                    return (
+                                                        <div key={i} className="plagiarism-popover-match">
+                                                            <div className="plagiarism-popover-match-info">
+                                                                <UserAvatar user={other} size={24} />
+                                                                <span className="plagiarism-popover-name">{other.name}</span>
+                                                                <span className={`plagiarism-popover-score ${
+                                                                    match.similarity > 80 ? 'score-high' :
+                                                                    match.similarity > 60 ? 'score-med' : 'score-low'
+                                                                }`}>
+                                                                    {match.similarity}%
+                                                                </span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                className="plagiarism-popover-diff-btn"
+                                                                onClick={() => {
+                                                                    navigate(`${basePath}/plagscan?assignment=${assignmentId}&s1=${match.student1.id}&s2=${match.student2.id}`);
+                                                                    setShowPlagPopover(false);
+                                                                }}
+                                                            >
+                                                                <FileText size={14} />
+                                                                Diff
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div className="student-nav-btns right-end">
                                 <button
                                     className="student-nav-btn"
