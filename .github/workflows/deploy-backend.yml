@@ -78,4 +78,21 @@ jobs:
             export APP_DIR="$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
             echo "[deploy] using script: $SCRIPT_PATH"
             echo "[deploy] resolved app dir: $APP_DIR"
+
+            # ── Disk cleanup (runs BEFORE deploy script) ──
+            echo "[deploy] running pre-deploy disk cleanup..."
+            df -h /
+            sudo apt-get clean || true
+            sudo apt-get autoremove -y || true
+            npm cache clean --force || true
+            python3 -m pip cache purge 2>/dev/null || true
+            if [ -d "$APP_DIR/offline_ai_detector/.venv" ]; then
+              "$APP_DIR/offline_ai_detector/.venv/bin/python" -m pip cache purge 2>/dev/null || true
+            fi
+            pm2 flush 2>/dev/null || true
+            rm -rf /tmp/ai-detector-* || true
+            echo "[deploy] disk after cleanup:"
+            df -h /
+            # ── End cleanup ──
+
             bash "$SCRIPT_PATH"
