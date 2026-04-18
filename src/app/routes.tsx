@@ -7,6 +7,7 @@ import SignUp from '../pages/auth/SignUp';
 import VerifyEmail from '../pages/auth/VerifyEmail';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
+import ChangePasswordRequired from '../pages/auth/ChangePasswordRequired';
 import StudentDashboard from '../pages/student/StudentDashboard';
 import Calendar from '../pages/student/Calendar';
 import ClassAssignments from '../pages/student/ClassAssignments';
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
     {
         path: '/reset-password',
         element: <ResetPassword />,
+    },
+    {
+        path: '/account/change-password-required',
+        element: <ChangePasswordRequired />,
     },
     {
         path: '/',

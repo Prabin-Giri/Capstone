@@ -20,6 +20,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
         return <Navigate to="/verify-email" replace />;
     }
 
+    if (session?.mustChangePassword === true) {
+        return <Navigate to="/account/change-password-required" replace />;
+    }
+
     const allowed = Array.isArray(requiredRole)
         ? requiredRole.includes(currentRole)
         : currentRole === requiredRole;

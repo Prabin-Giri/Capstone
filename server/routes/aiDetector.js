@@ -435,6 +435,98 @@ async function persistDetectorResult({
     return rows && rows[0] ? rows[0] : null;
 }
 
+/**
+ * Internal helper used by submission auto-processing.
+ * Runs detector for one submission (single file or batch) and persists results.
+ */
+async function runSubmissionDetectionInternal(submissionId, options = {}) {
+    const runtime = detectorRuntimeStatus();
+    if (!runtime.enabled || !runtime.ready) {
+        return {
+            skipped: true,
+            reason: runtime.reason || 'AI detector is not ready.',
+            status: runtime,
+        };
+    }
+
+    const idNum = Number(submissionId);
+    if (!Number.isFinite(idNum)) {
+        throw new Error('Invalid submission ID.');
+    }
+
+    const submissionRow = await fetchSubmissionAccessRow(idNum);
+    if (!submissionRow) {
+        throw new Error('Submission not found.');
+    }
+
+    const files = parseStoredFiles(submissionRow.file_path, submissionRow.file_name);
+    if (!Array.isArray(files) || files.length === 0) {
+        throw new Error('Submission does not contain any stored files.');
+    }
+
+    const isBatch = options.batch !== false;
+    const requestedFilename = String(options.filename || '').trim();
+    const filesToProcess = [];
+
+    if (isBatch) {
+        for (const file of files) {
+            const name = file?.name || path.basename(file?.path || '');
+            const lang = detectLanguage(name);
+            if (lang) filesToProcess.push({ file, language: lang });
+        }
+        if (filesToProcess.length === 0) {
+            return { skipped: true, reason: 'No supported files (.py, .java) found in submission.' };
+        }
+    } else {
+        let selectedFile = null;
+        if (requestedFilename) {
+            selectedFile = findStoredFile(files, requestedFilename);
+            if (!selectedFile) throw new Error(`File '${requestedFilename}' was not found in submission.`);
+        } else if (files.length === 1) {
+            selectedFile = files[0];
+        } else {
+            throw new Error('Submission has multiple files and no filename was provided.');
+        }
+        const selectedFilename = selectedFile?.name || path.basename(selectedFile?.path || '');
+        const explicitLanguage = String(options.language || '').trim().toLowerCase();
+        const language = explicitLanguage || detectLanguage(selectedFilename);
+        if (!language || !['python', 'java'].includes(language)) {
+            throw new Error(`Unsupported language for selected file '${selectedFilename}'.`);
+        }
+        filesToProcess.push({ file: selectedFile, language });
+    }
+
+    const results = [];
+    for (const item of filesToProcess) {
+        const currentFilename = item.file?.name || path.basename(item.file?.path || '');
+        const contentBuffer = await readSubmissionFile(idNum, item.file);
+        const code = contentBuffer.toString('utf8');
+        const result = await runDetectorOnCode({ code, language: item.language });
+        const persisted = await persistDetectorResult({
+            submissionId: idNum,
+            fileName: currentFilename,
+            language: item.language,
+            detectorResult: result,
+        });
+        results.push({
+            file_name: currentFilename,
+            language: item.language,
+            detection_id: persisted?.id,
+            recorded_at: persisted?.created_at,
+            detector_result: result,
+        });
+    }
+
+    return {
+        submission_id: idNum,
+        batch: isBatch,
+        count: results.length,
+        results,
+        model_version: detectorModelVersion(),
+        note: 'AI detector output is a review signal only, not proof of authorship.',
+    };
+}
+
 router.post('/submissions/:id/run', async (req, res, next) => {
     try {
         const runtime = detectorRuntimeStatus();
@@ -691,3 +783,4 @@ router.get('/assignments/:assignmentId/summary', async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.runSubmissionDetectionInternal = runSubmissionDetectionInternal;

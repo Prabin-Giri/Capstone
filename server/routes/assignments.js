@@ -557,11 +557,8 @@ router.post('/:id/run', async (req, res, next) => {
     }
 });
 
-// POST /api/assignments/:id/plagiarism-check - Run plagiarism detection
-router.post('/:id/plagiarism-check', async (req, res, next) => {
-    try {
+async function runPlagiarismCheckInternal(assignmentId) {
         const db = getDb();
-        const assignmentId = req.params.id;
         const startTime = Date.now();
 
         const [[assignmentRow]] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignmentId]);
@@ -696,14 +693,20 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
         flaggedPairs.sort((a, b) => b.similarity - a.similarity);
         const latencyMs = Date.now() - startTime;
 
-        res.json({
-            assignmentId: req.params.id,
+        return {
+            assignmentId,
             totalSubmissions: students.length,
             flaggedPairs,
             latencyMs,
             isGroupAssignment: isGroupOneForAll,
-        });
+        };
+}
 
+// POST /api/assignments/:id/plagiarism-check - Run plagiarism detection
+router.post('/:id/plagiarism-check', async (req, res, next) => {
+    try {
+        const report = await runPlagiarismCheckInternal(req.params.id);
+        res.json(report);
     } catch (err) {
         next(err);
     }
@@ -819,3 +822,4 @@ router.post('/:id/grade-group/:groupId', async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.runPlagiarismCheckInternal = runPlagiarismCheckInternal;

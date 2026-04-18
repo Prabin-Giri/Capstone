@@ -33,6 +33,54 @@ function validateAdminFacultyPassword(password) {
     return null;
 }
 
+async function insertAdminStudentRecord(db, { studentId, name, email, password }) {
+    const sid = String(studentId || '').trim();
+    const normalizedName = String(name || '').trim();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!sid || !normalizedName || !normalizedEmail) {
+        const err = new Error('Student ID, name, and email are required');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        const err = new Error('Invalid email address');
+        err.statusCode = 400;
+        throw err;
+    }
+    const pw = String(password || '').trim();
+    if (pw.length < 8) {
+        const err = new Error('Password must be at least 8 characters');
+        err.statusCode = 400;
+        throw err;
+    }
+    const [existing] = await db.execute('SELECT id FROM users WHERE id = ? OR LOWER(email) = ?', [sid, normalizedEmail]);
+    const exRows = Array.isArray(existing) ? existing : [];
+    if (exRows.length > 0) {
+        const err = new Error('A user with this student ID or email already exists');
+        err.statusCode = 409;
+        throw err;
+    }
+    if (isMySQL) {
+        await db.execute(
+            `INSERT INTO users (id, name, email, password, role, verified, student_id, email_verified, email_verification_token, email_verification_otp, email_verification_expires) VALUES (?, ?, ?, ?, 'student', 1, ?, 1, NULL, NULL, NULL)`,
+            [sid, normalizedName, normalizedEmail, pw, sid]
+        );
+    } else {
+        await db.execute(
+            `INSERT INTO users (id, name, email, password, role, verified, student_id) VALUES (?, ?, ?, ?, 'student', 1, ?)`,
+            [sid, normalizedName, normalizedEmail, pw, sid]
+        );
+    }
+    if (pw === 'password123') {
+        try {
+            await db.execute('UPDATE users SET must_change_password = 1 WHERE id = ?', [sid]);
+        } catch {
+            /* column missing on very old DB */
+        }
+    }
+    return { id: sid, email: normalizedEmail, name: normalizedName };
+}
+
 async function insertFacultyRecord(db, { name, email, password, verified }) {
     const normalizedName = String(name || '').trim();
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -329,6 +377,19 @@ router.get('/students/insights', async (req, res) => {
         const [submissions] = await db.execute(
             'SELECT student_id, assignment_id, grade FROM submissions'
         );
+        let taRows = [];
+        try {
+            const [tr] = await db.execute('SELECT ta_id, course_id FROM course_tas');
+            taRows = Array.isArray(tr) ? tr : [];
+        } catch {
+            taRows = [];
+        }
+        const taCoursesByUser = {};
+        taRows.forEach((t) => {
+            const uid = String(t.ta_id);
+            if (!taCoursesByUser[uid]) taCoursesByUser[uid] = [];
+            taCoursesByUser[uid].push(String(t.course_id));
+        });
         const enrollByStudent = {};
         enrollments.forEach(e => {
             if (!enrollByStudent[e.student_id]) enrollByStudent[e.student_id] = [];
@@ -341,14 +402,81 @@ router.get('/students/insights', async (req, res) => {
             if (s.grade != null) submitByStudent[s.student_id].graded++;
         });
         const enrolledIds = (sid) => (enrollByStudent[sid] || []).map(String);
-        const result = students.map(s => ({
-            ...s,
-            courses_enrolled: enrolledIds(s.id).length,
-            enrolled_course_ids: enrolledIds(s.id),
-            submissions_count: (submitByStudent[s.id] && submitByStudent[s.id].count) || 0,
-            graded_count: (submitByStudent[s.id] && submitByStudent[s.id].graded) || 0,
-        }));
+        const result = students.map(s => {
+            const taIds = taCoursesByUser[String(s.id)] || [];
+            return {
+                ...s,
+                courses_enrolled: enrolledIds(s.id).length,
+                enrolled_course_ids: enrolledIds(s.id),
+                ta_course_ids: taIds,
+                is_ta: taIds.length > 0,
+                submissions_count: (submitByStudent[s.id] && submitByStudent[s.id].count) || 0,
+                graded_count: (submitByStudent[s.id] && submitByStudent[s.id].graded) || 0,
+            };
+        });
         res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/admin/students — create one student account (admin)
+router.post('/students', async (req, res) => {
+    try {
+        const { studentId, id, name, email, password } = req.body || {};
+        const sid = studentId || id;
+        const db = getDb();
+        const out = await insertAdminStudentRecord(db, { studentId: sid, name, email, password });
+        res.status(201).json({ message: 'Student created successfully', ...out });
+    } catch (e) {
+        const code = e.statusCode || 500;
+        res.status(code >= 400 && code < 600 ? code : 500).json({
+            error: e.message || 'Failed to create student',
+        });
+    }
+});
+
+// POST /api/admin/students/import — bulk create from parsed CSV rows
+router.post('/students/import', async (req, res) => {
+    try {
+        const { rows, defaultPassword } = req.body || {};
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({
+                error: 'rows must be a non-empty array of { studentId, name, email, password? }',
+            });
+        }
+        const defPw = typeof defaultPassword === 'string' && defaultPassword.trim().length >= 8 ? defaultPassword.trim() : null;
+        if (!defPw && rows.some((r) => !r || typeof r.password !== 'string' || !r.password.trim())) {
+            return res.status(400).json({ error: 'Provide defaultPassword (8+ chars) or a password on each row' });
+        }
+        const db = getDb();
+        const created = [];
+        const errors = [];
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i] || {};
+            const sid = r.studentId || r.student_id || r.id;
+            const password = (typeof r.password === 'string' && r.password.trim()) || defPw;
+            try {
+                const out = await insertAdminStudentRecord(db, {
+                    studentId: sid,
+                    name: r.name,
+                    email: r.email,
+                    password,
+                });
+                created.push(out);
+            } catch (e) {
+                errors.push({
+                    row: i + 1,
+                    studentId: String(sid || r.email || '').trim(),
+                    error: e.message || String(e),
+                });
+            }
+        }
+        res.status(201).json({
+            created,
+            errors,
+            message: `Created ${created.length}; ${errors.length} failed`,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -783,6 +911,256 @@ router.get('/courses/:courseId/detail', async (req, res) => {
                 active_assignments: assignments.filter((a) => a.status === 'active').length,
             },
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const DEFAULT_APP_SETTINGS = {
+    maintenance_mode: 'false',
+    allow_self_registration: 'true',
+    require_email_verification: 'true',
+    active_user_window_minutes: '15',
+    max_upload_mb: '25',
+};
+
+// GET /api/admin/settings
+router.get('/settings', async (req, res) => {
+    try {
+        const db = getDb();
+        const merged = { ...DEFAULT_APP_SETTINGS };
+        try {
+            const [rows] = await db.execute('SELECT setting_key, setting_value FROM app_settings');
+            const list = Array.isArray(rows) ? rows : [];
+            list.forEach((r) => {
+                if (r.setting_key != null) merged[String(r.setting_key)] = String(r.setting_value ?? '');
+            });
+        } catch {
+            /* table missing on very old DB */
+        }
+        res.json(merged);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PATCH /api/admin/settings — body: { "maintenance_mode": "true", ... } or { settings: { ... } }
+router.patch('/settings', async (req, res) => {
+    try {
+        const raw = req.body || {};
+        const incoming = raw.settings && typeof raw.settings === 'object' ? raw.settings : raw;
+        const db = getDb();
+        for (const [k, v] of Object.entries(incoming)) {
+            if (typeof k !== 'string' || k.length > 120) continue;
+            const val = v == null ? '' : String(v);
+            if (isMySQL) {
+                await db.execute(
+                    'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP',
+                    [k, val]
+                );
+            } else {
+                await db.execute(
+                    'INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+                    [k, val]
+                );
+            }
+        }
+        const [rows] = await db.execute('SELECT setting_key, setting_value FROM app_settings');
+        const merged = { ...DEFAULT_APP_SETTINGS };
+        const list = Array.isArray(rows) ? rows : [];
+        list.forEach((r) => {
+            if (r.setting_key != null) merged[String(r.setting_key)] = String(r.setting_value ?? '');
+        });
+        res.json(merged);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/admin/security/login-audit — filter: all | failed | unknown
+router.get('/security/login-audit', async (req, res) => {
+    try {
+        const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit || '150'), 10) || 150));
+        const filter = String(req.query.filter || 'all');
+        const db = getDb();
+        let where = '1=1';
+        if (filter === 'failed') where = "outcome = 'failed'";
+        else if (filter === 'unknown') where = "outcome = 'failed' AND reason = 'unknown_user'";
+        const sql = `SELECT id, email, user_id AS userId, outcome, reason, ip,
+            user_agent AS userAgent, created_at AS createdAt
+            FROM login_audit WHERE ${where} ORDER BY id DESC LIMIT ${limit}`;
+        const [rows] = await db.execute(sql);
+        res.json(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/admin/security/activity-log — optional userId
+router.get('/security/activity-log', async (req, res) => {
+    try {
+        const userId = req.query.userId ? String(req.query.userId).trim() : '';
+        const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit || '150'), 10) || 150));
+        const db = getDb();
+        let sql;
+        let params = [];
+        if (userId) {
+            sql = `SELECT a.id, a.user_id AS userId, u.name AS userName, u.email AS userEmail, u.role AS userRole,
+                a.action, a.detail, a.ip, a.created_at AS createdAt
+                FROM activity_log a
+                LEFT JOIN users u ON u.id = a.user_id
+                WHERE a.user_id = ?
+                ORDER BY a.id DESC LIMIT ${limit}`;
+            params = [userId];
+        } else {
+            sql = `SELECT a.id, a.user_id AS userId, u.name AS userName, u.email AS userEmail, u.role AS userRole,
+                a.action, a.detail, a.ip, a.created_at AS createdAt
+                FROM activity_log a
+                LEFT JOIN users u ON u.id = a.user_id
+                ORDER BY a.id DESC LIMIT ${limit}`;
+        }
+        const [rows] = await db.execute(sql, params);
+        res.json(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/admin/security/active-users — seen in last N minutes (from settings or query)
+router.get('/security/active-users', async (req, res) => {
+    try {
+        const db = getDb();
+        let windowMin = Math.min(120, Math.max(5, parseInt(String(req.query.minutes || '15'), 10) || 15));
+        try {
+            const [sr] = await db.execute(
+                'SELECT setting_value FROM app_settings WHERE setting_key = ?',
+                ['active_user_window_minutes']
+            );
+            const row = Array.isArray(sr) && sr[0];
+            const v = row && row.setting_value != null ? parseInt(String(row.setting_value), 10) : NaN;
+            if (!Number.isNaN(v)) windowMin = Math.min(120, Math.max(5, v));
+        } catch {
+            /* */
+        }
+        let sql;
+        if (isMySQL) {
+            sql = `SELECT id, name, email, role, last_seen_at AS lastSeenAt FROM users
+                WHERE last_seen_at IS NOT NULL AND last_seen_at > DATE_SUB(NOW(), INTERVAL ${windowMin} MINUTE)
+                ORDER BY last_seen_at DESC`;
+        } else {
+            sql = `SELECT id, name, email, role, last_seen_at AS lastSeenAt FROM users
+                WHERE last_seen_at IS NOT NULL AND datetime(last_seen_at) > datetime('now', '-${windowMin} minutes')
+                ORDER BY last_seen_at DESC`;
+        }
+        const [rows] = await db.execute(sql);
+        res.json(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/admin/courses/:courseId/enroll — body: { studentId }
+router.post('/courses/:courseId/enroll', async (req, res) => {
+    try {
+        const courseId = String(req.params.courseId || '').trim();
+        const studentId = String((req.body && req.body.studentId) || '').trim();
+        if (!courseId || !studentId) {
+            return res.status(400).json({ error: 'courseId and studentId are required' });
+        }
+        const db = getDb();
+        const [courseCheck] = await db.execute('SELECT id FROM courses WHERE id = ?', [courseId]);
+        if (!Array.isArray(courseCheck) || courseCheck.length === 0) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        const [userRows] = await db.execute('SELECT id, role FROM users WHERE id = ?', [studentId]);
+        if (!Array.isArray(userRows) || userRows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const role = userRows[0].role;
+        if (role !== 'student' && role !== 'ta') {
+            return res.status(400).json({ error: 'Only student or TA accounts can be enrolled as students' });
+        }
+        if (isMySQL) {
+            await db.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, studentId]);
+        } else {
+            await db.execute('INSERT OR IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, studentId]);
+        }
+        res.json({ message: 'Student enrolled successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/admin/courses/:courseId/enroll-csv — same payload as faculty CSV enroll
+router.post('/courses/:courseId/enroll-csv', async (req, res) => {
+    const { students } = req.body || {};
+    const courseId = String(req.params.courseId || '').trim();
+    if (!courseId) return res.status(400).json({ error: 'courseId is required' });
+    if (!Array.isArray(students) || students.length === 0) {
+        return res.status(400).json({ error: 'students array is required' });
+    }
+    try {
+        const db = getDb();
+        const [courseCheck] = await db.execute('SELECT id FROM courses WHERE id = ?', [courseId]);
+        if (!Array.isArray(courseCheck) || courseCheck.length === 0) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        const enrolled = [];
+        const alreadyEnrolled = [];
+        const notFound = [];
+
+        for (const student of students) {
+            const { id, name, email } = student || {};
+            if (!id || !name || !email) continue;
+
+            const normalizedEmail = String(email).trim().toLowerCase();
+
+            const [existingRows] = await db.execute(
+                'SELECT id, name, email FROM users WHERE id = ? OR LOWER(email) = ?',
+                [id, normalizedEmail]
+            );
+
+            let userId = id;
+
+            if (!existingRows.length) {
+                await db.execute(
+                    'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
+                    [id, name, normalizedEmail, 'password123', 'student']
+                );
+                try {
+                    if (isMySQL) {
+                        await db.execute(
+                            'UPDATE users SET must_change_password = 1, email_verified = 1, verified = 1 WHERE id = ?',
+                            [id]
+                        );
+                    } else {
+                        await db.execute('UPDATE users SET must_change_password = 1 WHERE id = ?', [id]);
+                    }
+                } catch (e) {
+                    console.warn('[admin enroll-csv] must_change_password:', e.message);
+                }
+            } else {
+                userId = existingRows[0].id;
+            }
+
+            const [existingEnrollment] = await db.execute(
+                'SELECT 1 FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+                [courseId, userId]
+            );
+
+            if (existingEnrollment.length > 0) {
+                alreadyEnrolled.push({ email: normalizedEmail, name });
+            } else {
+                if (isMySQL) {
+                    await db.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, userId]);
+                } else {
+                    await db.execute('INSERT OR IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, userId]);
+                }
+                enrolled.push({ email: normalizedEmail, name });
+            }
+        }
+
+        res.json({ enrolled, notFound, alreadyEnrolled });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

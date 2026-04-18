@@ -390,7 +390,7 @@ const FacultyCourseView: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <button
                             onClick={() => navigate('assignments')}
-                            className="enroll-btn-small"
+                            className="enroll-btn-small view-all-maroon-btn"
                         >
                             View All Assignments
                         </button>

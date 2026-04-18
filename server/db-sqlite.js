@@ -202,6 +202,7 @@ async function initDb() {
         'ALTER TABLE submissions ADD COLUMN auto_grade REAL DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN auto_feedback TEXT DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN student_id TEXT DEFAULT NULL',
+        'ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0',
         'ALTER TABLE courses ADD COLUMN course_code TEXT',
         `CREATE TABLE IF NOT EXISTS course_tas (
             course_id TEXT NOT NULL,
@@ -220,6 +221,30 @@ async function initDb() {
             FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
         )`,
         'CREATE INDEX IF NOT EXISTS idx_ai_detections_submission_created ON submission_ai_detections (submission_id, created_at)',
+        `CREATE TABLE IF NOT EXISTS login_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            user_id TEXT,
+            outcome TEXT NOT NULL,
+            reason TEXT,
+            ip TEXT,
+            user_agent TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            action TEXT NOT NULL,
+            detail TEXT,
+            ip TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS app_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )`,
+        'ALTER TABLE users ADD COLUMN last_seen_at TEXT',
     ];
     for (const sql of migrations) {
         try { db.run(sql); } catch (e) {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb, queryToObjects, queryOne } = require('../db');
+const { getClientIp, getUserAgent, recordLoginAttempt, recordActivity, touchUserLastSeen } = require('../audit');
 const { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail } = require('../email');
 
 /** Plain object for JSON responses (avoids mysql2 RowDataPacket quirks; stable profile_picture). */
@@ -15,6 +16,7 @@ function publicUserFromRow(row) {
         profile_picture: pic == null || pic === '' ? null : String(pic),
         verified: row.verified === 1 || row.verified === true,
         email_verified: row.email_verified === 1 || row.email_verified === true,
+        must_change_password: row.must_change_password === 1 || row.must_change_password === true,
     };
 }
 
@@ -116,12 +118,48 @@ router.post('/login', async (req, res, next) => {
         }
 
         const db = getDb();
-        const [rows] = await db.execute('SELECT id, name, email, role, password, profile_picture, verified, email_verified FROM users WHERE LOWER(email) = ?', [normalizedEmail]);
+        const ip = getClientIp(req);
+        const ua = getUserAgent(req);
+        const [rows] = await db.execute(
+            'SELECT id, name, email, role, password, profile_picture, verified, email_verified, must_change_password FROM users WHERE LOWER(email) = ?',
+            [normalizedEmail]
+        );
         const user = rows[0];
 
-        if (!user || user.password !== password) {
+        if (!user) {
+            await recordLoginAttempt(db, {
+                email: normalizedEmail,
+                userId: null,
+                success: false,
+                reason: 'unknown_user',
+                ip,
+                userAgent: ua,
+            });
             return res.status(401).json({ error: 'Invalid email or password' });
         }
+
+        if (user.password !== password) {
+            await recordLoginAttempt(db, {
+                email: normalizedEmail,
+                userId: user.id,
+                success: false,
+                reason: 'bad_password',
+                ip,
+                userAgent: ua,
+            });
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        await recordLoginAttempt(db, {
+            email: normalizedEmail,
+            userId: user.id,
+            success: true,
+            reason: null,
+            ip,
+            userAgent: ua,
+        });
+        await recordActivity(db, { userId: user.id, action: 'login', detail: { email: normalizedEmail }, ip });
+        await touchUserLastSeen(db, user.id);
 
         res.json(publicUserFromRow(user));
     } catch (err) {
@@ -414,7 +452,7 @@ router.post('/reset-password', async (req, res, next) => {
         }
 
         await db.execute(
-            'UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?',
+            'UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL, must_change_password = 0 WHERE id = ?',
             [newPassword, user.id]
         );
 
@@ -512,7 +550,7 @@ router.post('/change-password', async (req, res, next) => {
             return res.status(401).json({ error: 'Current password is incorrect' });
         }
 
-        await db.execute('UPDATE users SET password = ? WHERE id = ?', [newPassword, userId]);
+        await db.execute('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', [newPassword, userId]);
         res.json({ message: 'Password updated successfully' });
     } catch (err) {
         next(err);
