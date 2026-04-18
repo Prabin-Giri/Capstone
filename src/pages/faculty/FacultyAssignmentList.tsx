@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
     getCourseAssignments,
     getCourse,
@@ -7,7 +7,7 @@ import {
     type Assignment,
     type Course
 } from '../../lib/api';
-import { ChevronLeft, Plus, Search, Edit, Trash2, Download, BarChart2, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Download, BarChart2, ArrowUpDown, House } from 'lucide-react';
 import { showDialog } from '../../components/ui/Dialog';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import './FacultyAssignmentList.css';
@@ -107,24 +107,28 @@ const FacultyAssignmentList: React.FC = () => {
         <div className="faculty-assignment-list-container">
             <div className="fal-header">
                 <div>
-                    <div className="breadcrumb">
-                        <Link to={`/faculty/courses/${courseId}`}>
-                            <ChevronLeft size={14} />
-                            Back to Course
-                        </Link>
-                        <span>/</span>
-                        <span>Assignments</span>
-                    </div>
                     <h1 className="page-title">{course.name} — Assignments</h1>
                     <p className="page-subtitle">{filtered.length} Assignment{filtered.length !== 1 ? 's' : ''}</p>
                 </div>
-                <button
-                    className="fal-create-btn"
-                    onClick={() => navigate(`/faculty/courses/${courseId}/assignments/new`)}
-                >
-                    <Plus size={18} />
-                    Create Assignment
-                </button>
+                <div className="fal-header-actions">
+                    <button
+                        type="button"
+                        className="fal-home-btn"
+                        onClick={() => navigate(`/faculty/courses/${courseId}`)}
+                        title="Course overview"
+                    >
+                        <House size={18} />
+                        Course Home
+                    </button>
+                    <button
+                        type="button"
+                        className="fal-create-btn"
+                        onClick={() => navigate(`/faculty/courses/${courseId}/assignments/new`)}
+                    >
+                        <Plus size={18} />
+                        Create Assignment
+                    </button>
+                </div>
             </div>
 
             {/* Search + Sort */}
@@ -184,14 +188,15 @@ const FacultyAssignmentList: React.FC = () => {
                             <th>Assignment</th>
                             <th>Deadline</th>
                             <th>Points</th>
+                            <th>Submissions</th>
                             <th>Status</th>
-                            <th style={{ textAlign: 'right' }}>Actions</th>
+                            <th className="fal-th-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>
+                                <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>
                                     {q ? 'No assignments match your search.' : 'No assignments yet. Create one to get started!'}
                                 </td>
                             </tr>
@@ -210,6 +215,16 @@ const FacultyAssignmentList: React.FC = () => {
                                 </td>
                                 <td style={{ color: 'var(--text-secondary)' }}>
                                     {a.points || 100} pts
+                                </td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        className="fal-submissions-link"
+                                        onClick={() => navigate(`/faculty/courses/${courseId}/assignments/${a.id}/grading`)}
+                                        title="Open grading"
+                                    >
+                                        {Number(a.submissions_count ?? 0)}
+                                    </button>
                                 </td>
                                 <td>
                                     <StatusBadge status={a.status} />

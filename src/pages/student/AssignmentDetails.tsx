@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { getAssignment, getFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
-import { Code, Download, Eye, FolderOpen, ChevronLeft } from 'lucide-react';
+import { Code, Download, Eye, FolderOpen } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
 import './AssignmentDetails.css';
@@ -11,7 +11,21 @@ import type { EditorFile } from '../../components/ui/AssignmentEditor';
 
 import { getUser } from '../../lib/auth';
 import { showDialog } from '../../components/ui/Dialog';
-import { getLanguageFromFilename, getValidExtensions, parseUTC, resolveWorkspaceRunContext } from '../../lib/utils';
+import { getLanguageFromFilename, getValidExtensions, parseUTC, buildAssignmentExecutionPayload } from '../../lib/utils';
+
+type StudentRubricItem = {
+    id?: string;
+    name?: string;
+    weight?: number | null;
+    maxPoints?: number | null;
+    comment?: string;
+};
+
+type StudentRubricSection = {
+    id?: string;
+    title?: string;
+    items: StudentRubricItem[];
+};
 
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
@@ -123,6 +137,32 @@ const AssignmentDetails: React.FC = () => {
 
     // Use assignment.points if available, falling back to 100
     const points = assignment.points || 100;
+    const parseRubricSections = (): { weighted: boolean; sections: StudentRubricSection[] } | null => {
+        if (!assignment.rubric_config) return null;
+        try {
+            const parsed = typeof assignment.rubric_config === 'string'
+                ? JSON.parse(assignment.rubric_config)
+                : assignment.rubric_config;
+            if (!parsed || typeof parsed !== 'object') return null;
+            const weighted = !!(parsed as { weighted?: boolean }).weighted;
+            const sections = Array.isArray((parsed as { sections?: StudentRubricSection[] }).sections)
+                ? (parsed as { sections: StudentRubricSection[] }).sections
+                : [];
+            if (sections.length > 0) {
+                return { weighted, sections };
+            }
+            const criteria = Array.isArray((parsed as { criteria?: StudentRubricItem[] }).criteria)
+                ? (parsed as { criteria: StudentRubricItem[] }).criteria
+                : [];
+            if (criteria.length > 0) {
+                return { weighted, sections: [{ id: 'sec-1', title: 'Rubric', items: criteria }] };
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    };
+    const rubricData = parseRubricSections();
 
     const toSafeHtml = (input: string) => {
         const raw = input ?? '';
@@ -249,12 +289,12 @@ const AssignmentDetails: React.FC = () => {
         if (!assignment) throw new Error("No assignment loaded");
         setIsRunningTests(true);
         try {
-            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(editorFiles, activeFileId, assignment.language || '');
-            const data = await runTests(assignment.id, codeToRun, detectedLang);
+            const payload = buildAssignmentExecutionPayload(editorFiles, activeFileId, assignment.language || '');
+            const data = await runTests(assignment.id, payload);
             setIsRunningTests(false);
             return {
                 results: data.results,
-                log: `Running active tab.\nLanguage: ${detectedLang}\nPayload: ${codeToRun.length} bytes.`
+                log: `Running active tab.\nLanguage: ${payload.language}\nPayload: ${payload.code.length} bytes${payload.files?.length ? ` + ${payload.files.length} Java files` : ''}.`
             };
         } catch (err) {
             setIsRunningTests(false);
@@ -267,8 +307,8 @@ const AssignmentDetails: React.FC = () => {
         if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
         setIsRunningTests(true);
         try {
-            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(files, activeFileId, assignment.language || '');
-            const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
+            const payload = buildAssignmentExecutionPayload(files, activeFileId, assignment.language || '');
+            const data = await runCustomCode(assignment.id, { ...payload, stdin });
             setIsRunningTests(false);
             return data;
         } catch (err) {
@@ -356,21 +396,15 @@ const AssignmentDetails: React.FC = () => {
 
     return (
         <div className="assignment-details">
-            <div className="breadcrumb">
-                 <Link to={`/student/courses/${assignment.course_id}/assignments`}>
-                     <ChevronLeft size={14} />
-                     Back to Assignments
-                 </Link>
-            </div>
             <div className="details-header">
                 <div className="details-header-left">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <h1 className="details-title">{assignment.title}</h1>
                         {assignment.type === 'group' && (
-                            <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(128, 0, 0, 0.1)', color: 'var(--primary)', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 }}>Group Assignment</span>
+                            <span className="details-header-group-chip">Group Assignment</span>
                         )}
                         {assignment.language && (
-                            <div className="meta-item" style={{ margin: 0, padding: '2px 6px', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '8px', flexDirection: 'column', gap: '0px' }}>
+                            <div className="meta-item details-header-lang-chip">
                                 <Code size={10} className="meta-icon" style={{ marginBottom: '-1px' }} />
                                 <span className="meta-value text-capitalize" style={{ fontSize: '0.55rem', lineHeight: '1' }}>{assignment.language}</span>
                             </div>
@@ -388,7 +422,7 @@ const AssignmentDetails: React.FC = () => {
                             </div>
                         </div>
                         {assignment.type === 'group' && (
-                            <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '0.5rem', color: '#1d4ed8', fontSize: '0.875rem' }}>
+                            <div className="details-header-policy">
                                 {assignment.group_submission_type === 'one_for_all'
                                     ? <b>Submission Policy: Any group member's submission will apply to the entire group.</b>
                                     : <b>Submission Policy: Each group member must submit their own individual file.</b>}
@@ -480,6 +514,37 @@ const AssignmentDetails: React.FC = () => {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {rubricData && (
+                <div className="section">
+                    <h2 className="section-title">Rubrics</h2>
+                    {rubricData.sections.map((section, secIdx) => (
+                        <div key={section.id || `rubric-${secIdx}`} style={{ marginBottom: '1rem' }}>
+                            <div className="rubric-student-section-title">{section.title?.trim() || `Section ${secIdx + 1}`}</div>
+                            <table className="rubric-table">
+                                <thead>
+                                    <tr>
+                                        <th>Criterion</th>
+                                        {rubricData.weighted && <th>Weight %</th>}
+                                        <th>Max Points</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {section.items.map((item, idx) => (
+                                        <tr key={item.id || `${section.id}-${idx}`}>
+                                            <td>{item.name || '-'}</td>
+                                            {rubricData.weighted && <td>{item.weight ?? '-'}</td>}
+                                            <td>{item.maxPoints ?? '-'}</td>
+                                            <td>{item.comment || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ))}
                 </div>
             )}
 

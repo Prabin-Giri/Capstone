@@ -31,6 +31,26 @@ interface AssignmentEditorProps {
     defaultSidebarOpen?: boolean;
 }
 
+/** One starter file when the parent did not pass initialFiles. Java must match filename ↔ public class. */
+function createDefaultWorkspaceFiles(workbenchLanguage: string): EditorFile[] {
+    const lang = (workbenchLanguage || 'python').toLowerCase();
+    if (lang === 'python') {
+        return [{ id: '1', name: 'main.py', content: '# Write your code here\n', language: 'python' }];
+    }
+    if (lang === 'java') {
+        return [
+            {
+                id: '1',
+                name: 'Main.java',
+                content:
+                    'public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}\n',
+                language: 'java',
+            },
+        ];
+    }
+    return [{ id: '1', name: 'main.js', content: '// Write your code here\n', language: 'javascript' }];
+}
+
 const getLanguageFromFilename = (filename: string, defaultLang: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
     switch (ext) {
@@ -60,9 +80,9 @@ export const AssignmentEditor: React.FC<AssignmentEditorProps> = ({
     readOnly = false,
     defaultSidebarOpen
 }) => {
-    const [files, setFiles] = useState<EditorFile[]>(initialFiles.length ? initialFiles : [
-        { id: '1', name: `main.${language === 'python' ? 'py' : language === 'java' ? 'java' : 'js'}`, content: '// Write your code here\n', language: language }
-    ]);
+    const [files, setFiles] = useState<EditorFile[]>(() =>
+        initialFiles.length ? initialFiles : createDefaultWorkspaceFiles(language)
+    );
     const [activeFileId, setActiveFileId] = useState<string>(files[0].id);
     const [openFileIds, setOpenFileIds] = useState<string[]>([files[0].id]);
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768;

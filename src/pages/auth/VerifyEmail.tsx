@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Loader, Mail, ChevronLeft } from 'lucide-react';
 import { verifyEmailByOtp, verifyEmailByToken, resendVerificationEmail } from '../../lib/api';
 import { getSession, updateUser, redirectToDashboard } from '../../lib/auth';
+import { AgnosTitle } from '../../components/branding/AgnosTitle';
 import './Login.css';
 import './VerifyEmail.css';
 
@@ -130,8 +131,7 @@ const VerifyEmail: React.FC = () => {
             <div className="login-container">
                 <div className="auth-card">
                     <div className="auth-card-logo">
-                        <img src="/ulm-logo.png" alt="Agnos" />
-                        <h1 className="auth-card-logo-name">Agnos</h1>
+                        <AgnosTitle variant="auth" />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                         <Loader size={40} className="verify-spinner" />
@@ -146,8 +146,7 @@ const VerifyEmail: React.FC = () => {
         <div className="login-container">
             <div className="auth-card">
                 <div className="auth-card-logo">
-                    <img src="/ulm-logo.png" alt="Agnos" />
-                    <h1 className="auth-card-logo-name">Agnos</h1>
+                    <AgnosTitle variant="auth" />
                 </div>
 
                 {success ? (

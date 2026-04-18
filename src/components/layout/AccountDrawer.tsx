@@ -54,6 +54,10 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         };
     }, []);
 
+    React.useEffect(() => {
+        if (isOpen) setUserData(getUser());
+    }, [isOpen]);
+
     // Reset view when drawer closes
     React.useEffect(() => {
         if (!isOpen) {
@@ -171,7 +175,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                     const formData = new FormData();
                     formData.append('file', pendingAvatar.blob, 'profile.jpg');
 
-                    const uploadResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${userData.id}`, {
+                    const uploadResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${encodeURIComponent(userData.id)}`, {
                         method: 'POST',
                         body: formData
                     });
@@ -181,7 +185,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                     updates.profilePicture = uploadResult.filePath;
                 } else {
                     // REMOVE
-                    const deleteResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${userData.id}`, {
+                    const deleteResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${encodeURIComponent(userData.id)}`, {
                         method: 'DELETE'
                     });
 

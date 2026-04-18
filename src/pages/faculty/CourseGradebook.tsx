@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { getCourseGrades, getCourseGradesExportUrl } from '../../lib/api';
+import { getCourseGrades, getCourseGradesExportUrl, getCourseCatalogId } from '../../lib/api';
 import type { GradebookData, CourseGradesExportType } from '../../lib/api';
 import { Download, FileSpreadsheet, FileText, ChevronLeft, BarChart2, Printer, X, PieChart, Search, Filter, FileDown } from 'lucide-react';
 import './CourseGradebook.css';
@@ -343,7 +343,7 @@ th{background:#f5f5f5;font-weight:600}
 <div class="header">
 <div>
 <h1 style="margin:0">${escapeHtml(course.name)}</h1>
-<p style="margin:0.25rem 0 0;font-size:0.9rem;color:#666">${escapeHtml(course.id)} • ${escapeHtml(course.term)}</p>
+<p style="margin:0.25rem 0 0;font-size:0.9rem;color:#666">${escapeHtml(getCourseCatalogId(course))} • ${escapeHtml(course.term)}</p>
 ${scopeLine}
 </div>
 <div style="text-align:right">
@@ -821,7 +821,7 @@ ${stats.missingGrades.length > 0 ? `
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', background: 'var(--light-grey)', padding: '1rem', borderRadius: '8px' }}>
                                         <div>
                                             <div style={{ fontWeight: 'bold' }}>{course.name}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{course.id} • {course.term}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{getCourseCatalogId(course)} • {course.term}</div>
                                             {reportStats?.scopeStudentName && (
                                                 <div style={{ marginTop: '0.25rem', fontSize: '0.9rem' }}>Summary for student: <strong>{reportStats.scopeStudentName}</strong></div>
                                             )}

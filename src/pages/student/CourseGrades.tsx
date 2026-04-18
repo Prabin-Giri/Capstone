@@ -76,13 +76,7 @@ const CourseGrades: React.FC = () => {
             <div className="grades-header">
                 <div>
                     <h1 className="grades-title">Grades</h1>
-                    <p className="grades-subtitle">
-                        {course.name} • {course.term}
-                    </p>
                 </div>
-                <Link to={`/student/courses/${courseId}`} className="btn-view-assignments">
-                    Course Home
-                </Link>
             </div>
 
             <div className="table-wrapper">

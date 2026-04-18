@@ -110,7 +110,8 @@ const CREATE_TABLES = [
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS courses (
-        id VARCHAR(255) PRIMARY KEY,
+        id VARCHAR(500) PRIMARY KEY,
+        course_code VARCHAR(255) NULL,
         name VARCHAR(255) NOT NULL,
         term VARCHAR(255) NOT NULL,
         instructor_id VARCHAR(255),
@@ -296,6 +297,16 @@ const CREATE_TABLES = [
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS saved_rubrics (
+        id VARCHAR(255) PRIMARY KEY,
+        course_id VARCHAR(500) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        rubric_json TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY saved_rubrics_course_name (course_id, name),
+        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )`,
 ];
 
 async function initDb() {
@@ -365,6 +376,12 @@ async function initDb() {
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
+    // Ensure users.profile_picture exists (avatar uploads / login session)
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN profile_picture VARCHAR(500) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
     // Ensure submissions.auto_grade exists
     try {
         await pool.execute('ALTER TABLE submissions ADD COLUMN auto_grade DOUBLE DEFAULT NULL');
@@ -420,24 +437,45 @@ async function initDb() {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
 
+    const { migrateMysqlCourseOfferings } = require('./courseOfferingMigrate');
+    try {
+        await migrateMysqlCourseOfferings(pool);
+    } catch (e) {
+        console.error('[Agnos DB] Course offering migration failed:', e.message);
+    }
+
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;
     if (count === 0 && shouldSeedSampleData()) {
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
         await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
-        await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026', 'faculty-001')");
-        await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026', 'faculty-001')");
-        await pool.execute("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026', 'faculty-001')");
-        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
-        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
-        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
-        await pool.execute(`INSERT INTO assignments (id, course_id, title, due_date, status, rubric_config) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active', '{"weighted":false,"criteria":[{"id":"c1","name":"Code Correctness","maxPoints":50},{"id":"c2","name":"Code Style","maxPoints":25},{"id":"c3","name":"Efficiency","maxPoints":25}]}')`);
-        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
-        await pool.execute("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
-        await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'student-001')");
-        await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI2100', 'student-001')");
-        await pool.execute("INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES ('CSCI1100', 'student-001')");
+        const { courseOfferingStorageId: offeringId } = require('./courseOfferingKey');
+        const termSeed = 'Spring 2026';
+        const id4060 = offeringId('CSCI4060', termSeed);
+        const id2100 = offeringId('CSCI2100', termSeed);
+        const id1100 = offeringId('CSCI1100', termSeed);
+        await pool.execute(
+            'INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)',
+            [id4060, 'CSCI4060', 'Software Engineering', termSeed, 'faculty-001']
+        );
+        await pool.execute(
+            'INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)',
+            [id2100, 'CSCI2100', 'Data Structures', termSeed, 'faculty-001']
+        );
+        await pool.execute(
+            'INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)',
+            [id1100, 'CSCI1100', 'Intro to Computer Science', termSeed, 'faculty-001']
+        );
+        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', ?, 'Language and Platform', '2026-02-19', 'active')", [id4060]);
+        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', ?, 'Sprint 1 Planning', '2026-03-02', 'closed')", [id4060]);
+        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', ?, 'Linked List Utilities', '2026-02-18', 'late')", [id2100]);
+        await pool.execute(`INSERT INTO assignments (id, course_id, title, due_date, status, rubric_config) VALUES ('stacks-queues', ?, 'Stacks and Queues', '2026-03-01', 'active', '{"weighted":false,"criteria":[{"id":"c1","name":"Code Correctness","maxPoints":50},{"id":"c2","name":"Code Style","maxPoints":25},{"id":"c3","name":"Efficiency","maxPoints":25}]}')`, [id2100]);
+        await pool.execute("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', ?, 'Intro Lab', '2026-02-10', 'closed')", [id1100]);
+        await pool.execute("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', ?, 'Review Sprint 1', '2026-02-18')", [id4060]);
+        await pool.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id4060, 'student-001']);
+        await pool.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id2100, 'student-001']);
+        await pool.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id1100, 'student-001']);
         console.log('Database initialized with sample data (MySQL)');
     } else if (count === 0) {
         console.log('Users table is empty; sample data seeding skipped because AUTO_SEED_SAMPLE_DATA is disabled.');

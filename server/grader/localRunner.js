@@ -12,8 +12,21 @@ const config = require('./config');
  */
 function runLocally({ cmd, workDir, stdin = '', timeoutMs = config.runTimeoutMs }) {
     return new Promise((resolve) => {
-        const [command, ...args] = cmd;
-        
+        let command = cmd[0];
+        let args = cmd.slice(1);
+
+        // Windows has no POSIX `sh` on PATH — Custom Run / local grader would fail with spawn sh ENOENT.
+        // Run one-liners (e.g. javac *.java && java Main) via cmd.exe instead.
+        if (
+            process.platform === 'win32'
+            && command === 'sh'
+            && args[0] === '-c'
+            && typeof args[1] === 'string'
+        ) {
+            command = process.env.ComSpec || 'cmd.exe';
+            args = ['/d', '/s', '/c', args[1]];
+        }
+
         const proc = spawn(command, args, {
             cwd: workDir,
             stdio: ['pipe', 'pipe', 'pipe'],

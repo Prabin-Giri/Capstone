@@ -1,6 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryToObjects, queryOne } = require('../db');
+const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
+const { courseOfferingStorageId } = require('../courseOfferingKey');
+
+function coursePathId(req) {
+    try {
+        return decodeURIComponent(String(req.params.id || '').trim());
+    } catch (_) {
+        return String(req.params.id || '').trim();
+    }
+}
 
 // GET /api/courses - Get courses (filtered by instructor for faculty, by enrollment for students, by TA, or combined student+TA)
 router.get('/', async (req, res, next) => {
@@ -83,7 +92,7 @@ router.get('/:id', async (req, res, next) => {
             FROM courses c 
             LEFT JOIN users u ON c.instructor_id = u.id
             WHERE c.id = ?
-        `, [req.params.id]);
+        `, [coursePathId(req)]);
         const course = queryOne(result);
         if (!course) {
             return res.status(404).json({ error: 'Course not found' });
@@ -98,7 +107,15 @@ router.get('/:id', async (req, res, next) => {
 router.get('/:id/assignments', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT * FROM assignments WHERE course_id = ? ORDER BY due_date', [req.params.id]);
+        const courseId = coursePathId(req);
+        const sql = `
+            SELECT a.*,
+                (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) AS submissions_count
+            FROM assignments a
+            WHERE a.course_id = ?
+            ORDER BY a.due_date
+        `;
+        const [result] = await db.execute(sql, [courseId]);
         res.json(queryToObjects(result));
     } catch (err) {
         next(err);
@@ -109,11 +126,11 @@ router.get('/:id/assignments', async (req, res, next) => {
 router.get('/:id/documents', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT syllabus_path, schedule_path FROM course_documents WHERE course_id = ?', [req.params.id]);
+        const result = await db.execute('SELECT syllabus_path, schedule_path FROM course_documents WHERE course_id = ?', [coursePathId(req)]);
         const doc = queryOne(result);
         if (!doc) {
             // Check if course exists
-            const [course] = await db.execute('SELECT id FROM courses WHERE id = ?', [req.params.id]);
+            const [course] = await db.execute('SELECT id FROM courses WHERE id = ?', [coursePathId(req)]);
             if (course.length === 0) return res.status(404).json({ error: 'Course not found' });
             return res.json({ syllabus_path: null, schedule_path: null });
         }
@@ -131,13 +148,33 @@ router.post('/', async (req, res, next) => {
             return res.status(400).json({ error: 'Missing required fields: id, name, term' });
         }
 
-        const db = getDb();
-        await db.execute('INSERT INTO courses (id, name, term, instructor_id) VALUES (?, ?, ?, ?)', [id, name, term, instructor_id || null]);
+        const courseCode = String(id).trim();
+        const termStr = String(term).trim();
+        let storageId;
+        try {
+            storageId = courseOfferingStorageId(courseCode, termStr);
+        } catch (e) {
+            return res.status(400).json({ error: e.message || 'Invalid course code' });
+        }
 
-        res.status(201).json({ id, name, term, instructor_id });
+        const db = getDb();
+        const [dup] = await db.execute(
+            'SELECT id FROM courses WHERE course_code = ? AND term = ?',
+            [courseCode, termStr]
+        );
+        if (dup.length > 0) {
+            return res.status(400).json({ error: 'A course with this ID already exists in this term.' });
+        }
+
+        await db.execute(
+            'INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)',
+            [storageId, courseCode, name, termStr, instructor_id || null]
+        );
+
+        res.status(201).json({ id: storageId, course_code: courseCode, name, term: termStr, instructor_id });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ error: 'Course ID already exists' });
+        if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT' || /unique|duplicate/i.test(String(err.message || ''))) {
+            return res.status(400).json({ error: 'A course with this ID already exists in this term.' });
         }
         next(err);
     }
@@ -148,6 +185,17 @@ router.patch('/:id', async (req, res, next) => {
     try {
         const { name, term, is_archived } = req.body;
         const db = getDb();
+        const cid = coursePathId(req);
+
+        const [curRows] = await db.execute('SELECT term FROM courses WHERE id = ?', [cid]);
+        if (!curRows.length) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        if (term !== undefined && String(term).trim() !== String(curRows[0].term)) {
+            return res.status(400).json({
+                error: 'Changing the term is not supported. Archive this course and create a new offering for the other term.',
+            });
+        }
 
         const updates = [];
         const params = [];
@@ -155,10 +203,6 @@ router.patch('/:id', async (req, res, next) => {
         if (name !== undefined) {
             updates.push('name = ?');
             params.push(name);
-        }
-        if (term !== undefined) {
-            updates.push('term = ?');
-            params.push(term);
         }
         if (is_archived !== undefined) {
             updates.push('is_archived = ?');
@@ -169,7 +213,7 @@ router.patch('/:id', async (req, res, next) => {
             return res.status(400).json({ error: 'No fields provided for update' });
         }
 
-        params.push(req.params.id);
+        params.push(cid);
         const sql = `UPDATE courses SET ${updates.join(', ')} WHERE id = ?`;
         await db.execute(sql, params);
 
@@ -183,7 +227,7 @@ router.patch('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
     try {
         const db = getDb();
-        await db.execute('DELETE FROM courses WHERE id = ?', [req.params.id]);
+        await db.execute('DELETE FROM courses WHERE id = ?', [coursePathId(req)]);
         res.json({ message: 'Course deleted successfully' });
     } catch (err) {
         next(err);
@@ -194,7 +238,7 @@ router.delete('/:id', async (req, res, next) => {
 router.get('/:id/grades', async (req, res, next) => {
     try {
         const db = getDb();
-        const courseId = req.params.id;
+        const courseId = coursePathId(req);
 
         // 1. Get course info
         const [courseRows] = await db.execute('SELECT * FROM courses WHERE id = ?', [courseId]);
@@ -258,7 +302,7 @@ router.get('/:id/grades', async (req, res, next) => {
 router.get('/:id/grades/export', async (req, res, next) => {
     try {
         const db = getDb();
-        const courseId = req.params.id;
+        const courseId = coursePathId(req);
         const format = (req.query.format || 'csv').toLowerCase() === 'excel' ? 'excel' : 'csv';
         const type = (req.query.type || 'assignments').toLowerCase();
         const studentId = req.query.studentId ? String(req.query.studentId).trim() : null;
@@ -354,7 +398,7 @@ router.get('/:id/grades/export', async (req, res, next) => {
 // POST /api/courses/:id/enroll-csv - Bulk enroll students by CSV data (auto-creates accounts if needed)
 router.post('/:id/enroll-csv', async (req, res, next) => {
     const { students } = req.body;
-    const courseId = req.params.id;
+    const courseId = coursePathId(req);
 
     if (!Array.isArray(students) || students.length === 0) {
         return res.status(400).json({ error: 'students array is required' });
@@ -418,7 +462,7 @@ router.post('/:id/enroll-csv', async (req, res, next) => {
 router.post('/:id/enroll', async (req, res, next) => {
     const { studentId } = req.query; // Allow fallback explicitly
     const actualId = req.body.studentId || studentId;
-    const courseId = req.params.id;
+    const courseId = coursePathId(req);
     try {
         const db = getDb();
         await db.execute('INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [courseId, actualId]);
@@ -431,7 +475,7 @@ router.post('/:id/enroll', async (req, res, next) => {
 // POST /api/courses/:id/invite-ta - Invite a TA by email or ID
 router.post('/:id/invite-ta', async (req, res, next) => {
     const { email, taId } = req.body;
-    const courseId = req.params.id;
+    const courseId = coursePathId(req);
 
     if (!email && !taId) {
         return res.status(400).json({ error: 'TA email or ID is required' });
@@ -466,7 +510,7 @@ router.post('/:id/invite-ta', async (req, res, next) => {
 
 // GET /api/courses/:id/tas - Get invited TAs
 router.get('/:id/tas', async (req, res, next) => {
-    const courseId = req.params.id;
+    const courseId = coursePathId(req);
     try {
         const db = getDb();
         const result = await db.execute(`
@@ -495,7 +539,7 @@ router.delete('/:id/tas/:taId', async (req, res, next) => {
 
 // GET /api/courses/:id/students - Get enrolled students
 router.get('/:id/students', async (req, res, next) => {
-    const courseId = req.params.id;
+    const courseId = coursePathId(req);
     try {
         const db = getDb();
         const result = await db.execute(`
@@ -525,6 +569,108 @@ router.delete('/:id/enroll/:studentId', async (req, res, next) => {
             [courseId, studentId]
         );
         res.json({ message: 'Student unenrolled successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ── Saved rubrics (named templates per course, for reuse on assignments) ──
+
+// GET /api/courses/:id/saved-rubrics
+router.get('/:id/saved-rubrics', async (req, res, next) => {
+    const courseId = coursePathId(req);
+    try {
+        const db = getDb();
+        const course = queryOne(await db.execute('SELECT id FROM courses WHERE id = ?', [courseId]));
+        if (!course) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        const timeField = isMySQL ? `DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%sZ')` : 'updated_at';
+        const result = await db.execute(
+            `SELECT id, name, rubric_json, ${timeField} AS updated_at FROM saved_rubrics WHERE course_id = ? ORDER BY name ASC`,
+            [courseId]
+        );
+        const rows = queryToObjects(result);
+        const out = rows.map((row) => {
+            let rubric = null;
+            try {
+                rubric = typeof row.rubric_json === 'string' ? JSON.parse(row.rubric_json) : row.rubric_json;
+            } catch (_) {
+                rubric = null;
+            }
+            return { id: row.id, name: row.name, rubric, updated_at: row.updated_at };
+        }).filter((row) => row.rubric != null);
+        res.json(out);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/courses/:id/saved-rubrics — body: { name: string, rubric: object }
+router.post('/:id/saved-rubrics', async (req, res, next) => {
+    const courseId = coursePathId(req);
+    const { name, rubric } = req.body || {};
+    try {
+        const db = getDb();
+        const course = queryOne(await db.execute('SELECT id FROM courses WHERE id = ?', [courseId]));
+        if (!course) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        const nameTrim = String(name || '').trim();
+        if (!nameTrim || nameTrim.length > 255) {
+            return res.status(400).json({ error: 'Name is required (max 255 characters).' });
+        }
+        if (!rubric || typeof rubric !== 'object' || Array.isArray(rubric)) {
+            return res.status(400).json({ error: 'Rubric object is required.' });
+        }
+        const jsonStr = JSON.stringify(rubric);
+        const existing = queryOne(await db.execute(
+            'SELECT id FROM saved_rubrics WHERE course_id = ? AND name = ?',
+            [courseId, nameTrim]
+        ));
+        if (existing) {
+            if (isMySQL) {
+                await db.execute(
+                    'UPDATE saved_rubrics SET rubric_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                    [jsonStr, existing.id]
+                );
+            } else {
+                await db.execute(
+                    "UPDATE saved_rubrics SET rubric_json = ?, updated_at = datetime('now') WHERE id = ?",
+                    [jsonStr, existing.id]
+                );
+            }
+            return res.json({ id: existing.id, message: 'Saved rubric updated.', updated: true });
+        }
+        const id = `sr-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        await db.execute(
+            'INSERT INTO saved_rubrics (id, course_id, name, rubric_json) VALUES (?, ?, ?, ?)',
+            [id, courseId, nameTrim, jsonStr]
+        );
+        res.status(201).json({ id, message: 'Saved rubric created.', updated: false });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/courses/:id/saved-rubrics/:savedId
+router.delete('/:id/saved-rubrics/:savedId', async (req, res, next) => {
+    const courseId = coursePathId(req);
+    let savedId = String(req.params.savedId || '').trim();
+    try {
+        savedId = decodeURIComponent(savedId);
+    } catch (_) { /* keep raw */ }
+    try {
+        const db = getDb();
+        const [del] = await db.execute(
+            'DELETE FROM saved_rubrics WHERE id = ? AND course_id = ?',
+            [savedId, courseId]
+        );
+        const affected = del && typeof del.affectedRows === 'number' ? del.affectedRows : 0;
+        if (!affected) {
+            return res.status(404).json({ error: 'Saved rubric not found.' });
+        }
+        res.json({ message: 'Saved rubric removed.' });
     } catch (err) {
         next(err);
     }

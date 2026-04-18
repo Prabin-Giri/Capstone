@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import { getCourses, updateCourse, type Course } from '../../lib/api';
+import { getCourses, updateCourse, getCourseCatalogId, type Course } from '../../lib/api';
 import { getUser, getSession } from '../../lib/auth';
 import { Archive, RotateCcw, AlertTriangle, X, Trash2 } from 'lucide-react';
 import './FacultyDashboard.css';
@@ -170,7 +170,7 @@ const FacultyDashboard: React.FC = () => {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                                     <span className="tag-pill">
-                                        {course.id}
+                                        {getCourseCatalogId(course)}
                                     </span>
                                     <button
                                         className="archive-btn-mini"

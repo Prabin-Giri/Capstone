@@ -10,6 +10,64 @@ function normalizeRunLang(language) {
     return l;
 }
 
+const fs = require('fs');
+const os = require('os');
+
+/**
+ * Run one program (used by /test and /run). Supports multi-file Java via `files` + optional `javaMainClass`.
+ */
+async function runStudentProgramOnce({ lang, code, stdin, timeoutMs, files, javaMainClass }) {
+    const { runCode } = require('../grader/runCode');
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'student-snippet-'));
+    try {
+        if (lang === 'java' && Array.isArray(files) && files.length > 0) {
+            let written = 0;
+            for (const item of files) {
+                const base = path.basename(String(item?.name || ''));
+                if (!/^[a-zA-Z0-9_.-]+\.java$/i.test(base)) continue;
+                fs.writeFileSync(path.join(tmpRoot, base), String(item.content ?? ''));
+                written++;
+            }
+            if (written === 0) {
+                const classMatch = String(code || '').match(/public\s+class\s+(\w+)/);
+                const cn = classMatch ? classMatch[1] : 'Main';
+                fs.writeFileSync(path.join(tmpRoot, `${cn}.java`), String(code || ''));
+            }
+            const jc = javaMainClass && String(javaMainClass).trim().match(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/)
+                ? String(javaMainClass).trim()
+                : null;
+            return await runCode({
+                sourceFilePath: tmpRoot,
+                language: lang,
+                stdin: stdin || '',
+                timeoutMs,
+                ...(jc ? { javaMainClass: jc } : {}),
+            });
+        }
+
+        let fileName;
+        if (lang === 'java') {
+            const classMatch = String(code).match(/public\s+class\s+(\w+)/);
+            const className = classMatch ? classMatch[1] : 'Main';
+            fileName = className + '.java';
+        } else {
+            fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : 'main.php');
+        }
+        const filePath = path.join(tmpRoot, fileName);
+        fs.writeFileSync(filePath, String(code || ''));
+        return await runCode({
+            sourceFilePath: filePath,
+            language: lang,
+            stdin: stdin || '',
+            timeoutMs,
+        });
+    } finally {
+        try {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        } catch (_) { /* ignore */ }
+    }
+}
+
 // GET /api/assignments - Get all assignments
 router.get('/', async (req, res, next) => {
     try {
@@ -307,18 +365,20 @@ router.get('/:id/grades/export', async (req, res, next) => {
 
 // POST /api/assignments/:id/test - Run tests for a specific assignment (Docker, same as autograder)
 router.post('/:id/test', async (req, res, next) => {
-    const fs = require('fs');
-    const os = require('os');
-    const { runCode } = require('../grader/runCode');
     const config = require('../grader/config');
 
     try {
-        const { code, language } = req.body;
+        const { code, language, files, javaMainClass } = req.body;
         const assignmentId = req.params.id;
 
-        console.log('[Run Tests]', { assignmentId, language: language || 'python', codeLength: (code || '').length });
+        console.log('[Run Tests]', {
+            assignmentId,
+            language: language || 'python',
+            codeLength: (code || '').length,
+            javaFiles: Array.isArray(files) ? files.length : 0,
+        });
 
-        if (!code) {
+        if (!code && !(Array.isArray(files) && files.length > 0)) {
             return res.status(400).json({ error: 'Code is required' });
         }
 
@@ -379,75 +439,57 @@ router.post('/:id/test', async (req, res, next) => {
             });
         }
 
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'student-test-'));
-        // For Java, javac requires the filename to match the public class name
-        let fileName;
-        if (lang === 'java') {
-            const classMatch = code.match(/public\s+class\s+(\w+)/);
-            const className = classMatch ? classMatch[1] : 'Main';
-            fileName = className + '.java';
-        } else {
-            fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : 'main.php');
-        }
-        const filePath = path.join(tmpDir, fileName);
+        const results = [];
+        const timeoutMs = config.runTimeoutMs;
 
-        try {
-            fs.writeFileSync(filePath, code);
-
-            const results = [];
-            const timeoutMs = config.runTimeoutMs;
-
-            for (const tc of testCases) {
-                const pts = tc.points ?? 0;
-                try {
-                    const runResult = await runCode({
-                        sourceFilePath: filePath,
-                        language: lang,
-                        stdin: tc.input || '',
-                        timeoutMs
-                    });
-                    const actual = (runResult.stdout || '').trim();
-                    const expected = (tc.expected_output || '').trim();
-                    const passed = actual === expected;
-                    const error = runResult.timedOut
-                        ? 'Run timed out.'
-                        : (runResult.stderr && runResult.stderr.trim()) || (runResult.exitCode !== 0 && runResult.exitCode !== null ? `Exit code ${runResult.exitCode}` : null);
-
-                    results.push({
-                        id: tc.id,
-                        input: tc.input,
-                        expected,
-                        actual,
-                        error: error || null,
-                        passed,
-                        is_public: tc.is_public,
-                        points: pts
-                    });
-                } catch (runErr) {
-                    console.log('[Run Tests] test case failed', { assignmentId, testCaseId: tc.id, error: runErr.message });
-                    results.push({
-                        id: tc.id,
-                        input: tc.input,
-                        expected: (tc.expected_output || '').trim(),
-                        actual: '',
-                        error: runErr.message || 'Execution failed.',
-                        passed: false,
-                        is_public: tc.is_public,
-                        points: pts
-                    });
-                }
-            }
-
-            const passed = results.filter(r => r.passed).length;
-            const failed = results.length - passed;
-            console.log('[Run Tests]', { assignmentId, total: results.length, passed, failed, results: results.map(r => ({ id: r.id, passed: r.passed, error: r.error || null })) });
-
-            res.json({ results, timeoutMs: timeoutMs });
-        } finally {
+        for (const tc of testCases) {
+            const pts = tc.points ?? 0;
             try {
-                fs.rmSync(tmpDir, { recursive: true, force: true });
-            } catch (_) {}
+                const runResult = await runStudentProgramOnce({
+                    lang,
+                    code: code || '',
+                    stdin: tc.input || '',
+                    timeoutMs,
+                    files,
+                    javaMainClass,
+                });
+                const actual = (runResult.stdout || '').trim();
+                const expected = (tc.expected_output || '').trim();
+                const passed = actual === expected;
+                const error = runResult.timedOut
+                    ? 'Run timed out.'
+                    : (runResult.stderr && runResult.stderr.trim()) || (runResult.exitCode !== 0 && runResult.exitCode !== null ? `Exit code ${runResult.exitCode}` : null);
+
+                results.push({
+                    id: tc.id,
+                    input: tc.input,
+                    expected,
+                    actual,
+                    error: error || null,
+                    passed,
+                    is_public: tc.is_public,
+                    points: pts
+                });
+            } catch (runErr) {
+                console.log('[Run Tests] test case failed', { assignmentId, testCaseId: tc.id, error: runErr.message });
+                results.push({
+                    id: tc.id,
+                    input: tc.input,
+                    expected: (tc.expected_output || '').trim(),
+                    actual: '',
+                    error: runErr.message || 'Execution failed.',
+                    passed: false,
+                    is_public: tc.is_public,
+                    points: pts
+                });
+            }
         }
+
+        const passed = results.filter(r => r.passed).length;
+        const failed = results.length - passed;
+        console.log('[Run Tests]', { assignmentId, total: results.length, passed, failed, results: results.map(r => ({ id: r.id, passed: r.passed, error: r.error || null })) });
+
+        res.json({ results, timeoutMs: timeoutMs });
     } catch (err) {
         console.error('[Run Tests] error', { assignmentId: req.params.id, message: err.message });
         next(err);
@@ -456,49 +498,41 @@ router.post('/:id/test', async (req, res, next) => {
 
 // POST /api/assignments/:id/run - Run code against custom stdin (Manual Input)
 router.post('/:id/run', async (req, res, next) => {
-    const fs = require('fs');
-    const os = require('os');
-    const { runCode } = require('../grader/runCode');
     const config = require('../grader/config');
 
     try {
-        const { code, language, stdin = '' } = req.body;
+        const { code, language, stdin = '', files, javaMainClass } = req.body;
         const assignmentId = req.params.id;
 
-        console.log('[Run Custom Code]', { assignmentId, language: language || 'python', codeLength: (code || '').length, stdinLength: stdin.length });
+        console.log('[Run Custom Code]', {
+            assignmentId,
+            language: language || 'python',
+            codeLength: (code || '').length,
+            stdinLength: stdin.length,
+            javaFiles: Array.isArray(files) ? files.length : 0,
+        });
 
-        if (!code) {
+        if (!code && !(Array.isArray(files) && files.length > 0)) {
             return res.status(400).json({ error: 'Code is required' });
         }
 
         const lang = normalizeRunLang(language);
         const supported = ['python', 'javascript', 'java', 'php'];
-        
+
         if (!supported.includes(lang)) {
             return res.status(400).json({ error: `Unsupported language for execution: ${language}. Use python, javascript, java, or php.` });
         }
 
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'custom-run-'));
-        // For Java, javac requires the filename to match the public class name
-        let fileName;
-        if (lang === 'java') {
-            const classMatch = code.match(/public\s+class\s+(\w+)/);
-            const className = classMatch ? classMatch[1] : 'Main';
-            fileName = className + '.java';
-        } else {
-            fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : 'main.php');
-        }
-        const filePath = path.join(tmpDir, fileName);
-
         try {
-            fs.writeFileSync(filePath, code);
             const timeoutMs = config.runTimeoutMs;
 
-            const runResult = await runCode({
-                sourceFilePath: filePath,
-                language: lang,
-                stdin: stdin,
-                timeoutMs
+            const runResult = await runStudentProgramOnce({
+                lang,
+                code: code || '',
+                stdin,
+                timeoutMs,
+                files,
+                javaMainClass,
             });
 
             const actual = (runResult.stdout || '').trim();
@@ -513,14 +547,9 @@ router.post('/:id/run', async (req, res, next) => {
                 timedOut: runResult.timedOut,
                 timeoutMs,
             });
-
         } catch (runErr) {
             console.error('[Run Custom Code] execution failed', { assignmentId, error: runErr.message });
             res.status(500).json({ error: runErr.message || 'Execution failed.' });
-        } finally {
-            try {
-                fs.rmSync(tmpDir, { recursive: true, force: true });
-            } catch (_) {}
         }
     } catch (err) {
         console.error('[Run Custom Code] routing error', { assignmentId: req.params.id, message: err.message });

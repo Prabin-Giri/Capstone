@@ -6,6 +6,7 @@ import {
     getCourseDocuments,
     getFileUrl,
     getAssignmentGradesExportUrl,
+    getCourseCatalogId,
 } from '../../lib/api';
 import type { Course, Assignment, CourseDocuments } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -51,7 +52,7 @@ const TACourseView: React.FC = () => {
                 <div className="ta-course-header-left">
                     <div className="header-title">
                         <h1>TA — {course.name}</h1>
-                        <p className="header-metadata">{course.id}</p>
+                        <p className="header-metadata">{getCourseCatalogId(course)}</p>
                     </div>
                 </div>
                 <div className="ta-course-header-actions">

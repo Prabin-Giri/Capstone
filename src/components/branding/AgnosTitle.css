@@ -1,0 +1,42 @@
+.agnos-title {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+}
+
+.agnos-title--auth {
+    font-size: calc(2rem * 0.85);
+}
+
+.agnos-title--sidebar {
+    font-size: calc(1.35rem * 0.85);
+    letter-spacing: -0.03em;
+    line-height: 1;
+}
+
+/* Dark sidebar (primary background): high-contrast wordmark */
+.agnos-title--sidebar .agnos-title__maroon {
+    color: #ffffff;
+}
+
+.agnos-title--sidebar .agnos-title__cream {
+    color: #f5e0c8;
+}
+
+.agnos-title__maroon {
+    color: #7f1d1d;
+}
+
+.agnos-title__cream {
+    color: #dcc9a8;
+}
+
+@media (max-height: 700px) {
+    .agnos-title--auth {
+        font-size: calc(1.65rem * 0.85);
+    }
+}

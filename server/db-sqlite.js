@@ -5,6 +5,8 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const { courseOfferingStorageId } = require('./courseOfferingKey');
+const { migrateSqliteCourseOfferings } = require('./courseOfferingMigrate');
 
 const dbPath = path.join(__dirname, 'autograde.db');
 let db = null;
@@ -36,6 +38,7 @@ async function initDb() {
         )`,
         `CREATE TABLE IF NOT EXISTS courses (
             id TEXT PRIMARY KEY,
+            course_code TEXT,
             name TEXT NOT NULL,
             term TEXT NOT NULL,
             is_archived INTEGER DEFAULT 0,
@@ -171,6 +174,16 @@ async function initDb() {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
             FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS saved_rubrics (
+            id TEXT PRIMARY KEY,
+            course_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            rubric_json TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(course_id, name),
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
         )`
     ];
     tables.forEach(sql => db.run(sql));
@@ -189,6 +202,7 @@ async function initDb() {
         'ALTER TABLE submissions ADD COLUMN auto_grade REAL DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN auto_feedback TEXT DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN student_id TEXT DEFAULT NULL',
+        'ALTER TABLE courses ADD COLUMN course_code TEXT',
         `CREATE TABLE IF NOT EXISTS course_tas (
             course_id TEXT NOT NULL,
             ta_id TEXT NOT NULL,
@@ -215,21 +229,32 @@ async function initDb() {
         }
     }
 
+    try {
+        migrateSqliteCourseOfferings(db);
+        saveDbSync();
+    } catch (e) {
+        console.error('[SQLite] course offering migrate:', e.message || e);
+    }
+
     const result = db.exec('SELECT COUNT(*) as count FROM users');
     const count = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : 0;
     if (count === 0 && shouldSeedSampleData()) {
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
-        db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI4060', 'Software Engineering', 'Spring 2026', 'faculty-001')");
-        db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI2100', 'Data Structures', 'Spring 2026', 'faculty-001')");
-        db.run("INSERT INTO courses (id, name, term, instructor_id) VALUES ('CSCI1100', 'Intro to Computer Science', 'Spring 2026', 'faculty-001')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', 'CSCI4060', 'Language and Platform', '2026-02-19', 'active')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', 'CSCI4060', 'Sprint 1 Planning', '2026-03-02', 'closed')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', 'CSCI2100', 'Linked List Utilities', '2026-02-18', 'late')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', 'CSCI2100', 'Stacks and Queues', '2026-03-01', 'active')");
-        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', 'CSCI1100', 'Intro Lab', '2026-02-10', 'closed')");
-        db.run("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', 'CSCI4060', 'Review Sprint 1', '2026-02-18')");
+        const termSeed = 'Spring 2026';
+        const id4060 = courseOfferingStorageId('CSCI4060', termSeed);
+        const id2100 = courseOfferingStorageId('CSCI2100', termSeed);
+        const id1100 = courseOfferingStorageId('CSCI1100', termSeed);
+        db.run('INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)', [id4060, 'CSCI4060', 'Software Engineering', termSeed, 'faculty-001']);
+        db.run('INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)', [id2100, 'CSCI2100', 'Data Structures', termSeed, 'faculty-001']);
+        db.run('INSERT INTO courses (id, course_code, name, term, instructor_id) VALUES (?, ?, ?, ?, ?)', [id1100, 'CSCI1100', 'Intro to Computer Science', termSeed, 'faculty-001']);
+        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('lang-platform', ?, 'Language and Platform', '2026-02-19', 'active')", [id4060]);
+        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('sprint-1', ?, 'Sprint 1 Planning', '2026-03-02', 'closed')", [id4060]);
+        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('linked-lists', ?, 'Linked List Utilities', '2026-02-18', 'late')", [id2100]);
+        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('stacks-queues', ?, 'Stacks and Queues', '2026-03-01', 'active')", [id2100]);
+        db.run("INSERT INTO assignments (id, course_id, title, due_date, status) VALUES ('intro-lab', ?, 'Intro Lab', '2026-02-10', 'closed')", [id1100]);
+        db.run("INSERT INTO todos (id, student_id, course_id, title, due_date) VALUES ('t1', 'student-001', ?, 'Review Sprint 1', '2026-02-18')", [id4060]);
         
         // --- Mock Data for Plagiarism Checker ---
         // 3 Students
@@ -237,10 +262,10 @@ async function initDb() {
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag2', 'Bob Copier', 'bob@b.c', 'password123', 'student')");
         db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag3', 'Charlie Original', 'charlie@b.c', 'password123', 'student')");
         
-        // Enroll in course CSCI4060
-        db.run("INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag1')");
-        db.run("INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag2')");
-        db.run("INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag3')");
+        // Enroll in course CSCI4060 (offering id)
+        db.run('INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id4060, 'std-plag1']);
+        db.run('INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id4060, 'std-plag2']);
+        db.run('INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id4060, 'std-plag3']);
         
         // Submissions for assignment 'lang-platform'
         db.run("INSERT INTO submissions (assignment_id, student_id, file_name, file_path, status) VALUES ('lang-platform', 'std-plag1', 'plag1.py', 'plag1.py', 'pending')");
@@ -265,7 +290,7 @@ async function initDb() {
 
         // Enroll everyone
         for(let i=4; i<=13; i++) {
-            db.run(`INSERT INTO course_enrollments (course_id, student_id) VALUES ('CSCI4060', 'std-plag${i}')`);
+            db.run('INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id4060, `std-plag${i}`]);
         }
 
         // Add single-file submissions

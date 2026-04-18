@@ -1,7 +1,10 @@
 import { getSession } from './auth';
+import type { AssignmentExecutionPayload } from './utils';
 
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 export const UPLOADS_BASE = API_BASE.replace(/\/api$/, '');
+
+export type { AssignmentExecutionPayload } from './utils';
 
 // Generic fetch wrapper with error handling
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -317,6 +320,8 @@ export async function getUserEnrollments(userId: string): Promise<EnrollmentReco
 
 export interface Course {
     id: string;
+    /** Catalog / schedule code (e.g. CSCI4060). `id` is the unique offering key for URLs/API. */
+    course_code?: string | null;
     name: string;
     term: string;
     instructor_id?: string;
@@ -329,6 +334,20 @@ export interface Course {
     created_at?: string;
     /** Present when fetching with both studentId and taId: 'student' | 'ta' | 'both' */
     my_role?: 'student' | 'ta' | 'both';
+}
+
+/** Human-visible course number for labels (not the internal offering id). */
+export function getCourseCatalogId(course: { id: string; course_code?: string | null }): string {
+    if (course.course_code) return course.course_code;
+    const tilde = course.id.indexOf('~');
+    if (tilde !== -1) return course.id.slice(0, tilde);
+    const legacy = course.id.indexOf('::');
+    if (legacy !== -1) return course.id.slice(0, legacy);
+    return course.id;
+}
+
+function encPath(seg: string): string {
+    return encodeURIComponent(seg);
 }
 
 export async function getCourses(filters?: { instructorId?: string; studentId?: string; taId?: string }): Promise<Course[]> {
@@ -345,7 +364,7 @@ export async function getCourses(filters?: { instructorId?: string; studentId?: 
 }
 
 export async function getCourse(id: string): Promise<Course> {
-    return apiFetch<Course>(`/courses/${id}`);
+    return apiFetch<Course>(`/courses/${encPath(id)}`);
 }
 
 export async function createCourse(course: Course): Promise<Course> {
@@ -359,7 +378,7 @@ export async function createCourse(course: Course): Promise<Course> {
 }
 
 export async function deleteCourse(id: string): Promise<void> {
-    return apiFetch<void>(`/courses/${id}`, {
+    return apiFetch<void>(`/courses/${encPath(id)}`, {
         method: 'DELETE',
     });
 }
@@ -376,7 +395,7 @@ export function getCourseGradesExportUrl(
     params.set('type', options?.type || 'assignments');
     if (options?.type === 'student' && options?.studentId) params.set('studentId', options.studentId);
     if (options?.assignmentIds && options.assignmentIds.length > 0) params.set('assignmentIds', options.assignmentIds.join(','));
-    return `${API_BASE}/courses/${courseId}/grades/export?${params.toString()}`;
+    return `${API_BASE}/courses/${encPath(courseId)}/grades/export?${params.toString()}`;
 }
 
 export interface GradebookData {
@@ -394,7 +413,7 @@ export interface GradebookData {
 }
 
 export async function getCourseGrades(courseId: string): Promise<GradebookData> {
-    return apiFetch<GradebookData>(`/courses/${courseId}/grades`);
+    return apiFetch<GradebookData>(`/courses/${encPath(courseId)}/grades`);
 }
 
 export function getAssignmentGradesExportUrl(id: string): string {
@@ -402,7 +421,7 @@ export function getAssignmentGradesExportUrl(id: string): string {
 }
 
 export async function updateCourse(id: string, updates: Partial<Course>): Promise<{ message: string }> {
-    return apiFetch<{ message: string }>(`/courses/${id}`, {
+    return apiFetch<{ message: string }>(`/courses/${encPath(id)}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -436,6 +455,14 @@ export interface RubricConfig {
     criteria?: RubricCriterion[];
 }
 
+/** Named rubric template stored per course (reuse on other assignments). */
+export interface SavedRubric {
+    id: string;
+    name: string;
+    rubric: RubricConfig;
+    updated_at?: string;
+}
+
 export interface Assignment {
     id: string;
     course_id: string;
@@ -444,6 +471,8 @@ export interface Assignment {
     due_date: string;
     status: 'active' | 'closed' | 'late';
     points?: number;
+    /** Populated on course assignment list: total submission rows for this assignment */
+    submissions_count?: number;
     language?: string;
     starter_code_path?: string;
     test_case_file_path?: string;
@@ -492,11 +521,33 @@ export async function getAssignment(id: string): Promise<Assignment> {
 }
 
 export async function getCourseAssignments(courseId: string): Promise<Assignment[]> {
-    return apiFetch<Assignment[]>(`/courses/${courseId}/assignments`);
+    return apiFetch<Assignment[]>(`/courses/${encPath(courseId)}/assignments`);
+}
+
+export async function getSavedRubrics(courseId: string): Promise<SavedRubric[]> {
+    return apiFetch<SavedRubric[]>(`/courses/${encPath(courseId)}/saved-rubrics`);
+}
+
+export async function saveRubricTemplate(
+    courseId: string,
+    name: string,
+    rubric: RubricConfig
+): Promise<{ id: string; message: string; updated?: boolean }> {
+    return apiFetch(`/courses/${encPath(courseId)}/saved-rubrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, rubric }),
+    });
+}
+
+export async function deleteSavedRubric(courseId: string, savedId: string): Promise<{ message: string }> {
+    return apiFetch(`/courses/${encPath(courseId)}/saved-rubrics/${encPath(savedId)}`, {
+        method: 'DELETE',
+    });
 }
 
 export async function enrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
-    return apiFetch<{ message: string }>(`/courses/${courseId}/enroll`, {
+    return apiFetch<{ message: string }>(`/courses/${encPath(courseId)}/enroll`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -506,13 +557,13 @@ export async function enrollStudent(courseId: string, studentId: string): Promis
 }
 
 export async function unenrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
-    return apiFetch<{ message: string }>(`/courses/${courseId}/enroll/${studentId}`, {
+    return apiFetch<{ message: string }>(`/courses/${encPath(courseId)}/enroll/${encPath(studentId)}`, {
         method: 'DELETE',
     });
 }
 
 export async function inviteTA(courseId: string, payload: { email?: string; taId?: string }): Promise<{ message: string; taId: string }> {
-    return apiFetch<{ message: string; taId: string }>(`/courses/${courseId}/invite-ta`, {
+    return apiFetch<{ message: string; taId: string }>(`/courses/${encPath(courseId)}/invite-ta`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -522,11 +573,11 @@ export async function inviteTA(courseId: string, payload: { email?: string; taId
 }
 
 export async function getTAs(courseId: string): Promise<User[]> {
-    return apiFetch<User[]>(`/courses/${courseId}/tas`);
+    return apiFetch<User[]>(`/courses/${encPath(courseId)}/tas`);
 }
 
 export async function removeTA(courseId: string, taId: string): Promise<{ message: string }> {
-    return apiFetch<{ message: string }>(`/courses/${courseId}/tas/${taId}`, {
+    return apiFetch<{ message: string }>(`/courses/${encPath(courseId)}/tas/${encPath(taId)}`, {
         method: 'DELETE',
     });
 }
@@ -538,7 +589,7 @@ export interface CsvEnrollResult {
 }
 
 export async function enrollStudentsByCSV(courseId: string, students: { id: string, name: string, email: string }[]): Promise<CsvEnrollResult> {
-    return apiFetch<CsvEnrollResult>(`/courses/${courseId}/enroll-csv`, {
+    return apiFetch<CsvEnrollResult>(`/courses/${encPath(courseId)}/enroll-csv`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students }),
@@ -546,7 +597,7 @@ export async function enrollStudentsByCSV(courseId: string, students: { id: stri
 }
 
 export async function getEnrolledStudents(courseId: string): Promise<User[]> {
-    return apiFetch<User[]>(`/courses/${courseId}/students`);
+    return apiFetch<User[]>(`/courses/${encPath(courseId)}/students`);
 }
 
 export async function searchStudents(query: string): Promise<User[]> {
@@ -619,6 +670,11 @@ export interface Submission {
     feedback?: string;
     auto_feedback?: string;
     files?: { name: string, path: string }[];
+    /** Present on some DBs / autograder rows */
+    correctness_score?: number | null;
+    style_points?: number | null;
+    efficiency_points?: number | null;
+    deduction_points?: number | null;
 }
 
 export async function getSubmissions(params?: {
@@ -811,14 +867,14 @@ export interface CourseDocuments {
 }
 
 export async function getCourseDocuments(courseId: string): Promise<CourseDocuments> {
-    return apiFetch<CourseDocuments>(`/uploads/documents/${courseId}`);
+    return apiFetch<CourseDocuments>(`/uploads/documents/${encPath(courseId)}`);
 }
 
 async function uploadFile(endpoint: string, courseId: string, file: File): Promise<{ message: string; filePath: string }> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE}/uploads/${endpoint}/${courseId}`, {
+    const response = await fetch(`${API_BASE}/uploads/${endpoint}/${encPath(courseId)}`, {
         method: 'POST',
         body: formData,
     });
@@ -907,24 +963,22 @@ export interface TestResult {
 
 export async function runTests(
     assignmentId: string,
-    code: string,
-    language: string
+    payload: AssignmentExecutionPayload
 ): Promise<{ results: TestResult[]; timeoutMs?: number }> {
     return apiFetch<{ results: TestResult[]; timeoutMs?: number }>(`/assignments/${assignmentId}/test`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code, language }),
+        body: JSON.stringify(payload),
     });
 }
 
 export async function runCustomCode(
     assignmentId: string,
-    code: string,
-    language: string,
-    stdin: string
+    payload: AssignmentExecutionPayload & { stdin?: string }
 ): Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }> {
+    const { stdin = '', ...rest } = payload;
     return apiFetch<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }>(
         `/assignments/${assignmentId}/run`,
         {
@@ -932,7 +986,7 @@ export async function runCustomCode(
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ code, language, stdin }),
+            body: JSON.stringify({ ...rest, stdin }),
         }
     );
 }

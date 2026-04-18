@@ -123,11 +123,12 @@
   color: white !important;
 }
 
-/* Page Container to match Student view (max-width + spacing) */
+/* Page container: horizontal inset from .course-page-content (matches topbar + course strip) */
 .faculty-course-container {
   max-width: 1400px;
-  margin: 0 auto;
-  padding: 2.5rem 2rem;
+  margin: 0;
+  padding: 2.5rem 0;
+  width: 100%;
 }
 
 /* Header Section */
@@ -528,13 +529,13 @@
 /* --- Additional Responsive Adjustments --- */
 @media (max-width: 1024px) {
   .faculty-course-container {
-    padding: 1.5rem 1.25rem;
+    padding: 1.5rem 0;
   }
 }
 
 @media (max-width: 768px) {
   .faculty-course-container {
-    padding: 1rem;
+    padding: 1rem 0;
   }
 
   .faculty-course-header {

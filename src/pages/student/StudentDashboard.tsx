@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCourses, getAssignments } from '../../lib/api';
+import { getCourses, getAssignments, getCourseCatalogId } from '../../lib/api';
 import type { Course, Assignment } from '../../lib/api';
-import { Button } from '../../components/ui/Button';
 import { getUser } from '../../lib/auth';
 
 const StudentDashboard: React.FC = () => {
@@ -85,12 +84,6 @@ const StudentDashboard: React.FC = () => {
 
     return (
         <div className="dashboard-container">
-            <div className="dashboard-calendar-row">
-                <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
-                    View Calendar
-                </Button>
-            </div>
-
             {/* Analytics Summary Bar */}
             <div className="analytics-bar">
                 <div className="analytics-card glass analytics-card-outlined">
@@ -105,7 +98,7 @@ const StudentDashboard: React.FC = () => {
                     </span>
                     <span className="analytics-desc">Across your courses</span>
                 </div>
-                <div className="analytics-card glass analytics-card-outlined">
+                <div className="analytics-card glass analytics-card--maroon">
                     <span className="analytics-label">Next Deadline</span>
                     <span className="analytics-value">
                         {(() => {
@@ -158,7 +151,7 @@ const StudentDashboard: React.FC = () => {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                                     <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                                        <span className="tag-pill">{course.id}</span>
+                                        <span className="tag-pill">{getCourseCatalogId(course)}</span>
                                         {isTA && (
                                             <span className="role-badge ta">
                                                 TA
@@ -229,7 +222,7 @@ const StudentDashboard: React.FC = () => {
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                                             <div className="course-id-tag" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                                                <span className="tag-pill">{course.id}</span>
+                                                <span className="tag-pill">{getCourseCatalogId(course)}</span>
                                                 <span className="role-badge ta">TA</span>
                                             </div>
                                         </div>

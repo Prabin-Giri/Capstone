@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, Check, X } from 'lucide-react';
 import { resetPassword } from '../../lib/api';
+import { AgnosTitle } from '../../components/branding/AgnosTitle';
 import './Login.css';
 
 const ResetPassword: React.FC = () => {
@@ -54,8 +55,7 @@ const ResetPassword: React.FC = () => {
             <div className="login-container">
                 <div className="auth-card">
                     <div className="auth-card-logo">
-                        <img src="/ulm-logo.png" alt="Agnos" />
-                        <h1 className="auth-card-logo-name">Agnos</h1>
+                        <AgnosTitle variant="auth" />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                         <AlertCircle size={48} color="#ef4444" />
@@ -79,8 +79,7 @@ const ResetPassword: React.FC = () => {
         <div className="login-container">
             <div className="auth-card">
                 <div className="auth-card-logo">
-                    <img src="/ulm-logo.png" alt="Agnos" />
-                    <h1 className="auth-card-logo-name">Agnos</h1>
+                    <AgnosTitle variant="auth" />
                 </div>
 
                 {success ? (

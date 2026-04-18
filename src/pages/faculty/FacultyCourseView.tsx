@@ -1,13 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
     getCourse,
     getCourseAssignments,
     getCourseGrades,
     deleteAssignment,
-    getCourseDocuments,
-    uploadSyllabus,
-    uploadSchedule,
     getFileUrl,
     getAssignmentGradesExportUrl,
     updateCourse,
@@ -24,24 +21,22 @@ import {
     type User,
     type CsvEnrollResult
 } from '../../lib/api';
-import type { Course, Assignment, CourseDocuments } from '../../lib/api';
+import type { Course, Assignment } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { ChevronLeft, Plus, Download, Users, FileText, Trash2, Calendar, ChevronDown, Upload, Archive, AlertTriangle, Search, UserPlus, X, Key, Pencil, PenLine } from 'lucide-react';
+import { Plus, Download, Users, Trash2, Upload, Archive, AlertTriangle, Search, UserPlus, X, Pencil, PenLine } from 'lucide-react';
 import UserAvatar from '../../components/ui/UserAvatar';
 import { Button } from '../../components/ui/Button';
 import './FacultyCourseView.css';
-import { Link } from 'react-router-dom';
 import { showDialog } from '../../components/ui/Dialog';
 import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 
 const FacultyCourseView: React.FC = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const [course, setCourse] = useState<Course | null>(null);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [documents, setDocuments] = useState<CourseDocuments | null>(null);
     const [loading, setLoading] = useState(true);
-    const [showDropdown, setShowDropdown] = useState(false);
     const [showArchiveModal, setShowArchiveModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
@@ -66,37 +61,42 @@ const FacultyCourseView: React.FC = () => {
     const [csvLoading, setCsvLoading] = useState(false);
     const csvInputRef = useRef<HTMLInputElement>(null);
 
-    const syllabusInputRef = useRef<HTMLInputElement>(null);
-    const scheduleInputRef = useRef<HTMLInputElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         loadData();
     }, [courseId]);
 
+    /** Open management modals from Course sidebar → Manage Course */
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setShowDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        const modal = (location.state as { openFacultyModal?: string } | null)?.openFacultyModal;
+        if (!modal || !courseId) return;
+        if (modal === 'enroll') {
+            setShowEnrollModal(true);
+            handleSearchStudents('');
+        } else if (modal === 'inviteTa') {
+            setShowInviteTAModal(true);
+        } else if (modal === 'archive') {
+            setShowArchiveModal(true);
+            setArchiveInput('');
+            setActionError(null);
+        } else if (modal === 'delete') {
+            setShowDeleteModal(true);
+            setArchiveInput('');
+            setActionError(null);
+        }
+        navigate(location.pathname, { replace: true, state: {} });
+    }, [location.state, courseId, navigate, location.pathname]);
 
     async function loadData() {
         if (!courseId) return;
         try {
-            const [courseData, assignmentsData, documentsData, studentsData, tasData] = await Promise.all([
+            const [courseData, assignmentsData, studentsData, tasData] = await Promise.all([
                 getCourse(courseId),
                 getCourseAssignments(courseId),
-                getCourseDocuments(courseId),
                 getEnrolledStudents(courseId),
                 getTAs(courseId)
             ]);
             setCourse(courseData);
             setAssignments(assignmentsData);
-            setDocuments(documentsData);
             setEnrolledStudents(studentsData);
             setEnrolledTAs(tasData);
 
@@ -166,27 +166,6 @@ const FacultyCourseView: React.FC = () => {
         }
     };
 
-    const handleFileUpload = async (type: 'syllabus' | 'schedule', file: File) => {
-        if (!courseId) return;
-        try {
-            setLoading(true);
-            if (type === 'syllabus') {
-                await uploadSyllabus(courseId, file);
-            } else {
-                await uploadSchedule(courseId, file);
-            }
-            // Refresh documents
-            const docs = await getCourseDocuments(courseId);
-            setDocuments(docs);
-            setShowDropdown(false);
-        } catch (err) {
-            console.error('Upload failed', err);
-            await showDialog({ title: 'Error', message: 'Upload failed', confirmText: 'OK' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleArchiveCourse = async () => {
         if (!courseId || !course) return;
 
@@ -201,7 +180,6 @@ const FacultyCourseView: React.FC = () => {
             const courseData = await getCourse(courseId);
             setCourse(courseData);
             setShowArchiveModal(false);
-            setShowDropdown(false);
             setArchiveInput('');
             setActionError(null);
         } catch (err) {
@@ -384,178 +362,6 @@ const FacultyCourseView: React.FC = () => {
 
     return (
         <div className="faculty-course-container">
-            {/* Hidden File Inputs */}
-            <input
-                type="file"
-                ref={syllabusInputRef}
-                style={{ display: 'none' }}
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => e.target.files?.[0] && handleFileUpload('syllabus', e.target.files[0])}
-            />
-            <input
-                type="file"
-                ref={scheduleInputRef}
-                style={{ display: 'none' }}
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => e.target.files?.[0] && handleFileUpload('schedule', e.target.files[0])}
-            />
-
-            {/* Page Header */}
-            <div className="faculty-course-header">
-                <div className="header-title">
-                    <div className="breadcrumb">
-                        <Link to="/faculty">
-                            <ChevronLeft size={14} />
-                            Back to Courses
-                        </Link>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <p className="header-metadata">{course.name} • {course.id}</p>
-                        {!!course.is_archived && (
-                            <span className="tag-pill" style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--muted-color)', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                ARCHIVED
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="header-actions">
-                    <div className="dropdown-container" ref={dropdownRef}>
-                        <button
-                            onClick={() => setShowDropdown(!showDropdown)}
-                            className="create-btn"
-                            style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
-                        >
-                            <Plus size={20} />
-                            Manage Course
-                            <ChevronDown size={14} />
-                        </button>
-
-                        {showDropdown && (
-                            <div className="dropdown-menu">
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => navigate('assignments/new')}
-                                >
-                                    <Plus size={16} />
-                                    Manual Assignment
-                                </button>
-                                <div className="dropdown-divider"></div>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => syllabusInputRef.current?.click()}
-                                >
-                                    <Upload size={16} />
-                                    Upload Syllabus
-                                </button>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => scheduleInputRef.current?.click()}
-                                >
-                                    <Upload size={16} />
-                                    Upload Assignment Schedule
-                                </button>
-                                <div className="dropdown-divider"></div>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => {
-                                        setShowEnrollModal(true);
-                                        setShowDropdown(false);
-                                        handleSearchStudents('');
-                                    }}
-                                >
-                                    <UserPlus size={16} />
-                                    Enroll Student
-                                </button>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => {
-                                        setShowInviteTAModal(true);
-                                        setShowDropdown(false);
-                                    }}
-                                >
-                                    <Key size={16} />
-                                    Invite Assistant
-                                </button>
-                                <div className="dropdown-divider"></div>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => {
-                                        setShowArchiveModal(true);
-                                        setShowDropdown(false);
-                                        setArchiveInput('');
-                                        setActionError(null);
-                                    }}
-                                    style={{ color: course.is_archived ? 'var(--text-primary)' : '#ef4444' }}
-                                >
-                                    <Archive size={16} />
-                                    {course.is_archived ? 'Unarchive Course' : 'Archive Course'}
-                                </button>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => {
-                                        setShowDeleteModal(true);
-                                        setShowDropdown(false);
-                                        setArchiveInput('');
-                                        setActionError(null);
-                                    }}
-                                    style={{ color: 'var(--primary-color)' }}
-                                >
-                                    <Trash2 size={16} />
-                                    Delete Course
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    {documents?.syllabus_path ? (
-                        <a href={getFileUrl(documents.syllabus_path)} target="_blank" rel="noreferrer" className="doc-pill">
-                            <FileText size={16} />
-                            Syllabus
-                            <Download size={14} />
-                        </a>
-                    ) : (
-                        <button className="doc-pill empty" onClick={() => syllabusInputRef.current?.click()}>
-                            <FileText size={16} />
-                            Upload Syllabus
-                        </button>
-                    )}
-                    {documents?.schedule_path ? (
-                        <a href={getFileUrl(documents.schedule_path)} target="_blank" rel="noreferrer" className="doc-pill">
-                            <Calendar size={16} />
-                            Schedule
-                            <Download size={14} />
-                        </a>
-                    ) : (
-                        <button className="doc-pill empty" onClick={() => scheduleInputRef.current?.click()}>
-                            <Calendar size={16} />
-                            Upload Schedule
-                        </button>
-                    )}
-
-                    <button
-                        onClick={() => navigate('students')}
-                        className="create-btn"
-                        style={{ background: 'var(--card-glass)', color: 'var(--text-primary)' }}
-                        title="View students"
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Users size={18} />
-                            Students
-                        </div>
-                    </button>
-
-                    <button
-                        onClick={() => navigate('gradebook')}
-                        className="create-btn create-btn-solid"
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <FileText size={18} />
-                            View Gradebook
-                        </div>
-                    </button>
-                </div>
-            </div>
-
             {/* Faculty Analytics Bar */}
 
 
@@ -570,7 +376,7 @@ const FacultyCourseView: React.FC = () => {
                     <span className="analytics-value">{enrolledStudents.length}</span>
                     <span className="analytics-desc">Active learners</span>
                 </div>
-                <div className="analytics-card glass analytics-card-outlined">
+                <div className="analytics-card glass analytics-card--maroon">
                     <span className="analytics-label">Pending Grading</span>
                     <span className="analytics-value">
                         {pendingCount}
@@ -690,7 +496,18 @@ const FacultyCourseView: React.FC = () => {
                                     <div className="ta-info-title">Teaching Assistants</div>
                                     <div className="ta-info-subtitle">{enrolledTAs.length} assigned</div>
                                 </div>
-                                <Users size={18} style={{ color: 'var(--primary-text)' }} />
+                                <div className="ta-info-top-actions">
+                                    <Users size={17} className="ta-info-users-icon" aria-hidden />
+                                    <button
+                                        type="button"
+                                        className="ta-info-add-btn"
+                                        onClick={() => setShowInviteTAModal(true)}
+                                        aria-label="Invite teaching assistant"
+                                        title="Invite teaching assistant"
+                                    >
+                                        <Plus size={14} strokeWidth={2.25} aria-hidden />
+                                    </button>
+                                </div>
                             </div>
                             {enrolledTAs.length === 0 ? (
                                 <div className="ta-info-empty">No TAs assigned yet.</div>
