@@ -23,20 +23,38 @@ jobs:
             set -e
             export APP_DIR="${{ secrets.EC2_APP_DIR }}"
             export PM2_APP_NAME="${{ secrets.EC2_PM2_APP_NAME }}"
-            if [ -z "$APP_DIR" ]; then
-              APP_DIR="$HOME/Capstone"
-            fi
             if [ -z "$PM2_APP_NAME" ]; then
               PM2_APP_NAME="autograde-backend"
             fi
-            if [ -f "$APP_DIR/server/scripts/deploy-ec2.sh" ]; then
-              bash "$APP_DIR/server/scripts/deploy-ec2.sh"
-            elif [ -f "$APP_DIR/scripts/deploy-ec2.sh" ]; then
-              bash "$APP_DIR/scripts/deploy-ec2.sh"
-            elif [ -f "$HOME/Capstone/server/scripts/deploy-ec2.sh" ]; then
-              export APP_DIR="$HOME/Capstone"
-              bash "$APP_DIR/server/scripts/deploy-ec2.sh"
-            else
+            SCRIPT_PATH=""
+            if [ -n "$APP_DIR" ] && [ -f "$APP_DIR/server/scripts/deploy-ec2.sh" ]; then
+              SCRIPT_PATH="$APP_DIR/server/scripts/deploy-ec2.sh"
+            elif [ -n "$APP_DIR" ] && [ -f "$APP_DIR/scripts/deploy-ec2.sh" ]; then
+              SCRIPT_PATH="$APP_DIR/scripts/deploy-ec2.sh"
+            fi
+
+            if [ -z "$SCRIPT_PATH" ]; then
+              for candidate in \
+                "$HOME/Capstone/server/scripts/deploy-ec2.sh" \
+                "$HOME/capstone/server/scripts/deploy-ec2.sh" \
+                "/home/ubuntu/Capstone/server/scripts/deploy-ec2.sh"; do
+                if [ -f "$candidate" ]; then
+                  SCRIPT_PATH="$candidate"
+                  break
+                fi
+              done
+            fi
+
+            if [ -z "$SCRIPT_PATH" ]; then
+              SCRIPT_PATH="$(find "$HOME" -maxdepth 6 -type f -path '*/server/scripts/deploy-ec2.sh' 2>/dev/null | head -n 1)"
+            fi
+
+            if [ -z "$SCRIPT_PATH" ]; then
               echo "[deploy] could not find deploy script from APP_DIR=$APP_DIR"
               exit 1
             fi
+
+            export APP_DIR="$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
+            echo "[deploy] using script: $SCRIPT_PATH"
+            echo "[deploy] resolved app dir: $APP_DIR"
+            bash "$SCRIPT_PATH"
