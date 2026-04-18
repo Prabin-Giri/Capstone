@@ -45,8 +45,8 @@ if [ "${AI_DETECTOR_ENABLED:-false}" = "true" ]; then
   echo "[deploy] AI detector is enabled; installing detector python dependencies"
   cd offline_ai_detector
   python3 -m venv .venv
-  .venv/bin/python -m pip install --upgrade pip
-  .venv/bin/python -m pip install -r requirements.txt
+  .venv/bin/python -m pip install --upgrade pip --no-cache-dir
+  .venv/bin/python -m pip install -r requirements.txt --no-cache-dir
   cd "$APP_DIR"
 fi
 
