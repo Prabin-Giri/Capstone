@@ -21,8 +21,13 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
+            REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
+            DEFAULT_APP_DIR="$HOME/Capstone"
             export APP_DIR="${{ secrets.EC2_APP_DIR }}"
             export PM2_APP_NAME="${{ secrets.EC2_PM2_APP_NAME }}"
+            if [ -z "$APP_DIR" ]; then
+              APP_DIR="$DEFAULT_APP_DIR"
+            fi
             if [ -z "$PM2_APP_NAME" ]; then
               PM2_APP_NAME="autograde-backend"
             fi
@@ -50,7 +55,23 @@ jobs:
             fi
 
             if [ -z "$SCRIPT_PATH" ]; then
-              echo "[deploy] could not find deploy script from APP_DIR=$APP_DIR"
+              echo "[deploy] deploy script not found; bootstrapping repository at $DEFAULT_APP_DIR"
+              export APP_DIR="$DEFAULT_APP_DIR"
+              if [ ! -d "$APP_DIR/.git" ]; then
+                mkdir -p "$(dirname "$APP_DIR")"
+                git clone "$REPO_URL" "$APP_DIR"
+              else
+                cd "$APP_DIR"
+                git fetch origin main
+                git checkout main
+                git pull --ff-only origin main
+              fi
+              SCRIPT_PATH="$APP_DIR/server/scripts/deploy-ec2.sh"
+            fi
+
+            if [ ! -f "$SCRIPT_PATH" ]; then
+              echo "[deploy] deploy script still missing after bootstrap"
+              echo "[deploy] expected at $SCRIPT_PATH"
               exit 1
             fi
 
