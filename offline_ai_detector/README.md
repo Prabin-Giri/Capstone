@@ -195,6 +195,55 @@ Validate before moving on:
 - inspect `artifacts/reports/phase8_calibration_report.md` before trusting suggested thresholds
 - confirm the abstain rate is acceptable for your intended instructor review workflow
 
+## Phase 9 Status
+
+Completed in this phase:
+- replaced the `scripts/run_inference.py` scaffold stub with a real Phase 9 CLI
+- implemented `run_single_inference()` in [`src/models/inference.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/inference.py) wiring together checkpoint loading, tokenization, softmax scoring, optional calibration, abstain-band decision, and optional code features
+- added `validate_inference_artifacts()` to fail loudly before torch is even imported if the checkpoint or calibration file is missing
+- added language detection from file extension (`.py` → python, `.java` → java)
+- added guard for unsupported languages against the `language_allowlist` in config
+- added short-code warning when the submission is below `min_tokens`
+- added truncation detection when the submission exceeds `max_length`
+- added `--output-format pretty` (default, human-readable) and `--output-format json` (machine-readable) output modes
+- added `--features` flag to optionally include auxiliary code feature values and risk notes in the output
+- updated [`configs/inference.yaml`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/configs/inference.yaml) with Phase 9 comments and null-able `calibration_path`
+
+Usage:
+```bash
+# Score a Python file (language auto-detected from extension)
+python scripts/run_inference.py --file sample.py
+
+# Score a Java file
+python scripts/run_inference.py --file Main.java
+
+# Score an inline snippet (language required)
+python scripts/run_inference.py --text "def foo(): return 1" --language python
+
+# Include auxiliary code features in the output
+python scripts/run_inference.py --file sample.py --features
+
+# Machine-readable JSON output
+python scripts/run_inference.py --file sample.py --output-format json
+```
+
+Assumptions made:
+- the saved checkpoint directory must contain `config.json`; that is the artifact-existence check used before importing torch
+- calibration is optional: if `calibration_path` is null in config, the raw softmax score is used for banding
+- language detection from extension is unambiguous for `.py` and `.java`; any other extension requires `--language`
+- all output is framed as a review signal, never as proof
+
+Main risks still open:
+- the detector is only as good as the training data and the leakage-safe split; a first real run may reveal biases not visible in smoke-test metrics
+- threshold boundaries are taken from the validation sweep; they should be revisited as more data becomes available
+- very short snippets will always have low confidence regardless of the raw score
+
+Validate before moving on:
+- run a smoke test on a few known-human `.py` or `.java` files after training is complete
+- run on a few known-AI samples and check the calibrated score vs the band decision
+- confirm the abstain rate is acceptable for the intended instructor review workflow
+- inspect the truncation warning behavior on a very long submission
+
 ## What Each Folder Is For
 
 - `configs/` stores reproducible YAML configs for data paths, training defaults, and inference defaults.
@@ -405,4 +454,4 @@ pip install -r requirements.txt
 
 ## Next Phase
 
-Phase 7 should train the first small baseline model for M1, with per-language metrics and conservative checkpointing defaults.
+Phase 10 will produce the final evaluation report, covering overall and per-language metrics, false-positive analysis, per-source breakdown, length-bucket analysis, and a `NEXT_STEPS.md` file documenting v2 ideas.

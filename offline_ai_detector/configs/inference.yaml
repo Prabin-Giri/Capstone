@@ -1,5 +1,13 @@
-# Phase 8 keeps inference config conservative.
-# Phase 9 will use this for actual offline CLI scoring.
+# Phase 9 inference config.
+#
+# model_dir:        path to the saved fine-tuned checkpoint directory.
+#                   Must contain config.json + pytorch_model.bin (or safetensors).
+# calibration_path: path to calibration.json produced by calibrate_model.py.
+#                   Set to null to skip calibration and use raw softmax scores.
+# language_allowlist: only these languages will be accepted by the CLI.
+# min_tokens:       below this token-ish count a reduced-confidence note is added.
+# max_length:       tokenizer truncation limit; must match what was used in training.
+# local_files_only: set to true after the first download to avoid network calls.
 
 runtime:
   model_dir: artifacts/models/m1_code_detector_smoke
@@ -11,6 +19,10 @@ runtime:
   max_length: 256
   local_files_only: false
 
+# Threshold band for the abstain / unclear zone.
+# Lower and upper come from the calibration sweep on the validation set.
+# Use the values reported in artifacts/reports/phase8_calibration_report.md.
+# Values exactly on the boundary fall into the unclear (abstain) zone.
 thresholds:
   lower: 0.35
   upper: 0.65
