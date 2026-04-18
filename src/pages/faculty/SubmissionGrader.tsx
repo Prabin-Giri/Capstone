@@ -14,6 +14,7 @@ import {
     runSubmissionAiDetection,
     getSubmissionAiDetections,
     getAiDetectorStatus,
+    getAssignmentAiSummary,
 } from '../../lib/api';
 import type {
     Submission,
@@ -80,6 +81,8 @@ const SubmissionGrader: React.FC = () => {
     const [loadingAiDetectorStatus, setLoadingAiDetectorStatus] = useState(false);
     const [aiSummary, setAiSummary] = useState<Record<number, { caution: boolean; clean: boolean; last_run: string }>>({});
     const [loadingAiSummary, setLoadingAiSummary] = useState(false);
+    void loadingAiHistory;
+    void loadingAiSummary;
 
     // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
     // Using refs instead of state so that saveDraftForCurrent() writes are
@@ -843,23 +846,37 @@ const SubmissionGrader: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClick);
     }, [showPlagPopover]);
     
-    // Derived AI Detection Summary (Batch Logic)
     const latestAiStatus = useMemo(() => {
-        if (aiHistory.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
-        
-        // Filter history for the CURRENT active attempt (submissionId)
-        const currentSid = activeAttempt.id;
-        const currentResults = aiHistory.filter(h => h.submission_id === currentSid);
-        
-        if (currentResults.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
-
-        const hasAi = currentResults.some(r => r.label.toLowerCase().includes('likely ai'));
-        const hasUnclear = currentResults.some(r => r.label.toLowerCase().includes('unclear'));
-
-        if (hasAi) return { label: 'Likely AI-written', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
-        if (hasUnclear) return { label: 'Suspicious / Unclear', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
-        return { label: 'Likely Human', signal: 'clean', filesScanned: currentResults.length, results: currentResults };
-    }, [aiHistory, activeAttempt.id]);
+        const att = allSubmissions[activeAttemptIndex] || submission;
+        if (!att || aiHistory.length === 0) return { label: 'Not run', signal: 'none' as const, filesScanned: 0 };
+        const currentSid = att.id;
+        const currentResults = aiHistory.filter((h) => h.submission_id === currentSid);
+        if (currentResults.length === 0) return { label: 'Not run', signal: 'none' as const, filesScanned: 0 };
+        const hasAi = currentResults.some((r) => r.label.toLowerCase().includes('likely ai'));
+        const hasUnclear = currentResults.some((r) => r.label.toLowerCase().includes('unclear'));
+        if (hasAi) {
+            return {
+                label: 'Likely AI-written',
+                signal: 'caution' as const,
+                filesScanned: currentResults.length,
+                results: currentResults,
+            };
+        }
+        if (hasUnclear) {
+            return {
+                label: 'Suspicious / Unclear',
+                signal: 'caution' as const,
+                filesScanned: currentResults.length,
+                results: currentResults,
+            };
+        }
+        return {
+            label: 'Likely Human',
+            signal: 'clean' as const,
+            filesScanned: currentResults.length,
+            results: currentResults,
+        };
+    }, [aiHistory, allSubmissions, activeAttemptIndex, submission]);
 
     if (loading) return <div className="grader-container"><div className="grader-loading">Loading...</div></div>;
     if (!submission || !assignment) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
@@ -872,18 +889,7 @@ const SubmissionGrader: React.FC = () => {
     const canGoNextAttempt = activeAttemptIndex < allSubmissions.length - 1;
     const studentDisplayName = hideNames ? anonLabel(submission.student_id) : (submission.student_name || 'Student');
     const isSubmissionGraded = submission.status === 'graded';
-    const latestAiResult = aiHistory[0] || null;
-    const latestAiScore = latestAiResult
-        ? (latestAiResult.calibrated_score ?? latestAiResult.raw_score)
-        : null;
-    const latestAiLabel = latestAiResult?.label || 'Not run';
-    const latestAiLabelClass = (() => {
-        const normalized = latestAiLabel.toLowerCase();
-        if (normalized.includes('likely ai')) return 'ai-label-ai';
-        if (normalized.includes('likely human')) return 'ai-label-human';
-        if (normalized === 'not run') return 'ai-label-not-run';
-        return 'ai-label-unclear';
-    })();
+
     const activeAttemptDetectableFile = pickDetectableSourceFile(activeAttempt);
     const aiDetectorReady = Boolean(aiDetectorStatus?.ready);
     const aiDetectorBlockedReason = aiDetectorStatus && !aiDetectorStatus.ready
