@@ -1,28 +1,25 @@
-# Phase 9 inference config.
+# Inference config for the pretrained detector.
 #
-# model_dir:        path to the saved fine-tuned checkpoint directory.
-#                   Must contain config.json + pytorch_model.bin (or safetensors).
-# calibration_path: path to calibration.json produced by calibrate_model.py.
-#                   Set to null to skip calibration and use raw softmax scores.
-# language_allowlist: only these languages will be accepted by the CLI.
-# min_tokens:       below this token-ish count a reduced-confidence note is added.
-# max_length:       tokenizer truncation limit; must match what was used in training.
-# local_files_only: set to true after the first download to avoid network calls.
+# model_dir: path to the saved checkpoint directory (produced by download_pretrained.py).
+# calibration_path: set to null — we use raw softmax scores from the pretrained model.
+#                   Re-enable after running calibrate_model.py on the custom-trained model.
+# language_allowlist: only python and java are supported.
+# min_tokens: below this a reduced-confidence note is added to the output.
+# max_length: tokenizer truncation limit.
+# local_files_only: set to true after download_pretrained.py has run successfully.
 
 runtime:
   model_dir: artifacts/models/m1_code_detector_smoke
-  calibration_path: artifacts/models/m1_code_detector_smoke/calibration.json
+  calibration_path: null
   language_allowlist:
     - python
     - java
   min_tokens: 50
-  max_length: 256
+  max_length: 512
   local_files_only: false
 
 # Threshold band for the abstain / unclear zone.
-# Lower and upper come from the calibration sweep on the validation set.
-# Use the values reported in artifacts/reports/phase8_calibration_report.md.
-# Values exactly on the boundary fall into the unclear (abstain) zone.
+# These defaults are conservative — adjust after inspecting real scores.
 thresholds:
   lower: 0.35
   upper: 0.65
