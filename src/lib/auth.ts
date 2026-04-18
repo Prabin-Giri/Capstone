@@ -17,6 +17,8 @@ export interface UserSession {
     profilePicture?: string;
     verified?: boolean;
     emailVerified?: boolean;
+    /** True when account was provisioned with a default password (e.g. faculty CSV); user must set a new password. */
+    mustChangePassword?: boolean;
 }
 
 export const updateUser = (updates: Partial<UserSession>) => {
@@ -48,6 +50,11 @@ export const login = (user: UserSession) => {
     // If email not verified, redirect to verification page
     if (user.emailVerified === false) {
         window.location.href = '/verify-email';
+        return;
+    }
+
+    if (user.mustChangePassword === true) {
+        window.location.href = '/account/change-password-required';
         return;
     }
 

@@ -430,6 +430,18 @@ router.post('/:id/enroll-csv', async (req, res, next) => {
                     'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
                     [id, name, normalizedEmail, 'password123', 'student']
                 );
+                try {
+                    if (isMySQL) {
+                        await db.execute(
+                            'UPDATE users SET must_change_password = 1, email_verified = 1, verified = 1 WHERE id = ?',
+                            [id]
+                        );
+                    } else {
+                        await db.execute('UPDATE users SET must_change_password = 1 WHERE id = ?', [id]);
+                    }
+                } catch (e) {
+                    console.warn('[enroll-csv] could not flag must_change_password:', e.message);
+                }
             } else {
                 // Use the existing user's id
                 userId = existingRows[0].id;

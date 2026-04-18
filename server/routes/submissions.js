@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 const { uploadToS3, getFromS3, deleteFromS3, s3Enabled } = require('../s3');
+const aiDetectorRouter = require('./aiDetector');
+const assignmentsRouter = require('./assignments');
 
 // ── Local disk fallback (for local dev without S3) ─────────────────────────
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -51,6 +53,40 @@ async function persistFile(buffer, originalName, submissionId) {
         fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
         return uniqueName; // stored as filename
     }
+}
+
+function autoChecksEnabled() {
+    return !/^(0|false|no)$/i.test(String(process.env.AUTO_ANALYSIS_ON_SUBMISSION || 'true'));
+}
+
+function triggerSubmissionAutoAnalysis({ assignmentId, submissionIds }) {
+    if (!autoChecksEnabled()) return;
+    const ids = Array.from(new Set((submissionIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id))));
+    if (!assignmentId || ids.length === 0) return;
+
+    setImmediate(async () => {
+        try {
+            if (typeof aiDetectorRouter.runSubmissionDetectionInternal === 'function') {
+                for (const id of ids) {
+                    try {
+                        await aiDetectorRouter.runSubmissionDetectionInternal(id, { batch: true });
+                    } catch (err) {
+                        console.warn(`[auto-analysis] AI detection failed for submission ${id}:`, err.message || err);
+                    }
+                }
+            }
+
+            if (typeof assignmentsRouter.runPlagiarismCheckInternal === 'function') {
+                try {
+                    await assignmentsRouter.runPlagiarismCheckInternal(String(assignmentId));
+                } catch (err) {
+                    console.warn(`[auto-analysis] Plagiarism check failed for assignment ${assignmentId}:`, err.message || err);
+                }
+            }
+        } catch (err) {
+            console.warn('[auto-analysis] Unexpected auto-analysis error:', err.message || err);
+        }
+    });
 }
 
 // GET /api/submissions - Get all submissions (optionally filter)
@@ -186,6 +222,8 @@ router.post('/', upload.array('files'), async (req, res, next) => {
             [file_name, file_path, newId]
         );
 
+        const createdSubmissionIds = [newId];
+
         // If group, insert copies for other members
         for (const tid of targetStudentIds) {
             if (tid === student_id) continue;
@@ -193,12 +231,24 @@ router.post('/', upload.array('files'), async (req, res, next) => {
                 "INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
                 [assignment_id, tid, file_name, file_path]
             );
+            const [copyRows] = await db.execute(
+                'SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
+                [assignment_id, tid]
+            );
+            if (copyRows && copyRows[0] && copyRows[0].id != null) {
+                createdSubmissionIds.push(copyRows[0].id);
+            }
         }
 
         const [rows] = await db.execute(
             'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
             [assignment_id, student_id]
         );
+        triggerSubmissionAutoAnalysis({
+            assignmentId: assignment_id,
+            submissionIds: createdSubmissionIds,
+        });
+
         res.status(201).json(rows[0]);
     } catch (err) { next(err); }
 });

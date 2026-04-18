@@ -3,10 +3,14 @@ import {
     getAdminCoursesPage,
     getAdminCourseDetail,
     getCourseGradesExportUrl,
+    getAdminUsers,
+    adminCourseEnrollStudent,
+    adminCourseEnrollCsv,
     type AdminCourseRow,
     type AdminCourseDetail,
+    type AdminUser,
 } from '../../lib/api';
-import { Eye, X } from 'lucide-react';
+import { Eye, X, UserPlus, Upload } from 'lucide-react';
 import './CourseManagement.css';
 
 const PAGE_SIZE = 15;
@@ -40,6 +44,52 @@ function facultyLabel(c: AdminCourseRow): string {
     return c.instructor_name?.trim() || c.instructor_id || '—';
 }
 
+function parseEnrollCsv(text: string): { id: string; name: string; email: string }[] {
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+    if (!lines.length) return [];
+    const parseLine = (line: string): string[] => {
+        const out: string[] = [];
+        let cur = '';
+        let q = false;
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') q = !q;
+            else if ((c === ',' || c === ';') && !q) {
+                out.push(cur.trim());
+                cur = '';
+            } else cur += c;
+        }
+        out.push(cur.trim());
+        return out.map((s) => s.replace(/^"|"$/g, ''));
+    };
+    const first = parseLine(lines[0]).map((c) => c.toLowerCase().replace(/\s/g, ''));
+    const hasHeader = first.includes('student_id') || first.includes('id') || first.includes('email');
+    let idIdx = 0;
+    let nameIdx = 1;
+    let emailIdx = 2;
+    let start = 0;
+    if (hasHeader) {
+        const raw = parseLine(lines[0]).map((c) => c.toLowerCase().trim());
+        idIdx = raw.findIndex((x) => ['student_id', 'id', 'studentid'].includes(x.replace(/\s/g, '')));
+        nameIdx = raw.findIndex((x) => x === 'name');
+        emailIdx = raw.findIndex((x) => x === 'email' || x === 'e-mail');
+        if (idIdx < 0) idIdx = 0;
+        if (nameIdx < 0) nameIdx = 1;
+        if (emailIdx < 0) emailIdx = 2;
+        start = 1;
+    }
+    const rows: { id: string; name: string; email: string }[] = [];
+    for (let i = start; i < lines.length; i++) {
+        const cols = parseLine(lines[i]);
+        const id = (cols[idIdx] ?? '').trim();
+        const name = (cols[nameIdx] ?? '').trim();
+        const email = (cols[emailIdx] ?? '').trim();
+        if (!id && !email) continue;
+        rows.push({ id, name, email });
+    }
+    return rows;
+}
+
 const CourseManagement: React.FC = () => {
     const [courses, setCourses] = useState<AdminCourseRow[]>([]);
     const [page, setPage] = useState(1);
@@ -51,6 +101,13 @@ const CourseManagement: React.FC = () => {
     const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
     const [detail, setDetail] = useState<AdminCourseDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+
+    const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+    const [cmEnrollTab, setCmEnrollTab] = useState<'manual' | 'csv'>('manual');
+    const [cmPickStudentId, setCmPickStudentId] = useState('');
+    const [cmCsvText, setCmCsvText] = useState('');
+    const [cmEnrollBusy, setCmEnrollBusy] = useState(false);
+    const [cmEnrollMsg, setCmEnrollMsg] = useState<string | null>(null);
 
     const loadPage = useCallback(async (p: number) => {
         setError(null);
@@ -79,11 +136,16 @@ const CourseManagement: React.FC = () => {
         setDetailOpenId(courseId);
         setDetail(null);
         setDetailLoading(true);
+        setCmEnrollMsg(null);
+        setCmPickStudentId('');
+        setCmCsvText('');
         try {
-            const d = await getAdminCourseDetail(courseId);
+            const [d, users] = await Promise.all([getAdminCourseDetail(courseId), getAdminUsers()]);
             setDetail(d);
+            setAdminUsers(Array.isArray(users) ? users : []);
         } catch {
             setDetail(null);
+            setAdminUsers([]);
         } finally {
             setDetailLoading(false);
         }
@@ -93,6 +155,51 @@ const CourseManagement: React.FC = () => {
         setDetailOpenId(null);
         setDetail(null);
         setDetailLoading(false);
+        setAdminUsers([]);
+        setCmEnrollMsg(null);
+    };
+
+    const studentPickList = adminUsers.filter((u) => u.role === 'student' || u.role === 'ta');
+
+    const submitCmManualEnroll = async () => {
+        if (!detail?.course?.id || !cmPickStudentId) return;
+        setCmEnrollBusy(true);
+        setCmEnrollMsg(null);
+        try {
+            await adminCourseEnrollStudent(detail.course.id, cmPickStudentId);
+            setCmEnrollMsg('Student enrolled.');
+            const d = await getAdminCourseDetail(detail.course.id);
+            setDetail(d);
+            setCmPickStudentId('');
+        } catch (e: unknown) {
+            setCmEnrollMsg(e instanceof Error ? e.message : 'Enroll failed');
+        } finally {
+            setCmEnrollBusy(false);
+        }
+    };
+
+    const submitCmCsvEnroll = async () => {
+        if (!detail?.course?.id) return;
+        const rows = parseEnrollCsv(cmCsvText);
+        if (rows.length === 0) {
+            setCmEnrollMsg('Add CSV rows: student_id, name, email (or id, name, email).');
+            return;
+        }
+        setCmEnrollBusy(true);
+        setCmEnrollMsg(null);
+        try {
+            const res = await adminCourseEnrollCsv(detail.course.id, rows);
+            setCmEnrollMsg(
+                `Enrolled ${res.enrolled.length}; already enrolled ${res.alreadyEnrolled?.length ?? 0}.`
+            );
+            const d = await getAdminCourseDetail(detail.course.id);
+            setDetail(d);
+            setCmCsvText('');
+        } catch (e: unknown) {
+            setCmEnrollMsg(e instanceof Error ? e.message : 'CSV enroll failed');
+        } finally {
+            setCmEnrollBusy(false);
+        }
     };
 
     const goPrev = () => {
@@ -274,6 +381,86 @@ const CourseManagement: React.FC = () => {
                                                 ))}
                                             </tbody>
                                         </table>
+                                    )}
+
+                                    <h3 className="cm-section-title">Add students (admin)</h3>
+                                    <p className="cm-meta">
+                                        Enroll existing accounts or import a CSV (creates missing student accounts with default password{' '}
+                                        <code>password123</code>, same as faculty bulk enroll).
+                                    </p>
+                                    {cmEnrollMsg && (
+                                        <p className="cm-meta" style={{ color: cmEnrollMsg.includes('failed') ? '#b91c1c' : '#047857' }}>
+                                            {cmEnrollMsg}
+                                        </p>
+                                    )}
+                                    <div className="cm-enroll-tabs" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                        <button
+                                            type="button"
+                                            className={`cm-btn ${cmEnrollTab === 'manual' ? 'cm-btn--primary' : ''}`}
+                                            onClick={() => setCmEnrollTab('manual')}
+                                        >
+                                            <UserPlus size={14} aria-hidden /> Manual
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`cm-btn ${cmEnrollTab === 'csv' ? 'cm-btn--primary' : ''}`}
+                                            onClick={() => setCmEnrollTab('csv')}
+                                        >
+                                            <Upload size={14} aria-hidden /> CSV
+                                        </button>
+                                    </div>
+                                    {cmEnrollTab === 'manual' ? (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                                            <select
+                                                className="cm-select-like"
+                                                style={{ minWidth: 220, padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #e5e7eb' }}
+                                                value={cmPickStudentId}
+                                                onChange={(e) => setCmPickStudentId(e.target.value)}
+                                                aria-label="Select student"
+                                            >
+                                                <option value="">Select student…</option>
+                                                {studentPickList.map((u) => (
+                                                    <option key={u.id} value={u.id}>
+                                                        {u.name} ({u.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                className="cm-btn cm-btn--primary"
+                                                disabled={cmEnrollBusy || !cmPickStudentId}
+                                                onClick={() => void submitCmManualEnroll()}
+                                            >
+                                                Enroll
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <textarea
+                                                className="cm-textarea-like"
+                                                style={{
+                                                    width: '100%',
+                                                    minHeight: 100,
+                                                    padding: '0.5rem',
+                                                    borderRadius: 8,
+                                                    border: '1px solid #e5e7eb',
+                                                    fontFamily: 'monospace',
+                                                    fontSize: 12,
+                                                }}
+                                                placeholder={`student_id,name,email\n1001,Jane Doe,jane@school.edu`}
+                                                value={cmCsvText}
+                                                onChange={(e) => setCmCsvText(e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="cm-btn cm-btn--primary"
+                                                style={{ marginTop: '0.5rem' }}
+                                                disabled={cmEnrollBusy}
+                                                onClick={() => void submitCmCsvEnroll()}
+                                            >
+                                                {cmEnrollBusy ? 'Working…' : 'Run CSV enroll'}
+                                            </button>
+                                        </div>
                                     )}
 
                                     <h3 className="cm-section-title">Assignments ({detail.assignments.length})</h3>

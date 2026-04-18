@@ -37,6 +37,7 @@ const Login: React.FC = () => {
                 profilePicture: user.profile_picture,
                 verified,
                 emailVerified: user.email_verified !== false,
+                mustChangePassword: user.must_change_password === true,
             });
         } catch (err: any) {
             setError(err.message || 'Login failed. Please check your credentials.');

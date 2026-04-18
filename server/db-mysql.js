@@ -290,6 +290,32 @@ const CREATE_TABLES = [
         UNIQUE KEY saved_rubrics_course_name (course_id, name),
         FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS login_audit (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NULL,
+        outcome VARCHAR(32) NOT NULL,
+        reason VARCHAR(64) NULL,
+        ip VARCHAR(128) NULL,
+        user_agent VARCHAR(512) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_login_audit_created (created_at),
+        INDEX idx_login_audit_email (email(191))
+    )`,
+    `CREATE TABLE IF NOT EXISTS activity_log (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(255) NULL,
+        action VARCHAR(128) NOT NULL,
+        detail TEXT NULL,
+        ip VARCHAR(128) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_activity_user_time (user_id, created_at)
+    )`,
+    `CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(128) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
 ];
 
 async function initDb() {
@@ -404,6 +430,17 @@ async function initDb() {
     // Ensure users.password_reset_expires exists
     try {
         await pool.execute('ALTER TABLE users ADD COLUMN password_reset_expires DATETIME DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Bulk / CSV provisional accounts must set a new password on first login
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN must_change_password TINYINT DEFAULT 0');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN last_seen_at DATETIME NULL');
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }

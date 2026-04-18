@@ -719,15 +719,13 @@
 
 .assignment-card-actions {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   padding: 2px 0;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  justify-content: flex-end;
 }
 
 .assignment-tool-btn {

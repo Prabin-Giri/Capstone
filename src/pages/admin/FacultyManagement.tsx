@@ -6,9 +6,11 @@ import {
     getAdminFacultyDetail,
     createAdminFaculty,
     importAdminFaculty,
+    getAdminActivityLog,
     type AdminFaculty,
     type AdminFacultyDetail,
     type PendingFaculty,
+    type ActivityLogRow,
 } from '../../lib/api';
 import {
     Search,
@@ -122,6 +124,7 @@ const FacultyManagement: React.FC = () => {
     const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
     const [detail, setDetail] = useState<AdminFacultyDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [facultyActivity, setFacultyActivity] = useState<ActivityLogRow[]>([]);
 
     const load = async () => {
         try {
@@ -209,12 +212,18 @@ const FacultyManagement: React.FC = () => {
     const openDetail = async (id: string) => {
         setDetailOpenId(id);
         setDetail(null);
+        setFacultyActivity([]);
         setDetailLoading(true);
         try {
-            const d = await getAdminFacultyDetail(id);
+            const [d, act] = await Promise.all([
+                getAdminFacultyDetail(id),
+                getAdminActivityLog({ userId: id, limit: 150 }).catch(() => [] as ActivityLogRow[]),
+            ]);
             setDetail(d);
+            setFacultyActivity(Array.isArray(act) ? act : []);
         } catch {
             setDetail(null);
+            setFacultyActivity([]);
         } finally {
             setDetailLoading(false);
         }
@@ -224,6 +233,7 @@ const FacultyManagement: React.FC = () => {
         setDetailOpenId(null);
         setDetail(null);
         setDetailLoading(false);
+        setFacultyActivity([]);
     };
 
     const submitAdd = async () => {
@@ -719,6 +729,57 @@ const FacultyManagement: React.FC = () => {
                                             </span>
                                         </div>
                                     </div>
+                                    <h3
+                                        style={{
+                                            margin: '1rem 0 0.5rem',
+                                            fontSize: '0.6875rem',
+                                            fontWeight: 700,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.08em',
+                                            color: '#7f1d1d',
+                                        }}
+                                    >
+                                        Activity log
+                                    </h3>
+                                    {facultyActivity.length === 0 ? (
+                                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#64748b' }}>
+                                            No logged activity yet (successful logins are recorded automatically).
+                                        </p>
+                                    ) : (
+                                        <div className="fm-table-wrap fm-table-wrap--scroll" style={{ marginBottom: '1rem' }}>
+                                            <table className="fm-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>When</th>
+                                                        <th>Action</th>
+                                                        <th>IP</th>
+                                                        <th>Detail</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {facultyActivity.map((a) => (
+                                                        <tr key={a.id}>
+                                                            <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                                                                {a.createdAt
+                                                                    ? new Date(a.createdAt).toLocaleString(undefined, {
+                                                                          dateStyle: 'short',
+                                                                          timeStyle: 'short',
+                                                                      })
+                                                                    : '—'}
+                                                            </td>
+                                                            <td>{a.action}</td>
+                                                            <td className="fm-mono" style={{ fontSize: '0.7rem' }}>
+                                                                {a.ip || '—'}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                {a.detail || '—'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
                                     <h3
                                         style={{
                                             margin: '0 0 0.5rem',

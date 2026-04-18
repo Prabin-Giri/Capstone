@@ -93,12 +93,53 @@ export interface StudentInsight {
     courses_enrolled: number;
     /** Course IDs the student is enrolled in (for admin filters). */
     enrolled_course_ids?: string[];
+    /** Courses where this user is a teaching assistant. */
+    ta_course_ids?: string[];
+    /** True if assigned as TA for at least one course. */
+    is_ta?: boolean;
     submissions_count: number;
     graded_count: number;
 }
 
 export async function getStudentInsights(): Promise<StudentInsight[]> {
     return apiFetch<StudentInsight[]>('/admin/students/insights');
+}
+
+export async function createAdminStudent(body: {
+    studentId: string;
+    name: string;
+    email: string;
+    password: string;
+}): Promise<{ message: string; id: string; email: string; name: string }> {
+    return apiFetch('/admin/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+
+export interface AdminStudentImportRow {
+    studentId: string;
+    name: string;
+    email: string;
+    password?: string;
+}
+
+export interface AdminStudentImportResult {
+    created: { id: string; email: string; name: string }[];
+    errors: { row: number; studentId: string; error: string }[];
+    message: string;
+}
+
+export async function importAdminStudents(
+    rows: AdminStudentImportRow[],
+    defaultPassword?: string
+): Promise<AdminStudentImportResult> {
+    return apiFetch('/admin/students/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows, defaultPassword: defaultPassword || undefined }),
+    });
 }
 
 export interface AdminFaculty {
@@ -251,6 +292,81 @@ export interface AdminAnalytics {
 export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     return apiFetch<AdminAnalytics>('/admin/analytics');
 }
+
+export interface LoginAuditRow {
+    id: number;
+    email: string;
+    userId?: string | null;
+    outcome: string;
+    reason?: string | null;
+    ip?: string | null;
+    userAgent?: string | null;
+    createdAt?: string;
+}
+
+export async function getAdminLoginAudit(options?: {
+    limit?: number;
+    filter?: 'all' | 'failed' | 'unknown';
+}): Promise<LoginAuditRow[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.filter) params.set('filter', options.filter);
+    const q = params.toString();
+    return apiFetch<LoginAuditRow[]>(`/admin/security/login-audit${q ? `?${q}` : ''}`);
+}
+
+export interface ActivityLogRow {
+    id: number;
+    userId?: string | null;
+    userName?: string | null;
+    userEmail?: string | null;
+    userRole?: string | null;
+    action: string;
+    detail?: string | null;
+    ip?: string | null;
+    createdAt?: string;
+}
+
+export async function getAdminActivityLog(options?: {
+    limit?: number;
+    userId?: string;
+}): Promise<ActivityLogRow[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.userId) params.set('userId', options.userId);
+    const q = params.toString();
+    return apiFetch<ActivityLogRow[]>(`/admin/security/activity-log${q ? `?${q}` : ''}`);
+}
+
+export interface ActiveUserRow {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    lastSeenAt?: string | null;
+}
+
+export async function getAdminActiveUsers(minutes?: number): Promise<ActiveUserRow[]> {
+    const params = new URLSearchParams();
+    if (minutes != null) params.set('minutes', String(minutes));
+    const q = params.toString();
+    return apiFetch<ActiveUserRow[]>(`/admin/security/active-users${q ? `?${q}` : ''}`);
+}
+
+export type AdminAppSettings = Record<string, string>;
+
+export async function getAdminAppSettings(): Promise<AdminAppSettings> {
+    return apiFetch<AdminAppSettings>('/admin/settings');
+}
+
+export async function patchAdminAppSettings(settings: Partial<AdminAppSettings>): Promise<AdminAppSettings> {
+    return apiFetch<AdminAppSettings>('/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+    });
+}
+
 
 export async function deleteAdminUser(userId: string): Promise<{ message: string }> {
     return apiFetch<{ message: string }>(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
@@ -581,6 +697,27 @@ export interface CsvEnrollResult {
 
 export async function enrollStudentsByCSV(courseId: string, students: { id: string, name: string, email: string }[]): Promise<CsvEnrollResult> {
     return apiFetch<CsvEnrollResult>(`/courses/${encPath(courseId)}/enroll-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ students }),
+    });
+}
+
+/** Admin: enroll by student user id (same behavior as faculty enroll). */
+export async function adminCourseEnrollStudent(courseId: string, studentId: string): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>(`/admin/courses/${encodeURIComponent(courseId)}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId }),
+    });
+}
+
+/** Admin: bulk enroll / create accounts (default password) for a course. */
+export async function adminCourseEnrollCsv(
+    courseId: string,
+    students: { id: string; name: string; email: string }[]
+): Promise<CsvEnrollResult> {
+    return apiFetch<CsvEnrollResult>(`/admin/courses/${encodeURIComponent(courseId)}/enroll-csv`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students }),
@@ -993,6 +1130,8 @@ export interface User {
     verified?: boolean;
     email_verified?: boolean;
     student_id?: string;
+    /** Server sets this when the user must set a new password (e.g. default password123 from bulk enroll). */
+    must_change_password?: boolean;
 }
 
 export async function loginRequest(email: string, password: string): Promise<User> {
