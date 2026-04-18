@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# deploy-ec2.sh — Automated backend deployment with disk-safe installation
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-$HOME/Capstone}"
