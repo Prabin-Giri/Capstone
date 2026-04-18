@@ -1103,6 +1103,126 @@
     gap: 10px;
 }
 
+.ai-detection-card {
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ai-detection-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-label-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ai-label-pill.ai-label-ai {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.ai-label-pill.ai-label-human {
+    background: #ecfdf5;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.ai-label-pill.ai-label-unclear {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.ai-label-pill.ai-label-not-run {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.ai-detection-card-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 10px;
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+
+.ai-detection-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ai-detection-inline-note {
+    font-size: 0.72rem;
+    color: #9a3412;
+}
+
+.ai-history-modal {
+    max-width: 700px !important;
+}
+
+.ai-history-empty {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.ai-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ai-history-item {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--bg-body);
+}
+
+.ai-history-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-history-time {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+}
+
+.ai-history-item-meta {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+    .ai-detection-card-meta {
+        grid-template-columns: 1fr;
+    }
+}
+
 .report-header-row {
     display: flex;
     align-items: center;

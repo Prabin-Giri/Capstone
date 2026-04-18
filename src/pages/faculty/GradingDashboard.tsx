@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { getAssignment, getSubmissions, getSubmissionFileUrl, updateAssignment, runAutograde } from '../../lib/api';
-import type { Assignment, Submission } from '../../lib/api';
+import {
+    getAssignment,
+    getSubmissions,
+    getSubmissionFileUrl,
+    updateAssignment,
+    runAutograde,
+    runSubmissionAiDetection,
+    getSubmissionAiDetections,
+} from '../../lib/api';
+import type { Assignment, Submission, SubmissionAiDetectionResult } from '../../lib/api';
 import { BarChart2, Search, FlaskConical, Brain, PenLine, ChevronLeft, ShieldAlert, FileText, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -11,6 +19,24 @@ import AlertModal from '../../components/ui/AlertModal';
 import UserAvatar from '../../components/ui/UserAvatar';
 
 import './GradingDashboard.css';
+
+type AiDetectionRowState = {
+    loading: boolean;
+    running: boolean;
+    latest: SubmissionAiDetectionResult | null;
+    error: string | null;
+};
+
+function pickDetectableSourceFile(submission: Submission): { filename: string; language: 'python' | 'java' } | null {
+    const files = submission.files || [{ name: submission.file_name, path: submission.file_path }];
+    for (const file of files) {
+        const name = String(file?.name || '').trim();
+        if (!name) continue;
+        if (/\.py$/i.test(name)) return { filename: name, language: 'python' };
+        if (/\.java$/i.test(name)) return { filename: name, language: 'java' };
+    }
+    return null;
+}
 
 const GradingDashboard: React.FC = () => {
     const { courseId, assignmentId } = useParams();
@@ -35,6 +61,9 @@ const GradingDashboard: React.FC = () => {
     const [plagiarismMatches, setPlagiarismMatches] = useState<PlagiarismMatch[]>([]);
     const [plagiarismPopoverStudentId, setPlagiarismPopoverStudentId] = useState<string | null>(null);
     const popoverRef = useRef<HTMLDivElement>(null);
+    const [runningAiForAll, setRunningAiForAll] = useState(false);
+    const [hydratingAiRows, setHydratingAiRows] = useState(false);
+    const [aiRows, setAiRows] = useState<Record<number, AiDetectionRowState>>({});
 
     const plagiarismStorageKey = assignmentId ? `plagiarism-flags-${assignmentId}` : '';
 
@@ -136,6 +165,150 @@ const GradingDashboard: React.FC = () => {
         const idx = studentOrder.indexOf(studentId);
         return idx >= 0 ? `Student ${idx + 1}` : 'Student';
     };
+
+    const latestSubmissions = React.useMemo(
+        () => Object.values(groupedSubmissions).map((group) => group[0]).filter(Boolean),
+        [groupedSubmissions]
+    );
+
+    const loadAiRowsForModal = useCallback(async () => {
+        if (latestSubmissions.length === 0) return;
+        setHydratingAiRows(true);
+        setAiRows((prev) => {
+            const next = { ...prev };
+            for (const sub of latestSubmissions) {
+                next[sub.id] = {
+                    loading: true,
+                    running: prev[sub.id]?.running || false,
+                    latest: prev[sub.id]?.latest || null,
+                    error: null,
+                };
+            }
+            return next;
+        });
+
+        try {
+            await Promise.all(latestSubmissions.map(async (sub) => {
+                try {
+                    const history = await getSubmissionAiDetections(sub.id, { limit: 1 });
+                    setAiRows((prev) => ({
+                        ...prev,
+                        [sub.id]: {
+                            loading: false,
+                            running: prev[sub.id]?.running || false,
+                            latest: history.results[0] || null,
+                            error: null,
+                        },
+                    }));
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Failed to load AI detection results.';
+                    setAiRows((prev) => ({
+                        ...prev,
+                        [sub.id]: {
+                            loading: false,
+                            running: prev[sub.id]?.running || false,
+                            latest: prev[sub.id]?.latest || null,
+                            error: message,
+                        },
+                    }));
+                }
+            }));
+        } finally {
+            setHydratingAiRows(false);
+        }
+    }, [latestSubmissions]);
+
+    const runAiForSubmission = useCallback(async (submission: Submission): Promise<boolean> => {
+        const target = pickDetectableSourceFile(submission);
+        if (!target) {
+            setAiRows((prev) => ({
+                ...prev,
+                [submission.id]: {
+                    loading: false,
+                    running: false,
+                    latest: prev[submission.id]?.latest || null,
+                    error: 'No .py or .java file found in this submission.',
+                },
+            }));
+            return false;
+        }
+
+        setAiRows((prev) => ({
+            ...prev,
+            [submission.id]: {
+                loading: false,
+                running: true,
+                latest: prev[submission.id]?.latest || null,
+                error: null,
+            },
+        }));
+
+        try {
+            await runSubmissionAiDetection(submission.id, {
+                filename: target.filename,
+                language: target.language,
+            });
+            const history = await getSubmissionAiDetections(submission.id, { limit: 1 });
+            setAiRows((prev) => ({
+                ...prev,
+                [submission.id]: {
+                    loading: false,
+                    running: false,
+                    latest: history.results[0] || null,
+                    error: null,
+                },
+            }));
+            return true;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'AI detection failed.';
+            setAiRows((prev) => ({
+                ...prev,
+                [submission.id]: {
+                    loading: false,
+                    running: false,
+                    latest: prev[submission.id]?.latest || null,
+                    error: message,
+                },
+            }));
+            return false;
+        }
+    }, []);
+
+    const handleRunAiForAll = useCallback(async () => {
+        if (latestSubmissions.length === 0) {
+            setAlertConfig({
+                show: true,
+                type: 'info',
+                title: 'No submissions',
+                message: 'There are no latest submissions to scan.',
+            });
+            return;
+        }
+        setRunningAiForAll(true);
+        let success = 0;
+        let failed = 0;
+        for (const sub of latestSubmissions) {
+            // Sequential run prevents detector overload on EC2.
+            const ok = await runAiForSubmission(sub);
+            if (ok) success += 1;
+            else failed += 1;
+        }
+        setRunningAiForAll(false);
+        setAlertConfig({
+            show: true,
+            type: failed > 0 ? 'info' : 'success',
+            title: failed > 0 ? 'AI detection completed with issues' : 'AI detection completed',
+            message: failed > 0
+                ? `Scanned ${success} submission(s); ${failed} failed or were skipped.`
+                : `Scanned all ${success} latest submission(s).`,
+        });
+    }, [latestSubmissions, runAiForSubmission]);
+
+    useEffect(() => {
+        if (showAiDetectionModal) {
+            void loadAiRowsForModal();
+        }
+    }, [showAiDetectionModal, loadAiRowsForModal]);
 
     async function handleToggleHideNames() {
         if (!assignment || !assignmentId) return;
@@ -249,6 +422,17 @@ const GradingDashboard: React.FC = () => {
     };
 
     const backToCourseHref = `${basePath}/courses/${courseId}`;
+    const formatAiScore = (result: SubmissionAiDetectionResult | null) => {
+        if (!result) return 'n/a';
+        const score = result.calibrated_score ?? result.raw_score;
+        return typeof score === 'number' ? score.toFixed(3) : 'n/a';
+    };
+    const aiRowBadgeClass = (label?: string | null) => {
+        const normalized = String(label || '').toLowerCase();
+        if (normalized.includes('likely ai')) return 'ai-label-ai';
+        if (normalized.includes('likely human')) return 'ai-label-human';
+        return 'ai-label-unclear';
+    };
 
     return (
         <div className="grading-dashboard-container">
@@ -585,7 +769,7 @@ const GradingDashboard: React.FC = () => {
 
             {showAiDetectionModal && (
                 <div className="modal-overlay" onClick={() => setShowAiDetectionModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-content ai-detection-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3 className="modal-title" style={{ margin: 0 }}>
                                 AI detection
@@ -603,9 +787,96 @@ const GradingDashboard: React.FC = () => {
                             </button>
                         </div>
                         <div className="modal-body">
-                            <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                AI-assisted work detection for this assignment will be available here. Use plagiarism checks and manual review until this workflow is connected.
+                            <p className="ai-modal-note">
+                                Results are a review signal only and should be combined with rubric evidence, test behavior, and plagiarism analysis.
                             </p>
+                            <div className="ai-modal-actions">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => void loadAiRowsForModal()}
+                                    disabled={hydratingAiRows || runningAiForAll}
+                                >
+                                    {hydratingAiRows ? 'Refreshing…' : 'Refresh'}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => void handleRunAiForAll()}
+                                    disabled={runningAiForAll || latestSubmissions.length === 0}
+                                >
+                                    {runningAiForAll ? 'Running for all…' : 'Run for all latest submissions'}
+                                </Button>
+                            </div>
+
+                            <div className="ai-modal-table-wrap">
+                                <table className="ai-modal-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Source file</th>
+                                            <th>Latest label</th>
+                                            <th>Score</th>
+                                            <th>Last run</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {latestSubmissions.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="empty-state">
+                                                    No submissions available for AI detection.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            latestSubmissions.map((sub) => {
+                                                const state = aiRows[sub.id];
+                                                const source = pickDetectableSourceFile(sub);
+                                                const latest = state?.latest || null;
+                                                const displayName = hideNames
+                                                    ? anonLabel(sub.student_id)
+                                                    : (sub.student_name || sub.student_id);
+
+                                                return (
+                                                    <tr key={sub.id}>
+                                                        <td className="text-medium">
+                                                            {hideNames
+                                                                ? displayName
+                                                                : (sub.student_name
+                                                                    ? `${sub.student_name} (${sub.student_id})`
+                                                                    : sub.student_id)}
+                                                        </td>
+                                                        <td>{source?.filename || 'No .py/.java file'}</td>
+                                                        <td>
+                                                            {latest ? (
+                                                                <span className={`ai-label-pill ${aiRowBadgeClass(latest.label)}`}>
+                                                                    {latest.label}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-secondary">Not run</span>
+                                                            )}
+                                                            {state?.error && (
+                                                                <div className="ai-inline-error">{state.error}</div>
+                                                            )}
+                                                        </td>
+                                                        <td>{formatAiScore(latest)}</td>
+                                                        <td>{latest?.created_at ? new Date(latest.created_at).toLocaleString() : '—'}</td>
+                                                        <td>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => void runAiForSubmission(sub)}
+                                                                disabled={state?.running || runningAiForAll || !source}
+                                                            >
+                                                                {state?.running ? 'Running…' : 'Run'}
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

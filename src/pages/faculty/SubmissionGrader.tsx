@@ -1,7 +1,27 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getSubmission, getSubmissions, updateSubmission, getSubmissionFileUrl, getAssignment, runAutograde, runCustomCode, runTests, getAssignmentGroups, gradeAssignmentGroup } from '../../lib/api';
-import type { Submission, Assignment, RubricConfig, TestResult, AssignmentGroup } from '../../lib/api';
+import {
+    getSubmission,
+    getSubmissions,
+    updateSubmission,
+    getSubmissionFileUrl,
+    getAssignment,
+    runAutograde,
+    runCustomCode,
+    runTests,
+    getAssignmentGroups,
+    gradeAssignmentGroup,
+    runSubmissionAiDetection,
+    getSubmissionAiDetections,
+} from '../../lib/api';
+import type {
+    Submission,
+    Assignment,
+    RubricConfig,
+    TestResult,
+    AssignmentGroup,
+    SubmissionAiDetectionResult,
+} from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
@@ -11,6 +31,17 @@ import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
 import { getLanguageFromFilename, resolveWorkspaceRunContext } from '../../lib/utils';
+
+function pickDetectableSourceFile(submission: Submission): { filename: string; language: 'python' | 'java' } | null {
+    const files = submission.files || [{ name: submission.file_name, path: submission.file_path }];
+    for (const file of files) {
+        const name = String(file?.name || '').trim();
+        if (!name) continue;
+        if (/\.py$/i.test(name)) return { filename: name, language: 'python' };
+        if (/\.java$/i.test(name)) return { filename: name, language: 'java' };
+    }
+    return null;
+}
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -39,6 +70,10 @@ const SubmissionGrader: React.FC = () => {
     const [studentSearch, setStudentSearch] = useState('');
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
     const [testSummary, setTestSummary] = useState<{ passed: number | null; total: number | null }>({ passed: null, total: null });
+    const [aiHistory, setAiHistory] = useState<SubmissionAiDetectionResult[]>([]);
+    const [loadingAiHistory, setLoadingAiHistory] = useState(false);
+    const [runningAiDetection, setRunningAiDetection] = useState(false);
+    const [showAiHistoryModal, setShowAiHistoryModal] = useState(false);
 
     // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
     // Using refs instead of state so that saveDraftForCurrent() writes are
@@ -146,6 +181,7 @@ const SubmissionGrader: React.FC = () => {
 
     useEffect(() => {
         loadData();
+        void loadAiHistory();
     }, [submissionId]);
 
     // Fetch all students for the assignment (once per assignmentId)
@@ -162,6 +198,13 @@ const SubmissionGrader: React.FC = () => {
             setAllStudentSubmissions(Object.values(latestByStudent));
         }).catch(console.error);
     }, [assignmentId]);
+
+    useEffect(() => {
+        const target = allSubmissions[activeAttemptIndex];
+        if (target?.id) {
+            void loadAiHistory(target.id);
+        }
+    }, [allSubmissions, activeAttemptIndex]);
 
     // Left sidebar resize — min/max in px so student names and grade badges stay visible
     useEffect(() => {
@@ -363,6 +406,58 @@ const SubmissionGrader: React.FC = () => {
         } finally {
             setLoading(false);
             setSwitching(false);
+        }
+    }
+
+    async function loadAiHistory(targetSubmissionId?: number) {
+        const sid = targetSubmissionId || (submissionId ? parseInt(submissionId, 10) : NaN);
+        if (!sid || Number.isNaN(sid)) return;
+        setLoadingAiHistory(true);
+        try {
+            const history = await getSubmissionAiDetections(sid, { limit: 15 });
+            setAiHistory(history.results || []);
+        } catch (err) {
+            console.error(err);
+            setAiHistory([]);
+        } finally {
+            setLoadingAiHistory(false);
+        }
+    }
+
+    async function handleRunAiDetection(targetSubmission: Submission) {
+        const source = pickDetectableSourceFile(targetSubmission);
+        if (!source) {
+            setAlertConfig({
+                show: true,
+                type: 'info',
+                title: 'Unsupported file type',
+                message: 'No .py or .java file was found in this submission attempt.',
+            });
+            return;
+        }
+        setRunningAiDetection(true);
+        try {
+            await runSubmissionAiDetection(targetSubmission.id, {
+                filename: source.filename,
+                language: source.language,
+            });
+            await loadAiHistory(targetSubmission.id);
+            setAlertConfig({
+                show: true,
+                type: 'success',
+                title: 'AI detection complete',
+                message: 'Latest AI detection result has been recorded for this submission.',
+            });
+        } catch (err) {
+            console.error(err);
+            setAlertConfig({
+                show: true,
+                type: 'error',
+                title: 'AI detection failed',
+                message: err instanceof Error ? err.message : 'Could not run AI detection.',
+            });
+        } finally {
+            setRunningAiDetection(false);
         }
     }
 
@@ -698,6 +793,19 @@ const SubmissionGrader: React.FC = () => {
     const canGoNextAttempt = activeAttemptIndex < allSubmissions.length - 1;
     const studentDisplayName = hideNames ? anonLabel(submission.student_id) : (submission.student_name || 'Student');
     const isSubmissionGraded = submission.status === 'graded';
+    const latestAiResult = aiHistory[0] || null;
+    const latestAiScore = latestAiResult
+        ? (latestAiResult.calibrated_score ?? latestAiResult.raw_score)
+        : null;
+    const latestAiLabel = latestAiResult?.label || 'Not run';
+    const latestAiLabelClass = (() => {
+        const normalized = latestAiLabel.toLowerCase();
+        if (normalized.includes('likely ai')) return 'ai-label-ai';
+        if (normalized.includes('likely human')) return 'ai-label-human';
+        if (normalized === 'not run') return 'ai-label-not-run';
+        return 'ai-label-unclear';
+    })();
+    const activeAttemptDetectableFile = pickDetectableSourceFile(activeAttempt);
 
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
@@ -1154,6 +1262,51 @@ const SubmissionGrader: React.FC = () => {
                                 </Button>
                             </div>
 
+                            <div className="ai-detection-card">
+                                <div className="ai-detection-card-header">
+                                    <span className="autograde-label">AI Detection</span>
+                                    <span className={`ai-label-pill ${latestAiLabelClass}`}>{latestAiLabel}</span>
+                                </div>
+                                <div className="ai-detection-card-meta">
+                                    <div>
+                                        Score:{' '}
+                                        <strong>
+                                            {latestAiScore != null ? Number(latestAiScore).toFixed(3) : 'n/a'}
+                                        </strong>
+                                    </div>
+                                    <div>
+                                        Last run:{' '}
+                                        <strong>
+                                            {latestAiResult?.created_at
+                                                ? new Date(latestAiResult.created_at).toLocaleString()
+                                                : 'Never'}
+                                        </strong>
+                                    </div>
+                                </div>
+                                <div className="ai-detection-card-actions">
+                                    <Button
+                                        size="sm"
+                                        onClick={() => void handleRunAiDetection(activeAttempt)}
+                                        disabled={runningAiDetection || !activeAttemptDetectableFile}
+                                    >
+                                        {runningAiDetection ? 'Running…' : 'Run AI Detection'}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowAiHistoryModal(true)}
+                                        disabled={loadingAiHistory}
+                                    >
+                                        View History
+                                    </Button>
+                                </div>
+                                {!activeAttemptDetectableFile && (
+                                    <div className="ai-detection-inline-note">
+                                        No .py or .java file detected in this attempt.
+                                    </div>
+                                )}
+                            </div>
+
                             {/* 3. Rubric scoring */}
                             {rubric && (
                                 <div className="rubric-card">
@@ -1326,6 +1479,53 @@ const SubmissionGrader: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showAiHistoryModal && (
+                <div className="modal-overlay" onClick={() => setShowAiHistoryModal(false)}>
+                    <div className="modal-content ai-history-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">AI Detection History</h3>
+                            <button className="modal-close" onClick={() => setShowAiHistoryModal(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            {loadingAiHistory ? (
+                                <p className="ai-history-empty">Loading AI detection history...</p>
+                            ) : aiHistory.length === 0 ? (
+                                <p className="ai-history-empty">No AI detection runs recorded yet.</p>
+                            ) : (
+                                <div className="ai-history-list">
+                                    {aiHistory.map((entry) => {
+                                        const score = entry.calibrated_score ?? entry.raw_score;
+                                        return (
+                                            <div key={entry.id} className="ai-history-item">
+                                                <div className="ai-history-item-top">
+                                                    <span className={`ai-label-pill ${
+                                                        entry.label.toLowerCase().includes('likely ai')
+                                                            ? 'ai-label-ai'
+                                                            : entry.label.toLowerCase().includes('likely human')
+                                                                ? 'ai-label-human'
+                                                                : 'ai-label-unclear'
+                                                    }`}>
+                                                        {entry.label}
+                                                    </span>
+                                                    <span className="ai-history-time">
+                                                        {new Date(entry.created_at).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                                <div className="ai-history-item-meta">
+                                                    <span>File: <strong>{entry.file_name}</strong></span>
+                                                    <span>Score: <strong>{score != null ? Number(score).toFixed(3) : 'n/a'}</strong></span>
+                                                    <span>Model: <strong>{entry.model_version || 'unknown'}</strong></span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

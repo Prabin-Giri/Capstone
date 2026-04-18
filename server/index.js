@@ -12,6 +12,7 @@ const uploadsRouter = require('./routes/uploads');
 const testCasesRouter = require('./routes/testCases');
 const usersRouter = require('./routes/users');
 const graderRouter = require('./routes/grader');
+const aiDetectorRouter = require('./routes/aiDetector');
 const adminRouter = require('./routes/admin');
 const messagesRouter = require('./routes/messages');
 
@@ -54,6 +55,7 @@ app.use('/api/uploads', uploadsRouter);
 app.use('/api/test-cases', testCasesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/grader', graderRouter);
+app.use('/api/ai-detector', aiDetectorRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/messages', messagesRouter);
 

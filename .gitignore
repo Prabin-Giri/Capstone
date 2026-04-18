@@ -29,6 +29,8 @@ autograder-key.pem
 
 # Env (secrets – do not commit)
 .env
+.venv/
+venv/
 docker-compose.yml
 
 # Server specific

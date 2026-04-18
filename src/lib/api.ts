@@ -1,3 +1,5 @@
+import { getSession } from './auth';
+
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 export const UPLOADS_BASE = API_BASE.replace(/\/api$/, '');
 
@@ -9,6 +11,14 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
         throw new Error(error.error || 'Request failed');
     }
     return response.json();
+}
+
+function getActorUserId(): string {
+    const session = getSession();
+    if (!session?.id) {
+        throw new Error('You must be signed in to run AI detection.');
+    }
+    return session.id;
 }
 
 // ============ Admin / Database Explorer ============
@@ -1100,6 +1110,78 @@ export async function runAutograde(
     return apiFetch<Submission>(url, {
         method: 'POST',
     });
+}
+
+// ============ AI Detector ============
+
+export interface SubmissionAiDetectionResult {
+    id: number;
+    submission_id: number;
+    file_name: string;
+    language: 'python' | 'java' | string;
+    label: string;
+    raw_score: number | null;
+    calibrated_score: number | null;
+    score_used: number | null;
+    thresholds: {
+        lower: number | null;
+        upper: number | null;
+    };
+    model_version: string | null;
+    detector_result: Record<string, unknown> | null;
+    created_at: string;
+}
+
+export interface SubmissionAiDetectionHistoryResponse {
+    submission_id: number;
+    requested_by?: string | null;
+    count: number;
+    results: SubmissionAiDetectionResult[];
+}
+
+export interface RunSubmissionAiDetectionRequest {
+    filename?: string;
+    language?: 'python' | 'java';
+}
+
+export interface RunSubmissionAiDetectionResponse {
+    submission_id: number;
+    file_name: string;
+    language: string;
+    requested_by?: string | null;
+    detection_id: number | null;
+    recorded_at: string | null;
+    model_version: string | null;
+    detector_result: Record<string, unknown>;
+    note: string;
+}
+
+export async function runSubmissionAiDetection(
+    submissionId: number,
+    payload: RunSubmissionAiDetectionRequest = {}
+): Promise<RunSubmissionAiDetectionResponse> {
+    const params = new URLSearchParams({ user_id: getActorUserId() });
+    return apiFetch<RunSubmissionAiDetectionResponse>(
+        `/ai-detector/submissions/${submissionId}/run?${params.toString()}`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        }
+    );
+}
+
+export async function getSubmissionAiDetections(
+    submissionId: number,
+    opts: { limit?: number } = {}
+): Promise<SubmissionAiDetectionHistoryResponse> {
+    const params = new URLSearchParams({ user_id: getActorUserId() });
+    if (opts.limit != null) params.set('limit', String(opts.limit));
+    return apiFetch<SubmissionAiDetectionHistoryResponse>(
+        `/ai-detector/submissions/${submissionId}/results?${params.toString()}`
+    );
 }
 
 // ============ Messaging / Inbox ============

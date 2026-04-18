@@ -57,6 +57,9 @@ sudo apt-get update && sudo apt-get upgrade -y
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
+# 2b. Install Python for AI detector (optional, only if enabling detector route)
+sudo apt-get install -y python3 python3-venv python3-pip
+
 # 3. Install Docker (for grading)
 sudo apt-get install -y docker.io
 sudo systemctl enable docker
@@ -137,4 +140,44 @@ AWS_SECRET_ACCESS_KEY=xxxxxx
 GRADER_RUN_MODE=docker   # Docker available on EC2
 PORT=3001
 FRONTEND_ORIGIN=https://main.<your-amplify-app-id>.amplifyapp.com
+
+# Optional AI detector integration
+AI_DETECTOR_ENABLED=false
+AI_DETECTOR_REQUIRE_USER=true
+AI_DETECTOR_PYTHON_BIN=python3
+AI_DETECTOR_TIMEOUT_MS=45000
+AI_DETECTOR_MODEL_VERSION=
+```
+
+## Optional: Enable AI Detector Route
+
+The backend now exposes:
+
+`POST /api/ai-detector/submissions/:id/run`
+`GET /api/ai-detector/submissions/:id/results`
+
+When `AI_DETECTOR_REQUIRE_USER=true`, requests must include a valid `user_id`
+for a faculty, TA, or admin account that has access to the submission's course.
+
+To enable it on EC2:
+
+1. Install detector Python dependencies:
+```bash
+cd ~/Capstone/offline_ai_detector
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+2. In `~/Capstone/.env`, set:
+```env
+AI_DETECTOR_ENABLED=true
+AI_DETECTOR_REQUIRE_USER=true
+AI_DETECTOR_PYTHON_BIN=/home/ubuntu/Capstone/offline_ai_detector/.venv/bin/python
+AI_DETECTOR_TIMEOUT_MS=45000
+AI_DETECTOR_MODEL_VERSION=m1_code_detector_smoke
+```
+3. Restart PM2:
+```bash
+pm2 restart autograde-backend --update-env
 ```

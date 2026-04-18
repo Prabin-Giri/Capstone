@@ -41,6 +41,25 @@ CREATE TABLE IF NOT EXISTS submissions (
     UNIQUE KEY unique_submission (assignment_id, student_id)
 );
 
+-- AI detector result history per submission run
+CREATE TABLE IF NOT EXISTS submission_ai_detections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    submission_id INT NOT NULL,
+    file_name VARCHAR(500) NOT NULL,
+    language VARCHAR(50) NOT NULL,
+    label VARCHAR(80) NOT NULL,
+    raw_score DOUBLE DEFAULT NULL,
+    calibrated_score DOUBLE DEFAULT NULL,
+    score_used DOUBLE DEFAULT NULL,
+    lower_threshold DOUBLE DEFAULT NULL,
+    upper_threshold DOUBLE DEFAULT NULL,
+    model_version VARCHAR(255) DEFAULT NULL,
+    detector_payload LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_detections_submission_created (submission_id, created_at),
+    FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE CASCADE
+);
+
 -- Insert sample courses
 INSERT INTO courses (id, name, term) VALUES
     ('CSCI4060', 'Software Engineering', 'Spring 2026'),

@@ -71,6 +71,22 @@ async function initDb() {
             FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
             FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS submission_ai_detections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            submission_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            language TEXT NOT NULL,
+            label TEXT NOT NULL,
+            raw_score REAL DEFAULT NULL,
+            calibrated_score REAL DEFAULT NULL,
+            score_used REAL DEFAULT NULL,
+            lower_threshold REAL DEFAULT NULL,
+            upper_threshold REAL DEFAULT NULL,
+            model_version TEXT DEFAULT NULL,
+            detector_payload TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS todos (
             id TEXT PRIMARY KEY,
             student_id TEXT NOT NULL,
@@ -189,6 +205,7 @@ async function initDb() {
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
         )`,
+        'CREATE INDEX IF NOT EXISTS idx_ai_detections_submission_created ON submission_ai_detections (submission_id, created_at)',
     ];
     for (const sql of migrations) {
         try { db.run(sql); } catch (e) {
