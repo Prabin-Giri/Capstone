@@ -67,7 +67,8 @@ app.get('/api/health', (req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    res.status(500).json({ error: toClientErrorMessage(err) });
+    const statusCode = Number.isInteger(err?.status) && err.status >= 400 ? err.status : 500;
+    res.status(statusCode).json({ error: toClientErrorMessage(err) });
 });
 
 // Initialize database then start server

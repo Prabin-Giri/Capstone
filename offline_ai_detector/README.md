@@ -2,6 +2,22 @@
 
 This subproject is the dedicated workspace for a standalone, fully offline detector aimed at Python and Java student code. It stays in its own folder so we do not collide with the existing app in the repo root.
 
+## Project Goal
+
+Build a practical, conservative v1 detector that distinguishes AI-written vs human-written student code for Python and Java in an offline local workflow.
+
+## Why Essay Datasets Are Wrong for This Task
+
+- This project is a code-authorship signal task, not a prose-authorship task.
+- Essay datasets bias models toward natural-language writing style differences that do not transfer to source code.
+- Using prose corpora would inflate confidence while reducing real-world validity on student programming submissions.
+
+## Why Python/Java-Only Scope Is Intentional
+
+- The target classroom workflows are currently Python and Java focused.
+- Restricting scope reduces language-distribution leakage and makes evaluation easier to trust.
+- Keeping language scope narrow is also necessary for stable iteration on M1 hardware.
+
 ## Phase 1 Status
 
 Completed in this phase:
@@ -289,7 +305,11 @@ offline_ai_detector/
 │   ├── train_model.py
 │   ├── evaluate_model.py
 │   ├── calibrate_model.py
-│   └── run_inference.py
+│   ├── run_inference.py
+│   ├── prepare_matched_generation_manifest.py
+│   ├── compare_comment_ablation.py
+│   ├── compare_topologies.py
+│   └── track_calibration_drift.py
 ├── src/
 │   ├── __init__.py
 │   ├── paths.py
@@ -452,6 +472,90 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Next Phase
+## How to Run Training on M1
 
-Phase 10 will produce the final evaluation report, covering overall and per-language metrics, false-positive analysis, per-source breakdown, length-bucket analysis, and a `NEXT_STEPS.md` file documenting v2 ideas.
+```bash
+# 1) Build leakage-aware processed datasets first (from downloaded raw data)
+python scripts/inspect_data.py
+python scripts/clean_datasets.py
+python scripts/build_dataset.py
+python scripts/split_dataset.py
+python scripts/dataset_report.py
+
+# 2) Train and evaluate
+python scripts/train_model.py --config configs/train.yaml
+python scripts/evaluate_model.py --config configs/train.yaml --split test
+
+# 3) Calibrate for abstain-band decisions
+python scripts/calibrate_model.py --config configs/train.yaml
+```
+
+## How to Run Inference
+
+```bash
+# File input (auto-detect language from extension)
+python scripts/run_inference.py --file sample.py
+python scripts/run_inference.py --file Main.java
+
+# Inline snippet (language required)
+python scripts/run_inference.py --text "def add(a, b): return a + b" --language python
+
+# Optional feature summary and JSON mode
+python scripts/run_inference.py --file sample.py --features --output-format json
+
+# Include optional AST-derived structural features
+python scripts/run_inference.py --file sample.py --features --structural-features
+```
+
+## What Can Go Wrong
+
+- Leakage between train/validation/test can produce unrealistically good metrics.
+- Source-dataset artifacts can be mistaken for AI-vs-human style.
+- Very short snippets have weak evidence and can trigger unstable predictions.
+- Thresholds can drift as assignments, prompting styles, and source mix change.
+- Code quality and authorship are not equivalent signals.
+
+## Responsible-Use Warning
+
+- This detector output is a triage signal for instructor review, not proof of misconduct.
+- Use predictions alongside process evidence (draft history, oral checks, style comparisons, rubric context).
+- Prefer abstain/unclear outcomes over forced binary judgments for edge cases.
+- Keep students informed that automated signals may be used as part of a broader review process.
+
+## Phase 10 Status
+
+Completed in this phase:
+- expanded evaluation utilities in [`src/models/evaluation.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/evaluation.py) to support per-source metrics, length-bucket metrics, and curated misclassification examples
+- updated [`src/models/training.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/src/models/training.py) so evaluation can return prediction rows for deeper analysis
+- upgraded [`scripts/evaluate_model.py`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/scripts/evaluate_model.py) to generate:
+  - `artifacts/reports/phase10_evaluation_report.md`
+  - `artifacts/reports/phase10_evaluation_summary.json`
+- added [`NEXT_STEPS.md`](/Users/prabingiri/Documents/Capstone/offline_ai_detector/NEXT_STEPS.md) with v2 roadmap items
+
+Assumptions made:
+- Phase 10 deep analysis runs on one split at a time (`test` by default)
+- fixed token-count buckets are sufficient for first-pass length sensitivity checks
+- short code previews are enough to triage false positives/false negatives without exposing full source in reports
+
+Main risks still open:
+- without real trained checkpoints and real processed datasets, report content cannot be validated end to end yet
+- curated error examples are useful diagnostics but still require human review context
+- source-level metrics can remain noisy if some sources are very small
+
+Validate before moving on:
+- run `python scripts/evaluate_model.py --config configs/train.yaml --split test` after a real training run
+- inspect both `phase10_evaluation_report.md` and `phase10_evaluation_summary.json`
+- confirm false-positive and false-negative examples align with instructor review expectations
+
+## v2 Workflow Scripts
+
+These scripts implement practical pieces of the `NEXT_STEPS.md` roadmap:
+
+- `python scripts/prepare_matched_generation_manifest.py`
+  - builds a reproducible manifest of human problem anchors for matched AI-generation experiments
+- `python scripts/compare_comment_ablation.py --with-comments ... --without-comments ...`
+  - compares comment-retained vs comment-removed runs with metric deltas
+- `python scripts/compare_topologies.py --summary joint=... --summary python=... --summary java=...`
+  - compares joint and language-specific model topologies
+- `python scripts/track_calibration_drift.py --baseline-calibration ... --candidate-calibration ...`
+  - tracks threshold and calibration diagnostics drift across runs

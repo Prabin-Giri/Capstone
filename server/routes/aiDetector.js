@@ -15,6 +15,7 @@ const detectorRootDefault = path.join(__dirname, '../../offline_ai_detector');
 const detectorScriptDefault = path.join(detectorRootDefault, 'scripts/run_inference.py');
 const detectorConfigDefault = path.join(detectorRootDefault, 'configs/inference.yaml');
 const DETECTOR_ALLOWED_ROLES = new Set(['faculty', 'ta', 'admin']);
+const DETECTOR_LABEL = 'offline_ai_detector';
 
 function parseBooleanEnv(value) {
     return /^(1|true|yes)$/i.test(String(value || ''));
@@ -35,25 +36,46 @@ function detectorTimeoutMs() {
 }
 
 function detectorPythonBin() {
-    return process.env.AI_DETECTOR_PYTHON_BIN || 'python3';
+    const envValue = String(process.env.AI_DETECTOR_PYTHON_BIN || '').trim();
+    if (envValue) {
+        const looksLikePath = envValue.includes('/') || envValue.includes('\\');
+        if (!looksLikePath) return envValue;
+        if (fs.existsSync(envValue)) return envValue;
+    }
+
+    const rootPath = detectorRootPath();
+    const localVenvCandidates = [
+        path.join(rootPath, '.venv/bin/python'),
+        path.join(rootPath, '.venv/Scripts/python.exe'),
+    ];
+    const localVenvPython = localVenvCandidates.find((candidate) => fs.existsSync(candidate));
+    if (localVenvPython) return localVenvPython;
+
+    return 'python3';
 }
 
 function detectorRootPath() {
     const envValue = process.env.AI_DETECTOR_ROOT;
     if (!envValue) return detectorRootDefault;
-    return path.isAbsolute(envValue) ? envValue : path.resolve(path.join(__dirname, '..'), envValue);
+    const candidate = path.isAbsolute(envValue) ? envValue : path.resolve(path.join(__dirname, '..'), envValue);
+    if (fs.existsSync(candidate)) return candidate;
+    return detectorRootDefault;
 }
 
 function detectorScriptPath() {
     const envValue = process.env.AI_DETECTOR_SCRIPT_PATH;
     if (!envValue) return detectorScriptDefault;
-    return path.isAbsolute(envValue) ? envValue : path.resolve(detectorRootPath(), envValue);
+    const candidate = path.isAbsolute(envValue) ? envValue : path.resolve(detectorRootPath(), envValue);
+    if (fs.existsSync(candidate)) return candidate;
+    return detectorScriptDefault;
 }
 
 function detectorConfigPath() {
     const envValue = process.env.AI_DETECTOR_CONFIG_PATH;
     if (!envValue) return detectorConfigDefault;
-    return path.isAbsolute(envValue) ? envValue : path.resolve(detectorRootPath(), envValue);
+    const candidate = path.isAbsolute(envValue) ? envValue : path.resolve(detectorRootPath(), envValue);
+    if (fs.existsSync(candidate)) return candidate;
+    return detectorConfigDefault;
 }
 
 function detectorModelVersion() {
@@ -74,6 +96,72 @@ function detectorModelVersion() {
     } catch {
         return null;
     }
+}
+
+function readInferenceRuntimeModelDir(configPath) {
+    try {
+        const configText = fs.readFileSync(configPath, 'utf8');
+        const modelLine = configText
+            .split('\n')
+            .map((line) => line.trim())
+            .find((line) => line.startsWith('model_dir:'));
+        if (!modelLine) return null;
+        const raw = modelLine.split(':').slice(1).join(':').trim();
+        const clean = raw.replace(/^["']|["']$/g, '').trim();
+        if (!clean) return null;
+        return path.isAbsolute(clean) ? clean : path.resolve(detectorRootPath(), clean);
+    } catch {
+        return null;
+    }
+}
+
+function detectorRuntimeStatus() {
+    const enabled = isDetectorEnabled();
+    const rootPath = detectorRootPath();
+    const scriptPath = detectorScriptPath();
+    const configPath = detectorConfigPath();
+    const pythonBin = detectorPythonBin();
+    const modelDir = readInferenceRuntimeModelDir(configPath);
+    const modelConfigPath = modelDir ? path.join(modelDir, 'config.json') : null;
+    const ready = Boolean(
+        enabled
+        && fs.existsSync(rootPath)
+        && fs.existsSync(scriptPath)
+        && fs.existsSync(configPath)
+        && modelConfigPath
+        && fs.existsSync(modelConfigPath)
+    );
+
+    let reason = null;
+    if (!enabled) reason = 'AI detector is disabled.';
+    else if (!fs.existsSync(rootPath)) reason = `Detector root path does not exist: ${rootPath}`;
+    else if (!fs.existsSync(scriptPath)) reason = `Detector script is missing: ${scriptPath}`;
+    else if (!fs.existsSync(configPath)) reason = `Detector config is missing: ${configPath}`;
+    else if (!modelDir) reason = 'Could not resolve model_dir from detector config.';
+    else if (!modelConfigPath || !fs.existsSync(modelConfigPath)) {
+        reason = `Model checkpoint is missing: ${modelConfigPath || '(unknown model path)'}`;
+    }
+
+    return {
+        enabled,
+        ready,
+        reason,
+        detector: DETECTOR_LABEL,
+        paths: {
+            root: rootPath,
+            script: scriptPath,
+            config: configPath,
+            model_dir: modelDir,
+            python_bin: pythonBin,
+        },
+        model_version: detectorModelVersion(),
+    };
+}
+
+function httpError(message, status) {
+    const err = new Error(message);
+    err.status = status;
+    return err;
 }
 
 function readActorUserId(req) {
@@ -233,10 +321,10 @@ async function runDetectorOnCode({ code, language }) {
     const pythonBin = detectorPythonBin();
 
     if (!fs.existsSync(scriptPath)) {
-        throw new Error(`AI detector script not found at ${scriptPath}`);
+        throw httpError(`AI detector script not found at ${scriptPath}`, 503);
     }
     if (!fs.existsSync(configPath)) {
-        throw new Error(`AI detector config not found at ${configPath}`);
+        throw httpError(`AI detector config not found at ${configPath}`, 503);
     }
 
     const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ai-detector-'));
@@ -269,12 +357,12 @@ async function runDetectorOnCode({ code, language }) {
         return payload;
     } catch (error) {
         if (error?.killed || error?.signal === 'SIGTERM') {
-            throw new Error(`AI detector timed out after ${timeout}ms`);
+            throw httpError(`AI detector timed out after ${timeout}ms`, 504);
         }
         const stderr = String(error?.stderr || '').trim();
         const stdout = String(error?.stdout || '').trim();
         const detail = stderr || stdout || error.message || 'Unknown detector failure';
-        throw new Error(`AI detector execution failed: ${detail}`);
+        throw httpError(`AI detector execution failed: ${detail}`, 502);
     } finally {
         await fs.promises.rm(tmpDir, { recursive: true, force: true });
     }
@@ -349,9 +437,11 @@ async function persistDetectorResult({
 
 router.post('/submissions/:id/run', async (req, res, next) => {
     try {
-        if (!isDetectorEnabled()) {
+        const runtime = detectorRuntimeStatus();
+        if (!runtime.enabled || !runtime.ready) {
             return res.status(503).json({
-                error: 'AI detector is disabled. Set AI_DETECTOR_ENABLED=true on the backend.',
+                error: runtime.reason || 'AI detector is not ready.',
+                status: runtime,
             });
         }
         const actor = await resolveActor(req, res);
@@ -430,6 +520,12 @@ router.post('/submissions/:id/run', async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+});
+
+router.get('/status', async (req, res) => {
+    const status = detectorRuntimeStatus();
+    const code = status.ready ? 200 : 503;
+    return res.status(code).json(status);
 });
 
 router.get('/submissions/:id/results', async (req, res, next) => {

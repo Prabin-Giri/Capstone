@@ -55,6 +55,11 @@ class CodeFeatureVector:
     identifier_repetition_ratio: float
     punctuation_operator_density: float
     keyword_density: float
+    ast_parse_success: float
+    ast_node_count: float
+    ast_tree_depth: float
+    ast_branching_node_count: float
+    ast_function_like_count: float
 
     def to_dict(self) -> dict[str, float]:
         return {
@@ -71,10 +76,21 @@ class CodeFeatureVector:
             "identifier_repetition_ratio": self.identifier_repetition_ratio,
             "punctuation_operator_density": self.punctuation_operator_density,
             "keyword_density": self.keyword_density,
+            "ast_parse_success": self.ast_parse_success,
+            "ast_node_count": self.ast_node_count,
+            "ast_tree_depth": self.ast_tree_depth,
+            "ast_branching_node_count": self.ast_branching_node_count,
+            "ast_function_like_count": self.ast_function_like_count,
         }
 
 
-def extract_code_features(code: str, *, language: str | None = None, tab_width: int = 4) -> dict[str, float]:
+def extract_code_features(
+    code: str,
+    *,
+    language: str | None = None,
+    tab_width: int = 4,
+    include_structural: bool = False,
+) -> dict[str, float]:
     """Extract lightweight code-aware features.
 
     Important design choice:
@@ -95,6 +111,13 @@ def extract_code_features(code: str, *, language: str | None = None, tab_width: 
     comment_line_count = _comment_line_count(lines, language=language)
     punctuation_chars = sum(1 for char in normalized if char in PUNCTUATION_OPERATOR_CHARS)
     keyword_count = _keyword_count(token_list, language=language)
+    structural_features = _structural_features(normalized, language=language) if include_structural else {
+        "ast_parse_success": 0.0,
+        "ast_node_count": 0.0,
+        "ast_tree_depth": 0.0,
+        "ast_branching_node_count": 0.0,
+        "ast_function_like_count": 0.0,
+    }
 
     feature_vector = CodeFeatureVector(
         line_count=float(line_count),
@@ -110,6 +133,11 @@ def extract_code_features(code: str, *, language: str | None = None, tab_width: 
         identifier_repetition_ratio=float(_identifier_repetition_ratio(identifier_tokens)),
         punctuation_operator_density=float(punctuation_chars / max(1, len(normalized))),
         keyword_density=float(keyword_count / max(1, len(token_list))),
+        ast_parse_success=structural_features["ast_parse_success"],
+        ast_node_count=structural_features["ast_node_count"],
+        ast_tree_depth=structural_features["ast_tree_depth"],
+        ast_branching_node_count=structural_features["ast_branching_node_count"],
+        ast_function_like_count=structural_features["ast_function_like_count"],
     )
     return feature_vector.to_dict()
 
@@ -132,6 +160,8 @@ def feature_risk_notes(features: dict[str, float]) -> list[str]:
         notes.append("deep indentation may reflect problem structure rather than generation source")
     if features["identifier_repetition_ratio"] > 0.60:
         notes.append("identifier repetition can become a shortcut on templated assignments")
+    if features.get("ast_parse_success", 0.0) == 0.0 and features.get("ast_node_count", 0.0) == 0.0:
+        notes.append("AST structural features were unavailable or parsing failed for this sample")
     return notes
 
 
@@ -217,3 +247,124 @@ def _stddev(values: list[int]) -> float:
     mean = sum(values) / len(values)
     variance = sum((value - mean) ** 2 for value in values) / len(values)
     return math.sqrt(variance)
+
+
+def _structural_features(code: str, *, language: str | None) -> dict[str, float]:
+    normalized_language = (language or "").strip().lower()
+    if normalized_language == "python":
+        return _python_structural_features(code)
+    if normalized_language == "java":
+        return _java_structural_features(code)
+    return {
+        "ast_parse_success": 0.0,
+        "ast_node_count": 0.0,
+        "ast_tree_depth": 0.0,
+        "ast_branching_node_count": 0.0,
+        "ast_function_like_count": 0.0,
+    }
+
+
+def _python_structural_features(code: str) -> dict[str, float]:
+    try:
+        import ast
+    except ImportError:
+        return _empty_structural_features()
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return _empty_structural_features()
+
+    node_count = 0
+    max_depth = 0
+    branching_nodes = 0
+    function_like = 0
+
+    def walk(node: ast.AST, depth: int) -> None:
+        nonlocal node_count, max_depth, branching_nodes, function_like
+        node_count += 1
+        max_depth = max(max_depth, depth)
+        children = list(ast.iter_child_nodes(node))
+        if len(children) > 1:
+            branching_nodes += 1
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            function_like += 1
+        for child in children:
+            walk(child, depth + 1)
+
+    walk(tree, 0)
+    return {
+        "ast_parse_success": 1.0,
+        "ast_node_count": float(node_count),
+        "ast_tree_depth": float(max_depth),
+        "ast_branching_node_count": float(branching_nodes),
+        "ast_function_like_count": float(function_like),
+    }
+
+
+def _java_structural_features(code: str) -> dict[str, float]:
+    try:
+        import javalang
+    except ImportError:
+        return _empty_structural_features()
+
+    try:
+        tree = javalang.parse.parse(code)
+    except (javalang.parser.JavaSyntaxError, IndexError, TypeError, AttributeError):
+        return _empty_structural_features()
+
+    node_count = 0
+    max_depth = 0
+    branching_nodes = 0
+    function_like = 0
+
+    method_type = getattr(javalang.tree, "MethodDeclaration", None)
+    ctor_type = getattr(javalang.tree, "ConstructorDeclaration", None)
+    callable_types = tuple(
+        item for item in (method_type, ctor_type) if item is not None
+    )
+
+    for path, node in tree:
+        node_count += 1
+        max_depth = max(max_depth, len(path))
+        child_count = _java_child_node_count(node)
+        if child_count > 1:
+            branching_nodes += 1
+        if callable_types and isinstance(node, callable_types):
+            function_like += 1
+
+    return {
+        "ast_parse_success": 1.0,
+        "ast_node_count": float(node_count),
+        "ast_tree_depth": float(max_depth),
+        "ast_branching_node_count": float(branching_nodes),
+        "ast_function_like_count": float(function_like),
+    }
+
+
+def _java_child_node_count(node: object) -> int:
+    children = getattr(node, "children", None)
+    if not children:
+        return 0
+    count = 0
+    stack = list(children) if isinstance(children, (list, tuple)) else [children]
+    while stack:
+        current = stack.pop()
+        if current is None:
+            continue
+        if isinstance(current, (list, tuple)):
+            stack.extend(current)
+            continue
+        if hasattr(current, "children"):
+            count += 1
+    return count
+
+
+def _empty_structural_features() -> dict[str, float]:
+    return {
+        "ast_parse_success": 0.0,
+        "ast_node_count": 0.0,
+        "ast_tree_depth": 0.0,
+        "ast_branching_node_count": 0.0,
+        "ast_function_like_count": 0.0,
+    }

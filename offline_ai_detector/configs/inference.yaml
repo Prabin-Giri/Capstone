@@ -16,7 +16,7 @@ runtime:
     - java
   min_tokens: 50
   max_length: 512
-  local_files_only: false
+  local_files_only: true
 
 # Threshold band for the abstain / unclear zone.
 # These defaults are conservative — adjust after inspecting real scores.

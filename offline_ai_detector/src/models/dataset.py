@@ -41,6 +41,10 @@ class CodeSample:
     problem_id: str | None = None
     task_id: str | None = None
     generator_model: str | None = None
+    prompt_type: str | None = None
+    edit_type: str | None = None
+    is_paraphrased: bool | None = None
+    notes: str | None = None
 
 
 @dataclass(slots=True)
@@ -129,6 +133,10 @@ def load_code_samples(
                 problem_id=_optional_str(row.get("problem_id")),
                 task_id=_optional_str(row.get("task_id")),
                 generator_model=_optional_str(row.get("generator_model")),
+                prompt_type=_optional_str(row.get("prompt_type")),
+                edit_type=_optional_str(row.get("edit_type")),
+                is_paraphrased=_optional_bool(row.get("is_paraphrased")),
+                notes=_optional_str(row.get("notes")),
             )
         )
 
@@ -195,3 +203,22 @@ def _optional_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+        return None
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y"}:
+        return True
+    if normalized in {"false", "0", "no", "n"}:
+        return False
+    return None

@@ -12,7 +12,13 @@ from ..utils.io import write_text
 from ..utils.seed import seed_everything
 from .classifier import load_saved_tokenizer_and_model, load_tokenizer_and_model, resolve_classifier_spec
 from .dataset import TokenizedCodeDataset, load_code_samples, summarize_code_samples
-from .evaluation import SplitEvaluation, compute_classification_metrics, compute_trainer_selection_metrics, render_evaluation_markdown
+from .evaluation import (
+    SplitEvaluation,
+    build_prediction_rows,
+    compute_classification_metrics,
+    compute_trainer_selection_metrics,
+    render_evaluation_markdown,
+)
 
 
 @dataclass(slots=True)
@@ -86,7 +92,12 @@ def run_training(config: TrainConfig) -> TrainingRunArtifacts:
     return artifacts
 
 
-def evaluate_saved_model(config: TrainConfig, *, split_name: str = "test") -> SplitEvaluation:
+def evaluate_saved_model(
+    config: TrainConfig,
+    *,
+    split_name: str = "test",
+    include_prediction_rows: bool = False,
+) -> dict[str, Any]:
     """Load a saved checkpoint and evaluate it on one processed split."""
 
     trainer_module = _require_transformers()
@@ -122,10 +133,23 @@ def evaluate_saved_model(config: TrainConfig, *, split_name: str = "test") -> Sp
         train_dataset=None,
         validation_dataset=dataset,
     )
-    return evaluate_with_trainer(trainer=trainer, samples=samples, dataset=dataset, split_name=split_name)
+    return evaluate_with_trainer(
+        trainer=trainer,
+        samples=samples,
+        dataset=dataset,
+        split_name=split_name,
+        include_prediction_rows=include_prediction_rows,
+    )
 
 
-def evaluate_with_trainer(*, trainer: Any, samples: list[Any], dataset: Any, split_name: str) -> dict[str, Any]:
+def evaluate_with_trainer(
+    *,
+    trainer: Any,
+    samples: list[Any],
+    dataset: Any,
+    split_name: str,
+    include_prediction_rows: bool = False,
+) -> dict[str, Any]:
     prediction_output = trainer.predict(dataset)
     metrics = compute_classification_metrics(
         labels=[0 if sample.label == "human" else 1 for sample in samples],
@@ -133,6 +157,11 @@ def evaluate_with_trainer(*, trainer: Any, samples: list[Any], dataset: Any, spl
         languages=[sample.language for sample in samples],
         loss=prediction_output.metrics.get("test_loss"),
     )
+    if include_prediction_rows:
+        metrics["prediction_rows"] = build_prediction_rows(
+            samples=samples,
+            logits=prediction_output.predictions,
+        )
     metrics["split_name"] = split_name
     return _sanitize_metrics(metrics)
 

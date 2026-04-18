@@ -25,17 +25,19 @@ def test_load_code_samples_filters_short_rows(tmp_path) -> None:
         '\n'.join(
             [
                 '{"id":"1","code":"def add(a, b):\\n    return a + b\\n","label":"human","language":"python","source_dataset":"codenet"}',
-                '{"id":"2","code":"class Main { public static void main(String[] args) { System.out.println(1); } }","label":"ai","language":"java","source_dataset":"multiaigcd"}',
+                '{"id":"2","code":"class Main { public static void main(String[] args) { System.out.println(1); } }","label":"ai","language":"java","source_dataset":"multiaigcd","edit_type":"post_edit","is_paraphrased":"true"}',
             ]
         )
         + "\n",
         encoding="utf-8",
     )
 
-    samples = load_code_samples(dataset_path, min_tokens=10)
+    samples = load_code_samples(dataset_path, min_tokens=20)
     assert len(samples) == 1
     assert samples[0].language == "java"
     assert samples[0].label == "ai"
+    assert samples[0].edit_type == "post_edit"
+    assert samples[0].is_paraphrased is True
 
 
 def test_summarize_code_samples_counts_labels_and_languages(tmp_path) -> None:
@@ -58,3 +60,22 @@ def test_summarize_code_samples_counts_labels_and_languages(tmp_path) -> None:
     assert summary.language_counts["python"] == 1
     assert summary.language_counts["java"] == 1
     assert set(LABEL_TO_ID) == {"human", "ai"}
+
+
+def test_load_code_samples_preserves_optional_metadata(tmp_path) -> None:
+    dataset_path = tmp_path / "samples.jsonl"
+    dataset_path.write_text(
+        '{"id":"7","code":"def solve(x):\\n    return x\\n","label":"ai","language":"python","source_dataset":"codemirage","problem_id":"p1","task_id":"t1","generator_model":"gpt-x","prompt_type":"paraphrased","edit_type":"rewrite","is_paraphrased":"yes","notes":"hybrid candidate"}\n',
+        encoding="utf-8",
+    )
+
+    samples = load_code_samples(dataset_path, min_tokens=0)
+    assert len(samples) == 1
+    sample = samples[0]
+    assert sample.problem_id == "p1"
+    assert sample.task_id == "t1"
+    assert sample.generator_model == "gpt-x"
+    assert sample.prompt_type == "paraphrased"
+    assert sample.edit_type == "rewrite"
+    assert sample.is_paraphrased is True
+    assert sample.notes == "hybrid candidate"

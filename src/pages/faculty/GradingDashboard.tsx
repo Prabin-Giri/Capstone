@@ -8,8 +8,9 @@ import {
     runAutograde,
     runSubmissionAiDetection,
     getSubmissionAiDetections,
+    getAiDetectorStatus,
 } from '../../lib/api';
-import type { Assignment, Submission, SubmissionAiDetectionResult } from '../../lib/api';
+import type { Assignment, Submission, SubmissionAiDetectionResult, AiDetectorStatusResponse } from '../../lib/api';
 import { BarChart2, Search, FlaskConical, Brain, PenLine, ChevronLeft, ShieldAlert, FileText, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -64,6 +65,8 @@ const GradingDashboard: React.FC = () => {
     const [runningAiForAll, setRunningAiForAll] = useState(false);
     const [hydratingAiRows, setHydratingAiRows] = useState(false);
     const [aiRows, setAiRows] = useState<Record<number, AiDetectionRowState>>({});
+    const [aiDetectorStatus, setAiDetectorStatus] = useState<AiDetectorStatusResponse | null>(null);
+    const [loadingAiDetectorStatus, setLoadingAiDetectorStatus] = useState(false);
 
     const plagiarismStorageKey = assignmentId ? `plagiarism-flags-${assignmentId}` : '';
 
@@ -116,7 +119,37 @@ const GradingDashboard: React.FC = () => {
 
     useEffect(() => {
         loadData();
+        void loadAiDetectorStatus();
     }, [assignmentId]);
+
+    async function loadAiDetectorStatus(): Promise<AiDetectorStatusResponse | null> {
+        setLoadingAiDetectorStatus(true);
+        try {
+            const status = await getAiDetectorStatus();
+            setAiDetectorStatus(status);
+            return status;
+        } catch (err) {
+            console.error(err);
+            const fallbackStatus: AiDetectorStatusResponse = {
+                enabled: false,
+                ready: false,
+                reason: err instanceof Error ? err.message : 'Could not load AI detector status.',
+                detector: 'offline_ai_detector',
+                paths: {
+                    root: null,
+                    script: null,
+                    config: null,
+                    model_dir: null,
+                    python_bin: null,
+                },
+                model_version: null,
+            };
+            setAiDetectorStatus(fallbackStatus);
+            return fallbackStatus;
+        } finally {
+            setLoadingAiDetectorStatus(false);
+        }
+    }
 
     async function loadData() {
         if (!assignmentId) return;
@@ -218,7 +251,26 @@ const GradingDashboard: React.FC = () => {
         }
     }, [latestSubmissions]);
 
-    const runAiForSubmission = useCallback(async (submission: Submission): Promise<boolean> => {
+    const runAiForSubmission = useCallback(async (
+        submission: Submission,
+        opts: { skipReadinessCheck?: boolean } = {}
+    ): Promise<boolean> => {
+        if (!opts.skipReadinessCheck) {
+            const status = await loadAiDetectorStatus();
+            if (!status?.ready) {
+                setAiRows((prev) => ({
+                    ...prev,
+                    [submission.id]: {
+                        loading: false,
+                        running: false,
+                        latest: prev[submission.id]?.latest || null,
+                        error: status?.reason || 'AI detector is not ready.',
+                    },
+                }));
+                return false;
+            }
+        }
+
         const target = pickDetectableSourceFile(submission);
         if (!target) {
             setAiRows((prev) => ({
@@ -284,12 +336,22 @@ const GradingDashboard: React.FC = () => {
             });
             return;
         }
+        const status = await loadAiDetectorStatus();
+        if (!status?.ready) {
+            setAlertConfig({
+                show: true,
+                type: 'info',
+                title: 'AI detector unavailable',
+                message: status?.reason || 'AI detector is not ready right now.',
+            });
+            return;
+        }
         setRunningAiForAll(true);
         let success = 0;
         let failed = 0;
         for (const sub of latestSubmissions) {
             // Sequential run prevents detector overload on EC2.
-            const ok = await runAiForSubmission(sub);
+            const ok = await runAiForSubmission(sub, { skipReadinessCheck: true });
             if (ok) success += 1;
             else failed += 1;
         }
@@ -306,6 +368,7 @@ const GradingDashboard: React.FC = () => {
 
     useEffect(() => {
         if (showAiDetectionModal) {
+            void loadAiDetectorStatus();
             void loadAiRowsForModal();
         }
     }, [showAiDetectionModal, loadAiRowsForModal]);
@@ -433,6 +496,10 @@ const GradingDashboard: React.FC = () => {
         if (normalized.includes('likely human')) return 'ai-label-human';
         return 'ai-label-unclear';
     };
+    const aiDetectorReady = Boolean(aiDetectorStatus?.ready);
+    const aiDetectorBlockedReason = aiDetectorStatus && !aiDetectorStatus.ready
+        ? aiDetectorStatus.reason || 'AI detector is not ready.'
+        : null;
 
     return (
         <div className="grading-dashboard-container">
@@ -790,11 +857,20 @@ const GradingDashboard: React.FC = () => {
                             <p className="ai-modal-note">
                                 Results are a review signal only and should be combined with rubric evidence, test behavior, and plagiarism analysis.
                             </p>
+                            {loadingAiDetectorStatus && (
+                                <p className="ai-inline-error">Checking AI detector readiness...</p>
+                            )}
+                            {aiDetectorBlockedReason && !loadingAiDetectorStatus && (
+                                <p className="ai-inline-error">{aiDetectorBlockedReason}</p>
+                            )}
                             <div className="ai-modal-actions">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => void loadAiRowsForModal()}
+                                    onClick={() => {
+                                        void loadAiDetectorStatus();
+                                        void loadAiRowsForModal();
+                                    }}
                                     disabled={hydratingAiRows || runningAiForAll}
                                 >
                                     {hydratingAiRows ? 'Refreshing…' : 'Refresh'}
@@ -802,7 +878,7 @@ const GradingDashboard: React.FC = () => {
                                 <Button
                                     size="sm"
                                     onClick={() => void handleRunAiForAll()}
-                                    disabled={runningAiForAll || latestSubmissions.length === 0}
+                                    disabled={runningAiForAll || loadingAiDetectorStatus || !aiDetectorReady || latestSubmissions.length === 0}
                                 >
                                     {runningAiForAll ? 'Running for all…' : 'Run for all latest submissions'}
                                 </Button>
@@ -865,7 +941,7 @@ const GradingDashboard: React.FC = () => {
                                                                 size="sm"
                                                                 variant="outline"
                                                                 onClick={() => void runAiForSubmission(sub)}
-                                                                disabled={state?.running || runningAiForAll || !source}
+                                                                disabled={state?.running || runningAiForAll || loadingAiDetectorStatus || !aiDetectorReady || !source}
                                                             >
                                                                 {state?.running ? 'Running…' : 'Run'}
                                                             </Button>

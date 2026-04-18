@@ -34,3 +34,13 @@ def test_feature_risk_notes_warn_for_short_and_comment_heavy_code() -> None:
 
     assert any("short code samples" in note for note in notes)
     assert any("comment density" in note for note in notes)
+
+
+def test_extract_code_features_can_include_structural_signals() -> None:
+    code = "def add(a, b):\n    return a + b\n"
+    features = extract_code_features(code, language="python", include_structural=True)
+
+    assert features["ast_parse_success"] == 1.0
+    assert features["ast_node_count"] > 0.0
+    assert features["ast_tree_depth"] >= 1.0
+    assert features["ast_function_like_count"] >= 1.0

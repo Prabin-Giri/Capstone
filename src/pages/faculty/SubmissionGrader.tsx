@@ -13,6 +13,7 @@ import {
     gradeAssignmentGroup,
     runSubmissionAiDetection,
     getSubmissionAiDetections,
+    getAiDetectorStatus,
 } from '../../lib/api';
 import type {
     Submission,
@@ -21,6 +22,7 @@ import type {
     TestResult,
     AssignmentGroup,
     SubmissionAiDetectionResult,
+    AiDetectorStatusResponse,
 } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
@@ -74,6 +76,8 @@ const SubmissionGrader: React.FC = () => {
     const [loadingAiHistory, setLoadingAiHistory] = useState(false);
     const [runningAiDetection, setRunningAiDetection] = useState(false);
     const [showAiHistoryModal, setShowAiHistoryModal] = useState(false);
+    const [aiDetectorStatus, setAiDetectorStatus] = useState<AiDetectorStatusResponse | null>(null);
+    const [loadingAiDetectorStatus, setLoadingAiDetectorStatus] = useState(false);
 
     // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
     // Using refs instead of state so that saveDraftForCurrent() writes are
@@ -182,6 +186,7 @@ const SubmissionGrader: React.FC = () => {
     useEffect(() => {
         loadData();
         void loadAiHistory();
+        void loadAiDetectorStatus();
     }, [submissionId]);
 
     // Fetch all students for the assignment (once per assignmentId)
@@ -424,6 +429,35 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
+    async function loadAiDetectorStatus(): Promise<AiDetectorStatusResponse | null> {
+        setLoadingAiDetectorStatus(true);
+        try {
+            const status = await getAiDetectorStatus();
+            setAiDetectorStatus(status);
+            return status;
+        } catch (err) {
+            console.error(err);
+            const fallbackStatus: AiDetectorStatusResponse = {
+                enabled: false,
+                ready: false,
+                reason: err instanceof Error ? err.message : 'Could not load AI detector status.',
+                detector: 'offline_ai_detector',
+                paths: {
+                    root: null,
+                    script: null,
+                    config: null,
+                    model_dir: null,
+                    python_bin: null,
+                },
+                model_version: null,
+            };
+            setAiDetectorStatus(fallbackStatus);
+            return fallbackStatus;
+        } finally {
+            setLoadingAiDetectorStatus(false);
+        }
+    }
+
     async function handleRunAiDetection(targetSubmission: Submission) {
         const source = pickDetectableSourceFile(targetSubmission);
         if (!source) {
@@ -432,6 +466,16 @@ const SubmissionGrader: React.FC = () => {
                 type: 'info',
                 title: 'Unsupported file type',
                 message: 'No .py or .java file was found in this submission attempt.',
+            });
+            return;
+        }
+        const status = await loadAiDetectorStatus();
+        if (!status?.ready) {
+            setAlertConfig({
+                show: true,
+                type: 'info',
+                title: 'AI detector unavailable',
+                message: status?.reason || 'AI detector is not ready right now.',
             });
             return;
         }
@@ -806,6 +850,10 @@ const SubmissionGrader: React.FC = () => {
         return 'ai-label-unclear';
     })();
     const activeAttemptDetectableFile = pickDetectableSourceFile(activeAttempt);
+    const aiDetectorReady = Boolean(aiDetectorStatus?.ready);
+    const aiDetectorBlockedReason = aiDetectorStatus && !aiDetectorStatus.ready
+        ? aiDetectorStatus.reason || 'AI detector is not ready.'
+        : null;
 
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
@@ -1287,7 +1335,7 @@ const SubmissionGrader: React.FC = () => {
                                     <Button
                                         size="sm"
                                         onClick={() => void handleRunAiDetection(activeAttempt)}
-                                        disabled={runningAiDetection || !activeAttemptDetectableFile}
+                                        disabled={runningAiDetection || loadingAiDetectorStatus || !activeAttemptDetectableFile || !aiDetectorReady}
                                     >
                                         {runningAiDetection ? 'Running…' : 'Run AI Detection'}
                                     </Button>
@@ -1300,6 +1348,16 @@ const SubmissionGrader: React.FC = () => {
                                         View History
                                     </Button>
                                 </div>
+                                {loadingAiDetectorStatus && (
+                                    <div className="ai-detection-inline-note">
+                                        Checking AI detector readiness...
+                                    </div>
+                                )}
+                                {aiDetectorBlockedReason && !loadingAiDetectorStatus && (
+                                    <div className="ai-detection-inline-note">
+                                        {aiDetectorBlockedReason}
+                                    </div>
+                                )}
                                 {!activeAttemptDetectableFile && (
                                     <div className="ai-detection-inline-note">
                                         No .py or .java file detected in this attempt.

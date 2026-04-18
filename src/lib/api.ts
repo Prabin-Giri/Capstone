@@ -1156,6 +1156,36 @@ export interface RunSubmissionAiDetectionResponse {
     note: string;
 }
 
+export interface AiDetectorStatusResponse {
+    enabled: boolean;
+    ready: boolean;
+    reason: string | null;
+    detector: string;
+    paths: {
+        root: string | null;
+        script: string | null;
+        config: string | null;
+        model_dir: string | null;
+        python_bin: string | null;
+    };
+    model_version: string | null;
+}
+
+export async function getAiDetectorStatus(): Promise<AiDetectorStatusResponse> {
+    const response = await fetch(`${API_BASE}/ai-detector/status`);
+    const payload = await response.json().catch(() => null);
+
+    if (payload && typeof payload === 'object' && typeof payload.ready === 'boolean') {
+        return payload as AiDetectorStatusResponse;
+    }
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch AI detector status.');
+    }
+
+    throw new Error('Invalid AI detector status response.');
+}
+
 export async function runSubmissionAiDetection(
     submissionId: number,
     payload: RunSubmissionAiDetectionRequest = {}

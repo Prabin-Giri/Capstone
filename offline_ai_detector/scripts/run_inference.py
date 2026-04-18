@@ -95,6 +95,12 @@ def _parse_args() -> argparse.Namespace:
         help="Include lightweight code feature values in the output.",
     )
     parser.add_argument(
+        "--structural-features",
+        action="store_true",
+        default=False,
+        help="When --features is set, also include optional AST-derived structural features.",
+    )
+    parser.add_argument(
         "--output-format",
         choices=["json", "pretty"],
         default="pretty",
@@ -317,6 +323,7 @@ def main() -> None:
             min_tokens=config.runtime.min_tokens,
             local_files_only=config.runtime.local_files_only,
             include_features=args.features,
+            include_structural_features=(args.features and args.structural_features),
         )
     except FileNotFoundError as exc:
         logger.error("Artifact not found during inference: %s", exc)

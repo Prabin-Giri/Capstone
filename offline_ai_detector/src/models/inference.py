@@ -297,6 +297,7 @@ def run_single_inference(
     min_tokens: int = 50,
     local_files_only: bool = False,
     include_features: bool = False,
+    include_structural_features: bool = False,
 ) -> InferenceResult:
     """Run the full inference pipeline for a single code submission.
 
@@ -336,7 +337,11 @@ def run_single_inference(
 
     # Rough token count from the feature extractor (cheap, no model pass needed)
     from ..features.code_features import extract_code_features, feature_risk_notes
-    feature_dict = extract_code_features(code, language=language)
+    feature_dict = extract_code_features(
+        code,
+        language=language,
+        include_structural=include_structural_features,
+    )
     token_count_approx = int(feature_dict.get("token_count", 0))
 
     decision = decide_score_band(
