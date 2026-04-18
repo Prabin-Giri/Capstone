@@ -1142,6 +1142,7 @@ export interface SubmissionAiDetectionHistoryResponse {
 export interface RunSubmissionAiDetectionRequest {
     filename?: string;
     language?: 'python' | 'java';
+    batch?: boolean;
 }
 
 export interface RunSubmissionAiDetectionResponse {
@@ -1191,6 +1192,7 @@ export async function runSubmissionAiDetection(
     payload: RunSubmissionAiDetectionRequest = {}
 ): Promise<RunSubmissionAiDetectionResponse> {
     const params = new URLSearchParams({ user_id: getActorUserId() });
+    if (payload.batch) params.append('batch', 'true');
     return apiFetch<RunSubmissionAiDetectionResponse>(
         `/ai-detector/submissions/${submissionId}/run?${params.toString()}`,
         {

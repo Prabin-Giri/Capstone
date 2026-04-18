@@ -466,55 +466,93 @@ router.post('/submissions/:id/run', async (req, res, next) => {
             return res.status(400).json({ error: 'Submission does not contain any stored files.' });
         }
 
+        const isBatch = parseBooleanEnv(req.body?.batch || req.query?.batch);
         const requestedFilename = String(req.body?.filename || req.query?.filename || '').trim();
-        let selectedFile = null;
+        
+        const filesToProcess = [];
 
-        if (requestedFilename) {
-            selectedFile = findStoredFile(files, requestedFilename);
-            if (!selectedFile) {
+        if (isBatch) {
+            // Filter only supported files (.py, .java)
+            for (const file of files) {
+                const name = file?.name || path.basename(file?.path || '');
+                const lang = detectLanguage(name);
+                if (lang) {
+                    filesToProcess.push({ file, language: lang });
+                }
+            }
+            if (filesToProcess.length === 0) {
+                return res.status(400).json({ error: 'No supported files (.py, .java) found in this submission for batch processing.' });
+            }
+        } else {
+            let selectedFile = null;
+            if (requestedFilename) {
+                selectedFile = findStoredFile(files, requestedFilename);
+                if (!selectedFile) {
+                    return res.status(400).json({
+                        error: `File '${requestedFilename}' was not found in this submission.`,
+                        available_files: files.map((file) => file?.name || path.basename(file?.path || '')).filter(Boolean),
+                    });
+                }
+            } else if (files.length === 1) {
+                selectedFile = files[0];
+            } else {
                 return res.status(400).json({
-                    error: `File '${requestedFilename}' was not found in this submission.`,
+                    error: 'Submission has multiple files. Provide `filename` in request body or `batch=true`.',
                     available_files: files.map((file) => file?.name || path.basename(file?.path || '')).filter(Boolean),
                 });
             }
-        } else if (files.length === 1) {
-            selectedFile = files[0];
-        } else {
-            return res.status(400).json({
-                error: 'Submission has multiple files. Provide `filename` in request body or query.',
-                available_files: files.map((file) => file?.name || path.basename(file?.path || '')).filter(Boolean),
-            });
+            const selectedFilename = selectedFile?.name || path.basename(selectedFile?.path || '');
+            const explicitLanguage = String(req.body?.language || '').trim().toLowerCase();
+            const language = explicitLanguage || detectLanguage(selectedFilename);
+            if (!language || !['python', 'java'].includes(language)) {
+                return res.status(400).json({
+                    error: 'Could not determine a supported language for the selected file.',
+                    selected_file: selectedFilename,
+                });
+            }
+            filesToProcess.push({ file: selectedFile, language });
         }
 
-        const selectedFilename = selectedFile?.name || path.basename(selectedFile?.path || '');
-        const explicitLanguage = String(req.body?.language || '').trim().toLowerCase();
-        const language = explicitLanguage || detectLanguage(selectedFilename);
-        if (!language || !['python', 'java'].includes(language)) {
-            return res.status(400).json({
-                error: 'Could not determine a supported language. Provide `language` as `python` or `java`.',
-                selected_file: selectedFilename,
-            });
+        const results = [];
+        for (const item of filesToProcess) {
+            const currentFilename = item.file?.name || path.basename(item.file?.path || '');
+            try {
+                const contentBuffer = await readSubmissionFile(submissionId, item.file);
+                const code = contentBuffer.toString('utf8');
+                const result = await runDetectorOnCode({ code, language: item.language });
+                const persisted = await persistDetectorResult({
+                    submissionId,
+                    fileName: currentFilename,
+                    language: item.language,
+                    detectorResult: result,
+                });
+                results.push({
+                    file_name: currentFilename,
+                    language: item.language,
+                    detection_id: persisted?.id,
+                    recorded_at: persisted?.created_at,
+                    detector_result: result,
+                });
+            } catch (err) {
+                if (isBatch) {
+                    results.push({
+                        file_name: currentFilename,
+                        language: item.language,
+                        error: err.message || 'Detection failed for this file.',
+                    });
+                } else {
+                    throw err;
+                }
+            }
         }
-
-        const contentBuffer = await readSubmissionFile(submissionId, selectedFile);
-        const code = contentBuffer.toString('utf8');
-        const result = await runDetectorOnCode({ code, language });
-        const persisted = await persistDetectorResult({
-            submissionId,
-            fileName: selectedFilename,
-            language,
-            detectorResult: result,
-        });
 
         return res.json({
             submission_id: submissionId,
-            file_name: selectedFilename,
-            language,
-            requested_by: actor?.id || null,
-            detection_id: persisted?.id || null,
-            recorded_at: persisted?.created_at || null,
+            batch: isBatch,
+            count: results.length,
+            results: results,
             model_version: detectorModelVersion(),
-            detector_result: result,
+            requested_by: actor?.id || null,
             note: 'AI detector output is a review signal only, not proof of authorship.',
         });
     } catch (err) {

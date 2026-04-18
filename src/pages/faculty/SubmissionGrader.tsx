@@ -482,15 +482,14 @@ const SubmissionGrader: React.FC = () => {
         setRunningAiDetection(true);
         try {
             await runSubmissionAiDetection(targetSubmission.id, {
-                filename: source.filename,
-                language: source.language,
+                batch: true,
             });
             await loadAiHistory(targetSubmission.id);
             setAlertConfig({
                 show: true,
                 type: 'success',
                 title: 'AI detection complete',
-                message: 'Latest AI detection result has been recorded for this submission.',
+                message: 'All detectable files in this latest attempt have been scanned.',
             });
         } catch (err) {
             console.error(err);
@@ -854,6 +853,24 @@ const SubmissionGrader: React.FC = () => {
     const aiDetectorBlockedReason = aiDetectorStatus && !aiDetectorStatus.ready
         ? aiDetectorStatus.reason || 'AI detector is not ready.'
         : null;
+
+    // Derived AI Detection Summary (Batch Logic)
+    const latestAiStatus = useMemo(() => {
+        if (aiHistory.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
+        
+        // Filter history for the CURRENT active attempt (submissionId)
+        const currentSid = activeAttempt.id;
+        const currentResults = aiHistory.filter(h => h.submission_id === currentSid);
+        
+        if (currentResults.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
+
+        const hasAi = currentResults.some(r => r.label.toLowerCase().includes('likely ai'));
+        const hasUnclear = currentResults.some(r => r.label.toLowerCase().includes('unclear'));
+
+        if (hasAi) return { label: 'Likely AI-written', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
+        if (hasUnclear) return { label: 'Suspicious / Unclear', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
+        return { label: 'Likely Human', signal: 'clean', filesScanned: currentResults.length, results: currentResults };
+    }, [aiHistory, activeAttempt.id]);
 
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
@@ -1312,21 +1329,25 @@ const SubmissionGrader: React.FC = () => {
 
                             <div className="ai-detection-card">
                                 <div className="ai-detection-card-header">
-                                    <span className="autograde-label">AI Detection</span>
-                                    <span className={`ai-label-pill ${latestAiLabelClass}`}>{latestAiLabel}</span>
+                                    <span className="autograde-label">AI Content Analysis</span>
+                                    <div 
+                                        className={`ai-status-pill ${latestAiStatus.signal === 'caution' ? 'caution' : latestAiStatus.signal === 'clean' ? 'clean' : ''}`}
+                                        onClick={() => latestAiStatus.filesScanned > 0 && setShowAiHistoryModal(true)}
+                                        style={{ cursor: latestAiStatus.filesScanned > 0 ? 'pointer' : 'default' }}
+                                    >
+                                        {latestAiStatus.signal === 'caution' ? <ShieldAlert size={14} /> : null}
+                                        {latestAiStatus.label}
+                                    </div>
                                 </div>
                                 <div className="ai-detection-card-meta">
                                     <div>
-                                        Score:{' '}
-                                        <strong>
-                                            {latestAiScore != null ? Number(latestAiScore).toFixed(3) : 'n/a'}
-                                        </strong>
+                                        Files scanned: <strong>{latestAiStatus.filesScanned}</strong>
                                     </div>
                                     <div>
-                                        Last run:{' '}
+                                        Last scan:{' '}
                                         <strong>
-                                            {latestAiResult?.created_at
-                                                ? new Date(latestAiResult.created_at).toLocaleString()
+                                            {latestAiStatus.filesScanned > 0
+                                                ? new Date(latestAiStatus.results![0].created_at).toLocaleString()
                                                 : 'Never'}
                                         </strong>
                                     </div>
@@ -1335,18 +1356,20 @@ const SubmissionGrader: React.FC = () => {
                                     <Button
                                         size="sm"
                                         onClick={() => void handleRunAiDetection(activeAttempt)}
-                                        disabled={runningAiDetection || loadingAiDetectorStatus || !activeAttemptDetectableFile || !aiDetectorReady}
+                                        disabled={runningAiDetection || loadingAiDetectorStatus || !aiDetectorReady}
+                                        className="btn-batch-ai"
                                     >
-                                        {runningAiDetection ? 'Running…' : 'Run AI Detection'}
+                                        {runningAiDetection ? 'Analyzing All Files...' : 'Scan Latest Submission'}
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowAiHistoryModal(true)}
-                                        disabled={loadingAiHistory}
-                                    >
-                                        View History
-                                    </Button>
+                                    {latestAiStatus.filesScanned > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowAiHistoryModal(true)}
+                                        >
+                                            View Details
+                                        </Button>
+                                    )}
                                 </div>
                                 {loadingAiDetectorStatus && (
                                     <div className="ai-detection-inline-note">
@@ -1546,44 +1569,57 @@ const SubmissionGrader: React.FC = () => {
                 <div className="modal-overlay" onClick={() => setShowAiHistoryModal(false)}>
                     <div className="modal-content ai-history-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 className="modal-title">AI Detection History</h3>
+                            <h3 className="modal-title">AI Detection Report</h3>
                             <button className="modal-close" onClick={() => setShowAiHistoryModal(false)}>✕</button>
                         </div>
                         <div className="modal-body">
-                            {loadingAiHistory ? (
-                                <p className="ai-history-empty">Loading AI detection history...</p>
-                            ) : aiHistory.length === 0 ? (
-                                <p className="ai-history-empty">No AI detection runs recorded yet.</p>
+                            <div className="ai-report-summary-header">
+                                <div className={`ai-status-pill ${latestAiStatus.signal === 'caution' ? 'caution' : latestAiStatus.signal === 'clean' ? 'clean' : ''}`}>
+                                    {latestAiStatus.signal === 'caution' ? <ShieldAlert size={16} /> : null}
+                                    {latestAiStatus.label}
+                                </div>
+                                <p className="ai-report-context">
+                                    Analyzed {latestAiStatus.filesScanned} file(s) from Attempt {activeAttemptIndex + 1}.
+                                </p>
+                            </div>
+
+                            {latestAiStatus.filesScanned === 0 ? (
+                                <p className="ai-history-empty">No AI detection results found for this attempt.</p>
                             ) : (
-                                <div className="ai-history-list">
-                                    {aiHistory.map((entry) => {
-                                        const score = entry.calibrated_score ?? entry.raw_score;
-                                        return (
-                                            <div key={entry.id} className="ai-history-item">
-                                                <div className="ai-history-item-top">
-                                                    <span className={`ai-label-pill ${
-                                                        entry.label.toLowerCase().includes('likely ai')
-                                                            ? 'ai-label-ai'
-                                                            : entry.label.toLowerCase().includes('likely human')
-                                                                ? 'ai-label-human'
-                                                                : 'ai-label-unclear'
-                                                    }`}>
-                                                        {entry.label}
-                                                    </span>
-                                                    <span className="ai-history-time">
-                                                        {new Date(entry.created_at).toLocaleString()}
-                                                    </span>
+                                <div className="ai-report-file-list">
+                                    {latestAiStatus.results!.map((entry) => (
+                                        <div key={entry.id} className="ai-report-file-item">
+                                            <div className="ai-report-file-top">
+                                                <span className="ai-report-filename">{entry.file_name}</span>
+                                                <span className={`ai-label-pill sm ${
+                                                    entry.label.toLowerCase().includes('likely ai') ? 'ai-label-ai' :
+                                                    entry.label.toLowerCase().includes('likely human') ? 'ai-label-human' : 'ai-label-unclear'
+                                                }`}>
+                                                    {entry.label}
+                                                </span>
+                                            </div>
+                                            <div className="ai-report-file-details">
+                                                <div className="ai-report-metric">
+                                                    Confidence Score: <strong>{(entry.calibrated_score ?? entry.raw_score ?? 0).toFixed(3)}</strong>
                                                 </div>
-                                                <div className="ai-history-item-meta">
-                                                    <span>File: <strong>{entry.file_name}</strong></span>
-                                                    <span>Score: <strong>{score != null ? Number(score).toFixed(3) : 'n/a'}</strong></span>
-                                                    <span>Model: <strong>{entry.model_version || 'unknown'}</strong></span>
+                                                <div className="ai-report-metric">
+                                                    Language: <strong>{entry.language}</strong>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                            {entry.label.toLowerCase().includes('ai') && (
+                                                <div className="ai-report-warning-note">
+                                                    This file contains patterns consistent with AI-generated code.
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
+
+                            <div className="ai-report-disclaimer">
+                                <ShieldAlert size={14} />
+                                <span>Note: AI detection is a probabilistic estimate. Always manually review flagged code before taking action.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
