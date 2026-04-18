@@ -23,6 +23,20 @@ fi
 echo "[deploy] app dir: $APP_DIR"
 cd "$APP_DIR"
 
+# 1. Integrate Cleanup
+if [ -f "server/scripts/cleanup-ec2.sh" ]; then
+  echo "[deploy] running disk cleanup before installation..."
+  bash server/scripts/cleanup-ec2.sh
+fi
+
+# 2. Disk Space Check
+AVAIL_MB=$(df -m / | tail -n 1 | awk '{print $4}')
+if [ "$AVAIL_MB" -lt 500 ]; then
+  echo "[deploy] WARNING: Critically low disk space ($AVAIL_MB MB available)."
+  echo "[deploy] Attempting more aggressive cleanup..."
+  rm -rf offline_ai_detector/.venv || true
+fi
+
 if [ -f "$APP_DIR/.env" ]; then
   echo "[deploy] loading env vars from $APP_DIR/.env"
   set -a
@@ -44,9 +58,20 @@ cd "$APP_DIR"
 if [ "${AI_DETECTOR_ENABLED:-false}" = "true" ]; then
   echo "[deploy] AI detector is enabled; installing detector python dependencies"
   cd offline_ai_detector
-  python3 -m venv .venv
+  if [ ! -d ".venv" ]; then
+    python3 -m venv .venv
+  fi
   .venv/bin/python -m pip install --upgrade pip --no-cache-dir
-  .venv/bin/python -m pip install -r requirements.txt --no-cache-dir
+  # If installation fails once, try cleaning .venv and retrying
+  if ! .venv/bin/python -m pip install -r requirements.txt --no-cache-dir; then
+    echo "[deploy] Pip install failed. Retrying with fresh .venv..."
+    cd ..
+    rm -rf offline_ai_detector/.venv
+    cd offline_ai_detector
+    python3 -m venv .venv
+    .venv/bin/python -m pip install --upgrade pip --no-cache-dir
+    .venv/bin/python -m pip install -r requirements.txt --no-cache-dir
+  fi
   cd "$APP_DIR"
 fi
 

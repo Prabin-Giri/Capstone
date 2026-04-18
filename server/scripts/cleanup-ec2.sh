@@ -5,11 +5,20 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-$HOME/Capstone}"
-echo "[cleanup] Starting disk cleanup in $APP_DIR"
+echo "[cleanup] Starting disk cleanup..."
 
-# 1. Clean System Package Cache
-echo "[cleanup] Cleaning system package cache..."
+# Function to show disk usage
+show_disk_usage() {
+    echo "[cleanup] Current disk usage on /:"
+    df -h / | tail -n 1 | awk '{print "Total: "$2", Used: "$3", Avail: "$4" ("$5")"}'
+}
+
+show_disk_usage
+
+# 1. Clean System Packages
+echo "[cleanup] Cleaning system packages..."
 sudo apt-get clean || true
+sudo apt-get autoremove -y || true
 
 # 2. Clean Node.js / NPM Cache
 echo "[cleanup] Cleaning NPM cache..."
@@ -27,9 +36,10 @@ echo "[cleanup] Flushing PM2 logs..."
 pm2 flush || true
 
 # 5. Remove Temporary AI Detector Files
-echo "[cleanup] Removing temporary AI detector files..."
+echo "[cleanup] Removing temporary files..."
 rm -rf /tmp/ai-detector-* || true
+rm -rf "$APP_DIR/offline_ai_detector/model_cache/"* || true
 
-# 6. Check Disk Space
-echo "[cleanup] Cleanup complete. Current disk usage:"
-df -h /
+# 6. Final Report
+echo "[cleanup] Cleanup complete."
+show_disk_usage
