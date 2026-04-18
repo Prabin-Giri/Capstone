@@ -29,4 +29,14 @@ jobs:
             if [ -z "$PM2_APP_NAME" ]; then
               PM2_APP_NAME="autograde-backend"
             fi
-            bash "$APP_DIR/server/scripts/deploy-ec2.sh"
+            if [ -f "$APP_DIR/server/scripts/deploy-ec2.sh" ]; then
+              bash "$APP_DIR/server/scripts/deploy-ec2.sh"
+            elif [ -f "$APP_DIR/scripts/deploy-ec2.sh" ]; then
+              bash "$APP_DIR/scripts/deploy-ec2.sh"
+            elif [ -f "$HOME/Capstone/server/scripts/deploy-ec2.sh" ]; then
+              export APP_DIR="$HOME/Capstone"
+              bash "$APP_DIR/server/scripts/deploy-ec2.sh"
+            else
+              echo "[deploy] could not find deploy script from APP_DIR=$APP_DIR"
+              exit 1
+            fi

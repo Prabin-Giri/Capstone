@@ -4,6 +4,18 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-$HOME/Capstone}"
 PM2_APP_NAME="${PM2_APP_NAME:-autograde-backend}"
 
+# Support both repo root (~/Capstone) and backend dir (~/Capstone/server).
+if [ -d "$APP_DIR/server" ]; then
+  :
+elif [ -d "$APP_DIR" ] && [ "$(basename "$APP_DIR")" = "server" ]; then
+  APP_DIR="$(dirname "$APP_DIR")"
+elif [ -d "$HOME/Capstone/server" ]; then
+  APP_DIR="$HOME/Capstone"
+else
+  echo "[deploy] could not locate repository root from APP_DIR=$APP_DIR"
+  exit 1
+fi
+
 echo "[deploy] app dir: $APP_DIR"
 cd "$APP_DIR"
 
