@@ -78,6 +78,8 @@ const SubmissionGrader: React.FC = () => {
     const [showAiHistoryModal, setShowAiHistoryModal] = useState(false);
     const [aiDetectorStatus, setAiDetectorStatus] = useState<AiDetectorStatusResponse | null>(null);
     const [loadingAiDetectorStatus, setLoadingAiDetectorStatus] = useState(false);
+    const [aiSummary, setAiSummary] = useState<Record<number, { caution: boolean; clean: boolean; last_run: string }>>({});
+    const [loadingAiSummary, setLoadingAiSummary] = useState(false);
 
     // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
     // Using refs instead of state so that saveDraftForCurrent() writes are
@@ -187,6 +189,7 @@ const SubmissionGrader: React.FC = () => {
         loadData();
         void loadAiHistory();
         void loadAiDetectorStatus();
+        if (assignmentId) void loadAiSummary(assignmentId);
     }, [submissionId]);
 
     // Fetch all students for the assignment (once per assignmentId)
@@ -429,6 +432,20 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
+    async function loadAiSummary(aid?: string) {
+        const id = aid || assignmentId;
+        if (!id) return;
+        setLoadingAiSummary(true);
+        try {
+            const data = await getAssignmentAiSummary(id);
+            setAiSummary(data.summary || {});
+        } catch (err) {
+            console.error('Failed to load AI summary:', err);
+        } finally {
+            setLoadingAiSummary(false);
+        }
+    }
+
     async function loadAiDetectorStatus(): Promise<AiDetectorStatusResponse | null> {
         setLoadingAiDetectorStatus(true);
         try {
@@ -485,6 +502,7 @@ const SubmissionGrader: React.FC = () => {
                 batch: true,
             });
             await loadAiHistory(targetSubmission.id);
+            if (assignmentId) void loadAiSummary(assignmentId);
             setAlertConfig({
                 show: true,
                 type: 'success',
@@ -824,6 +842,24 @@ const SubmissionGrader: React.FC = () => {
         document.addEventListener('mousedown', handleClick);
         return () => document.removeEventListener('mousedown', handleClick);
     }, [showPlagPopover]);
+    
+    // Derived AI Detection Summary (Batch Logic)
+    const latestAiStatus = useMemo(() => {
+        if (aiHistory.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
+        
+        // Filter history for the CURRENT active attempt (submissionId)
+        const currentSid = activeAttempt.id;
+        const currentResults = aiHistory.filter(h => h.submission_id === currentSid);
+        
+        if (currentResults.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
+
+        const hasAi = currentResults.some(r => r.label.toLowerCase().includes('likely ai'));
+        const hasUnclear = currentResults.some(r => r.label.toLowerCase().includes('unclear'));
+
+        if (hasAi) return { label: 'Likely AI-written', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
+        if (hasUnclear) return { label: 'Suspicious / Unclear', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
+        return { label: 'Likely Human', signal: 'clean', filesScanned: currentResults.length, results: currentResults };
+    }, [aiHistory, activeAttempt.id]);
 
     if (loading) return <div className="grader-container"><div className="grader-loading">Loading...</div></div>;
     if (!submission || !assignment) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
@@ -854,23 +890,6 @@ const SubmissionGrader: React.FC = () => {
         ? aiDetectorStatus.reason || 'AI detector is not ready.'
         : null;
 
-    // Derived AI Detection Summary (Batch Logic)
-    const latestAiStatus = useMemo(() => {
-        if (aiHistory.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
-        
-        // Filter history for the CURRENT active attempt (submissionId)
-        const currentSid = activeAttempt.id;
-        const currentResults = aiHistory.filter(h => h.submission_id === currentSid);
-        
-        if (currentResults.length === 0) return { label: 'Not run', signal: 'none', filesScanned: 0 };
-
-        const hasAi = currentResults.some(r => r.label.toLowerCase().includes('likely ai'));
-        const hasUnclear = currentResults.some(r => r.label.toLowerCase().includes('unclear'));
-
-        if (hasAi) return { label: 'Likely AI-written', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
-        if (hasUnclear) return { label: 'Suspicious / Unclear', signal: 'caution', filesScanned: currentResults.length, results: currentResults };
-        return { label: 'Likely Human', signal: 'clean', filesScanned: currentResults.length, results: currentResults };
-    }, [aiHistory, activeAttempt.id]);
 
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
@@ -975,7 +994,14 @@ const SubmissionGrader: React.FC = () => {
                                                                                         size={34}
                                                                                     />
                                                                                     <div className="student-list-info">
-                                                                                        <span className="student-list-name">{displayName}</span>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                            <span className="student-list-name">{displayName}</span>
+                                                                                            {aiSummary[s.id] && (
+                                                                                                <div className={`student-list-ai-icon ${aiSummary[s.id].caution ? 'caution' : 'clean'}`} title={aiSummary[s.id].caution ? 'AI Flags Detected' : 'Likely Human'}>
+                                                                                                    <ShieldAlert size={10} />
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
                                                                                         {isModified && <span className="unsaved-dot" title="Unsaved draft">●</span>}
                                                                                     </div>
                                                                                     <div className={`student-grade-badge ${isModified ? 'draft' : hasGradeValue ? 'graded' : 'pending'}`}>
@@ -1016,7 +1042,14 @@ const SubmissionGrader: React.FC = () => {
                                             size={34}
                                         />
                                         <div className="student-list-info">
-                                            <span className="student-list-name">{displayName}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span className="student-list-name">{displayName}</span>
+                                                {aiSummary[s.id] && (
+                                                    <div className={`student-list-ai-icon ${aiSummary[s.id].caution ? 'caution' : 'clean'}`} title={aiSummary[s.id].caution ? 'AI Flags Detected' : 'Likely Human'}>
+                                                        <ShieldAlert size={10} />
+                                                    </div>
+                                                )}
+                                            </div>
                                             {isModified && <span className="unsaved-dot" title="Draft — not yet posted">●</span>}
                                         </div>
                                         <div className={`student-grade-badge ${isModified ? 'draft' : hasGradeValue ? 'graded' : 'pending'}`}>

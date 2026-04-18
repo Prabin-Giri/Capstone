@@ -1825,3 +1825,28 @@ input:checked + .slider:before {
     flex-shrink: 0;
     margin-top: 2px;
 }
+
+/* AI Status Icons in Sidebar */
+.student-list-ai-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.student-list-ai-icon.caution {
+    color: #ef4444;
+    background: #fef2f2;
+}
+
+.student-list-ai-icon.clean {
+    color: #22c55e;
+    background: #f0fdf4;
+}
+
+.student-list-ai-icon svg {
+    stroke-width: 3px;
+}

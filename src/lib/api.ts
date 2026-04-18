@@ -1270,6 +1270,15 @@ export async function getSubmissionAiDetections(
     );
 }
 
+export async function getAssignmentAiSummary(
+    assignmentId: string
+): Promise<{ assignment_id: string; summary: Record<number, { caution: boolean; clean: boolean; last_run: string }> }> {
+    const params = new URLSearchParams({ user_id: getActorUserId() });
+    return apiFetch<{ assignment_id: string; summary: Record<number, { caution: boolean; clean: boolean; last_run: string }> }>(
+        `/ai-detector/assignments/${assignmentId}/summary?${params.toString()}`
+    );
+}
+
 // ============ Messaging / Inbox ============
 
 export interface MessageContact {

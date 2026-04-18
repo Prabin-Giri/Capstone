@@ -645,4 +645,49 @@ router.get('/submissions/:id/results', async (req, res, next) => {
     }
 });
 
+router.get('/assignments/:assignmentId/summary', async (req, res, next) => {
+    try {
+        const actor = await resolveActor(req, res);
+        if (requireDetectorUserContext() && !actor) return;
+
+        const assignmentId = req.params.assignmentId;
+        const db = getDb();
+
+        // Get the latest detection label for each submission in this assignment
+        const [rows] = await db.execute(
+            `SELECT 
+                s.id as submission_id,
+                d.label,
+                d.created_at
+            FROM submissions s
+            JOIN (
+                SELECT submission_id, label, created_at,
+                       ROW_NUMBER() OVER (PARTITION BY submission_id ORDER BY id DESC) as rn
+                FROM submission_ai_detections
+            ) d ON s.id = d.submission_id AND d.rn = 1
+            WHERE s.assignment_id = ?`,
+            [assignmentId]
+        );
+
+        const summary = {};
+        rows.forEach(row => {
+            const hasAi = String(row.label).toLowerCase().includes('likely ai');
+            const hasUnclear = String(row.label).toLowerCase().includes('unclear');
+            
+            summary[row.submission_id] = {
+                caution: hasAi || hasUnclear,
+                clean: !hasAi && !hasUnclear && String(row.label).toLowerCase().includes('likely human'),
+                last_run: row.created_at
+            };
+        });
+
+        return res.json({
+            assignment_id: assignmentId,
+            summary: summary
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;
