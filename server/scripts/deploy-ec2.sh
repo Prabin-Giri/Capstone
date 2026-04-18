@@ -63,16 +63,18 @@ if [ "${AI_DETECTOR_ENABLED:-false}" = "true" ]; then
     python3 -m venv .venv
   fi
   .venv/bin/python -m pip install --upgrade pip --no-cache-dir
-  # If installation fails once, try cleaning .venv and retrying
-  if ! .venv/bin/python -m pip install -r requirements.txt --no-cache-dir; then
-    echo "[deploy] Pip install failed. Retrying with fresh .venv..."
-    cd ..
-    rm -rf offline_ai_detector/.venv
-    cd offline_ai_detector
-    python3 -m venv .venv
-    .venv/bin/python -m pip install --upgrade pip --no-cache-dir
-    .venv/bin/python -m pip install -r requirements.txt --no-cache-dir
-  fi
+
+  # Install torch CPU-only FIRST from PyTorch's CPU index.
+  # The default torch now ships ~2.7GB of CUDA/nvidia libraries.
+  # This EC2 has no GPU, so CPU-only (~200MB) is all we need.
+  echo "[deploy] installing torch (CPU-only)..."
+  .venv/bin/python -m pip install torch --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu
+
+  # Install remaining requirements. torch is already satisfied so pip skips it.
+  echo "[deploy] installing remaining python dependencies..."
+  .venv/bin/python -m pip install -r requirements.txt --no-cache-dir
+
   cd "$APP_DIR"
 fi
 
