@@ -95,4 +95,18 @@ jobs:
             df -h /
             # ── End cleanup ──
 
+            # ── Pull latest code BEFORE running deploy script ──
+            # This ensures bash runs the NEWEST deploy-ec2.sh, not the stale one.
+            echo "[deploy] pulling latest code to update deploy script..."
+            cd "$APP_DIR"
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+            echo "[deploy] deploy script updated, now executing..."
+            # ── End pull ──
+
+            # ── Clean corrupted venv from previous failed installs ──
+            rm -rf "$APP_DIR/offline_ai_detector/.venv" || true
+            # ── End venv cleanup ──
+
             bash "$SCRIPT_PATH"
