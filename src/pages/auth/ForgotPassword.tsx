@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, CheckCircle, ChevronLeft } from 'lucide-react';
 import { forgotPassword } from '../../lib/api';
+import { AgnosTitle } from '../../components/branding/AgnosTitle';
 import './Login.css';
 
 const ForgotPassword: React.FC = () => {
@@ -33,8 +34,7 @@ const ForgotPassword: React.FC = () => {
         <div className="login-container">
             <div className="auth-card">
                 <div className="auth-card-logo">
-                    <img src="/ulm-logo.png" alt="Agnos" />
-                    <h1 className="auth-card-logo-name">Agnos</h1>
+                    <AgnosTitle variant="auth" />
                 </div>
 
                 {success ? (

@@ -4,13 +4,111 @@
     margin: 0;
 }
 
+/* Maroon header panel (brand) — text/chips tuned for contrast */
 .details-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 2rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem;
+    background-color: var(--primary-color);
+    border: 1px solid var(--primary-hover);
+    border-radius: 0.5rem;
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+}
+
+.details-header .details-title {
+    color: #fff;
+}
+
+.details-header .meta-label {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.details-header .meta-value {
+    color: #fff;
+}
+
+.details-header .meta-icon {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.details-header .grade-label {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.details-header .grade-value {
+    color: #fff;
+}
+
+.details-header-group-chip {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.details-header-lang-chip {
+    margin: 0;
+    padding: 2px 6px;
+    border-radius: 8px;
+    flex-direction: column;
+    gap: 0;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.details-header-policy {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.details-header-policy b {
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Status pill: light chip on maroon so tints stay readable */
+.details-header .status-late,
+.details-header .status-warning {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: #92400e;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.details-header .status-success,
+.details-header .status-active {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: var(--success-color);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.details-header .status-error,
+.details-header .status-closed {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: var(--danger-color);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.details-header .status-info {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: #1d4ed8;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.details-header .status-neutral {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 .details-header-left {
@@ -212,6 +310,15 @@
     border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
     font-size: 0.875rem;
+}
+
+.rubric-student-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.35rem;
 }
 
 .action-bar {

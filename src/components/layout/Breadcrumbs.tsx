@@ -17,15 +17,13 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ courseId }) => {
 
     const basePath = `/student/courses/${courseId}`;
     const pathSegments = location.pathname.split('/').filter(Boolean);
-    const crumbs: { label: string; to: string }[] = [
-        { label: course.name, to: basePath },
-    ];
+    const crumbs: { label: string; to: string }[] = [];
 
     const assignmentsIndex = pathSegments.indexOf('assignments');
     if (assignmentsIndex !== -1) {
-        crumbs.push({ label: 'Assignments', to: `${basePath}/assignments` });
         const assignmentId = pathSegments[assignmentsIndex + 1];
         if (assignmentId) {
+            crumbs.push({ label: 'Assignments', to: `${basePath}/assignments` });
             const assignment = assignments.find(
                 (item) => item.courseId === courseId && item.id === assignmentId
             );
@@ -39,6 +37,15 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ courseId }) => {
     const gradesIndex = pathSegments.indexOf('grades');
     if (gradesIndex !== -1) {
         crumbs.push({ label: 'Grades', to: `${basePath}/grades` });
+    }
+
+    if (crumbs.length === 0) {
+        return null;
+    }
+
+    /* Avoid a redundant strip when the only crumb repeats the page title (course nav is enough). */
+    if (crumbs.length === 1 && crumbs[0].label === 'Grades') {
+        return null;
     }
 
     return (

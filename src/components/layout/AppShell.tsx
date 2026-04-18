@@ -18,6 +18,11 @@ const AppShell: React.FC = () => {
         role === AUTH_ROLES.FACULTY ? '/faculty' :
         role === AUTH_ROLES.ADMIN ? '/admin' :
         '/student';
+    const homeNavLabel =
+        role === AUTH_ROLES.FACULTY ? 'Faculty Dashboard' :
+        role === AUTH_ROLES.ADMIN ? 'Admin Dashboard' :
+        role === AUTH_ROLES.TA ? 'TA Dashboard' :
+        'Student Dashboard';
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [isAccountOpen, setIsAccountOpen] = useState(false);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -92,10 +97,26 @@ const AppShell: React.FC = () => {
         return () => document.body.classList.remove('no-scroll');
     }, [isAccountOpen, isMobileSidebarOpen, isHelpOpen]);
 
-    const courseMatch =
-        matchPath({ path: '/student/courses/:courseId/*', end: false }, location.pathname) ||
-        matchPath('/student/courses/:courseId', location.pathname);
-    const courseId = courseMatch?.params.courseId;
+    const path = location.pathname;
+    const studentCourseMatch =
+        matchPath({ path: '/student/courses/:courseId/*', end: false }, path) ||
+        matchPath({ path: '/student/courses/:courseId', end: true }, path);
+    const facultyCourseMatch =
+        matchPath({ path: '/faculty/courses/:courseId/*', end: false }, path) ||
+        matchPath({ path: '/faculty/courses/:courseId', end: true }, path);
+    const taCourseMatch =
+        matchPath({ path: '/ta/courses/:courseId/*', end: false }, path) ||
+        matchPath({ path: '/ta/courses/:courseId', end: true }, path);
+    const courseMatch = studentCourseMatch || facultyCourseMatch || taCourseMatch;
+    const rawCourseId = courseMatch?.params.courseId;
+    /* `/faculty/courses/new` must not mount the course shell */
+    const courseId = rawCourseId && rawCourseId !== 'new' ? rawCourseId : undefined;
+    const showStudentBreadcrumbs = Boolean(studentCourseMatch && courseId);
+    /* Faculty course bar (Students, Manage Course, …) only on course home — not assignments, gradebook, etc. */
+    const isFacultyCommandCenter =
+        Boolean(facultyCourseMatch && courseId) && /^\/faculty\/courses\/[^/]+\/?$/.test(path);
+    const showCoursePageShell =
+        Boolean(courseId) && (Boolean(studentCourseMatch) || Boolean(taCourseMatch) || isFacultyCommandCenter);
 
     const handleNavigate = () => {
         setIsMobileSidebarOpen(false);
@@ -145,11 +166,11 @@ const AppShell: React.FC = () => {
                                 ? location.pathname.replace(/\/grading\/[^/]+$/, '/grading')
                                 : location.pathname;
 
-                            return courseId ? (
+                            return showCoursePageShell && courseId ? (
                                 <div className="course-page-layout">
                                     <CourseSidebar courseId={courseId} />
                                     <div className="course-page-content">
-                                        <Breadcrumbs courseId={courseId} />
+                                        {showStudentBreadcrumbs ? <Breadcrumbs courseId={courseId} /> : null}
                                         <div className="page-transition" key={transitionKey}>
                                             <Outlet />
                                         </div>
@@ -173,7 +194,7 @@ const AppShell: React.FC = () => {
                     onClick={handleNavigate}
                 >
                     <LayoutDashboard size={20} />
-                    <span>Dashboard</span>
+                    <span>{homeNavLabel}</span>
                 </NavLink>
                 <NavLink
                     to="/calendar"

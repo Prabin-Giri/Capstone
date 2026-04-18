@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { login } from '../../lib/auth';
 import { loginRequest } from '../../lib/api';
+import { AgnosTitle } from '../../components/branding/AgnosTitle';
 import './Login.css';
 
 const REMEMBER_KEY = 'login_remember_email';
@@ -48,8 +49,7 @@ const Login: React.FC = () => {
         <div className="login-container">
             <div className="auth-card">
                 <div className="auth-card-logo">
-                    <img src="/ulm-logo.png" alt="Agnos" />
-                    <h1 className="auth-card-logo-name">Agnos</h1>
+                    <AgnosTitle variant="auth" />
                 </div>
 
                 <div className="auth-form-header">

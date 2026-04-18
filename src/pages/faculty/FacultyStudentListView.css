@@ -8,9 +8,36 @@
 .student-list-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 1.25rem;
+}
+
+.student-list-enroll-fab {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: none;
+  background: var(--primary-color);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(132, 0, 41, 0.35);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.student-list-enroll-fab:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(132, 0, 41, 0.4);
+}
+
+.student-list-enroll-fab:focus-visible {
+  outline: 2px solid var(--secondary-color);
+  outline-offset: 2px;
 }
 
 .breadcrumb {
@@ -66,7 +93,7 @@
 
 .student-table th:last-child,
 .student-table td:last-child {
-  width: 340px;
+  width: 220px;
   text-align: right;
   white-space: nowrap;
 }

@@ -4,6 +4,7 @@ import { LayoutDashboard, Calendar, Mail, HelpCircle } from 'lucide-react';
 import { getRole, AUTH_ROLES, getUser } from '../../lib/auth';
 import UserAvatar from '../ui/UserAvatar';
 import { cancelDialog } from '../ui/Dialog';
+import { AgnosTitle } from '../branding/AgnosTitle';
 import './Layout.css';
 
 interface GlobalSidebarProps {
@@ -21,6 +22,11 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
         role === AUTH_ROLES.FACULTY ? '/faculty' :
         role === AUTH_ROLES.ADMIN ? '/admin' :
         '/student';
+    const homeNavLabel =
+        role === AUTH_ROLES.FACULTY ? 'Faculty Dashboard' :
+        role === AUTH_ROLES.ADMIN ? 'Admin Dashboard' :
+        role === AUTH_ROLES.TA ? 'TA Dashboard' :
+        'Student Dashboard';
     const [userData, setUserData] = React.useState(getUser());
     const location = useLocation();
 
@@ -46,8 +52,8 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
             }}
         >
             <div className="global-sidebar-header">
-                <NavLink to={dashboardPath} onClick={onNavigate} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src="/ulm-logo.png" alt="ULM Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
+                <NavLink to={dashboardPath} onClick={onNavigate} className="global-sidebar-brand" aria-label="Agnos home">
+                    <AgnosTitle variant="sidebar" />
                 </NavLink>
             </div>
 
@@ -76,7 +82,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onNavigate, onTog
                     className={() => `global-nav-link ${isDashboardActive && !isAccountOpen ? 'active' : ''}`}
                 >
                     <LayoutDashboard size={24} />
-                    <span className="global-nav-text">Dashboard</span>
+                    <span className="global-nav-text">{homeNavLabel}</span>
                 </NavLink>
 
                 <NavLink

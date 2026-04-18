@@ -1,13 +1,109 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, matchPath } from 'react-router-dom';
 import { Bell, Menu, Moon, Sun, Monitor, MessageSquare, Calendar as CalendarIcon, CheckCheck, Inbox, ArrowRight } from 'lucide-react';
-import { getUser, getRole, AUTH_ROLES } from '../../lib/auth';
+import { getUser, getRole, AUTH_ROLES, type AuthRole } from '../../lib/auth';
 import { getUnreadCount, getConversations, getAssignments } from '../../lib/api';
 import type { Conversation, Assignment } from '../../lib/api';
 import './Layout.css';
 
 interface TopbarProps {
     onToggleSidebar: () => void;
+}
+
+const APP_NAME = 'Agnos';
+
+type RouteTitleRule = { pattern: string; title: string };
+
+function normalizePathname(pathname: string): string {
+    if (pathname.length > 1 && pathname.endsWith('/')) {
+        return pathname.replace(/\/+$/, '');
+    }
+    return pathname;
+}
+
+function titleFromPatterns(path: string, rules: RouteTitleRule[]): string | null {
+    for (const { pattern, title } of rules) {
+        if (matchPath({ path: pattern, end: true }, path)) {
+            return title;
+        }
+    }
+    return null;
+}
+
+/** Faculty course workspace (excludes `/faculty/courses/new`). Order: most specific first. */
+const FACULTY_COURSE_TITLE_RULES: RouteTitleRule[] = [
+    { pattern: '/faculty/courses/:courseId/assignments/:assignmentId/grading/:submissionId', title: 'Grade Submission' },
+    { pattern: '/faculty/courses/:courseId/assignments/:assignmentId/grading', title: 'Grading' },
+    { pattern: '/faculty/courses/:courseId/assignments/:assignmentId/edit', title: 'Edit Assignment' },
+    { pattern: '/faculty/courses/:courseId/assignments/new', title: 'Create Assignment' },
+    { pattern: '/faculty/courses/:courseId/assignments/:assignmentId', title: 'Assignment' },
+    { pattern: '/faculty/courses/:courseId/assignments', title: 'Assignments' },
+    { pattern: '/faculty/courses/:courseId/gradebook', title: 'Gradebook' },
+    { pattern: '/faculty/courses/:courseId/students', title: 'Students' },
+    { pattern: '/faculty/courses/:courseId', title: 'Course Overview' },
+];
+
+const STUDENT_COURSE_TITLE_RULES: RouteTitleRule[] = [
+    { pattern: '/student/courses/:courseId/assignments/:assignmentId/submissions/:submissionId', title: 'Submission' },
+    { pattern: '/student/courses/:courseId/assignments/:assignmentId', title: 'Assignment' },
+    { pattern: '/student/courses/:courseId/assignments', title: 'Assignments' },
+    { pattern: '/student/courses/:courseId/grades', title: 'Grades' },
+    { pattern: '/student/courses/:courseId', title: 'Course' },
+];
+
+const TA_COURSE_TITLE_RULES: RouteTitleRule[] = [
+    { pattern: '/ta/courses/:courseId/assignments/:assignmentId/grading/:submissionId', title: 'Grade Submission' },
+    { pattern: '/ta/courses/:courseId/assignments/:assignmentId/grading', title: 'Grading' },
+    { pattern: '/ta/courses/:courseId/gradebook', title: 'Gradebook' },
+    { pattern: '/ta/courses/:courseId/students', title: 'Students' },
+    { pattern: '/ta/courses/:courseId', title: 'Course Overview' },
+];
+
+function resolvePageTitle(pathname: string, role: AuthRole | null): string {
+    const path = normalizePathname(pathname);
+
+    if (path === '/inbox' || path.startsWith('/inbox/')) return 'Inbox';
+    if (path === '/calendar' || path.startsWith('/calendar/')) return 'Calendar';
+
+    if (path === '/student') {
+        return role === AUTH_ROLES.TA ? 'TA Dashboard' : 'Student Dashboard';
+    }
+
+    if (path.startsWith('/student/courses/')) {
+        const t = titleFromPatterns(path, STUDENT_COURSE_TITLE_RULES);
+        if (t) return t;
+    }
+
+    if (path.startsWith('/ta/courses/')) {
+        const t = titleFromPatterns(path, TA_COURSE_TITLE_RULES);
+        if (t) return t;
+    }
+    if (path === '/ta/plagscan') return 'Plagiarism Review';
+
+    if (path.startsWith('/faculty/courses/') && !path.startsWith('/faculty/courses/new')) {
+        const t = titleFromPatterns(path, FACULTY_COURSE_TITLE_RULES);
+        if (t) return t;
+    }
+    if (matchPath({ path: '/faculty/courses/new', end: true }, path)) return 'Create Course';
+    if (matchPath({ path: '/faculty/pending', end: true }, path)) return 'Faculty Verification';
+    if (path === '/faculty/plagscan') return 'Plagiarism Review';
+
+    if (path === '/admin') return 'Admin Dashboard';
+    if (path.startsWith('/admin/database')) return 'Database Explorer';
+    if (path.startsWith('/admin/users')) return 'User Management';
+    if (path.startsWith('/admin/students')) return 'Student Insights';
+    if (path.startsWith('/admin/faculty')) return 'Faculty Management';
+    if (path.startsWith('/admin/analytics')) return 'App Analytics';
+    if (path.startsWith('/admin/settings')) return 'App Settings';
+    if (path.startsWith('/admin/courses')) return 'Course Management';
+    if (path.startsWith('/admin')) return 'Admin Dashboard';
+
+    if (path === '/faculty') return 'Faculty Dashboard';
+    if (path.startsWith('/faculty')) return 'Faculty Dashboard';
+    if (path.startsWith('/student')) return 'Student Dashboard';
+    if (path.startsWith('/ta')) return 'TA Dashboard';
+
+    return APP_NAME;
 }
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -149,38 +245,14 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
         return () => document.removeEventListener('mousedown', onDocClick);
     }, [notifOpen]);
 
-    const getPageTitle = () => {
-        const path = location.pathname;
-        if (path.includes('/inbox')) return 'Inbox';
-        if (path.includes('/calendar')) return 'Calendar';
-        if (path === '/student' || path === '/student/') {
-            return getRole() === AUTH_ROLES.TA ? 'TA Dashboard' : 'Student Dashboard';
-        }
-        if (path === '/admin' || path === '/admin/') return 'Admin Dashboard';
-        if (path.startsWith('/admin/database')) return 'Database Explorer';
-        if (path.startsWith('/admin/users')) return 'User Management';
-        if (path.startsWith('/admin/students')) return 'Student Insights';
-        if (path.startsWith('/admin/faculty')) return 'Faculty Management';
-        if (path.startsWith('/admin/analytics')) return 'App Analytics';
-        if (path.startsWith('/admin/settings')) return 'App Settings';
-        if (path.startsWith('/admin/courses')) return 'Course Management';
-        if (path.startsWith('/admin')) return 'Admin Dashboard';
-        if (path === '/faculty' || path === '/faculty/') return 'Faculty Dashboard';
-        if (path.includes('/faculty/pending')) return 'Faculty Verification';
-        if (path.includes('/faculty/courses/new')) return 'Create Course';
-        if (/^\/faculty\/courses\/[^/]+\/assignments\/new\/?$/.test(path)) return 'New Assignment';
-        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/edit\/?$/.test(path)) return 'Edit Assignment';
-        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/grading\/[^/]+\/?$/.test(path)) return 'Submission Grading';
-        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/grading\/?$/.test(path)) return 'Grading Dashboard';
-        if (/^\/faculty\/courses\/[^/]+\/assignments\/[^/]+\/?$/.test(path)) return 'Assignment Details';
-        if (/^\/faculty\/courses\/[^/]+\/assignments\/?$/.test(path)) return 'Assignments';
-        if (/^\/faculty\/courses\/[^/]+\/gradebook\/?$/.test(path)) return 'Course Gradebook';
-        if (/^\/faculty\/courses\/[^/]+\/students\/?$/.test(path)) return 'Students';
-        if (/^\/faculty\/courses\/[^/]+\/?$/.test(path)) return 'Faculty Command Center';
-        if (path.includes('/faculty')) return 'Faculty Dashboard';
-        if (path.includes('/student') || path.includes('/ta')) return 'Dashboard';
-        return 'Agnos';
-    };
+    const pageTitle = useMemo(
+        () => resolvePageTitle(location.pathname, getRole()),
+        [location.pathname],
+    );
+
+    useEffect(() => {
+        document.title = `${pageTitle} · ${APP_NAME}`;
+    }, [pageTitle]);
 
     const themeLabel = themeMode === 'system' ? 'System' : themeMode === 'dark' ? 'Dark' : 'Light';
     const themeIcon = themeMode === 'system'
@@ -256,7 +328,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                 <button className="mobile-toggle" onClick={onToggleSidebar}>
                     <Menu size={24} />
                 </button>
-                <div className="topbar-title">{getPageTitle()}</div>
+                <div className="topbar-title">{pageTitle}</div>
             </div>
 
             <div className="user-profile">

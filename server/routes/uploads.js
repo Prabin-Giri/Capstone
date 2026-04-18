@@ -12,6 +12,14 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+function uploadCourseId(req) {
+    try {
+        return decodeURIComponent(String(req.params.courseId || '').trim());
+    } catch (_) {
+        return String(req.params.courseId || '').trim();
+    }
+}
+
 /** Write to S3 or local disk, returning the stored path/key */
 async function persistFile(buffer, originalName, category) {
     if (s3Enabled) {
@@ -53,8 +61,9 @@ const updateDocumentPath = async (courseId, column, filePath) => {
 router.post('/syllabus/:courseId', upload.single('file'), async (req, res, next) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        const storedPath = await persistFile(req.file.buffer, req.file.originalname, `course-docs/${req.params.courseId}/syllabus`);
-        await updateDocumentPath(req.params.courseId, 'syllabus_path', storedPath);
+        const cid = uploadCourseId(req);
+        const storedPath = await persistFile(req.file.buffer, req.file.originalname, `course-docs/${cid}/syllabus`);
+        await updateDocumentPath(cid, 'syllabus_path', storedPath);
         res.json({ message: 'Syllabus uploaded successfully', filePath: storedPath });
     } catch (err) { next(err); }
 });
@@ -63,8 +72,9 @@ router.post('/syllabus/:courseId', upload.single('file'), async (req, res, next)
 router.post('/schedule/:courseId', upload.single('file'), async (req, res, next) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        const storedPath = await persistFile(req.file.buffer, req.file.originalname, `course-docs/${req.params.courseId}/schedule`);
-        await updateDocumentPath(req.params.courseId, 'schedule_path', storedPath);
+        const cid = uploadCourseId(req);
+        const storedPath = await persistFile(req.file.buffer, req.file.originalname, `course-docs/${cid}/schedule`);
+        await updateDocumentPath(cid, 'schedule_path', storedPath);
         res.json({ message: 'Schedule uploaded successfully', filePath: storedPath });
     } catch (err) { next(err); }
 });
@@ -91,7 +101,7 @@ router.post('/attachments', upload.single('file'), async (req, res, next) => {
 router.get('/documents/:courseId', async (req, res, next) => {
     try {
         const db = getDb();
-        const result = await db.execute('SELECT * FROM course_documents WHERE course_id = ?', [req.params.courseId]);
+        const result = await db.execute('SELECT * FROM course_documents WHERE course_id = ?', [uploadCourseId(req)]);
         const row = queryOne(result);
         res.json(row || {});
     } catch (err) { next(err); }
@@ -125,11 +135,20 @@ router.get('/file', async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
+function profileUserId(req) {
+    try {
+        return decodeURIComponent(String(req.params.userId || '').trim());
+    } catch (_) {
+        return String(req.params.userId || '').trim();
+    }
+}
+
 // DELETE /api/uploads/profile-picture/:userId
 router.delete('/profile-picture/:userId', async (req, res, next) => {
     try {
         const db = getDb();
-        const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [req.params.userId]);
+        const userId = profileUserId(req);
+        const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [userId]);
         if (rows.length > 0 && rows[0].profile_picture) {
             const pic = rows[0].profile_picture;
             if (s3Enabled) {
@@ -139,7 +158,10 @@ router.delete('/profile-picture/:userId', async (req, res, next) => {
                 if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
             }
         }
-        await db.execute('UPDATE users SET profile_picture = NULL WHERE id = ?', [req.params.userId]);
+        const [delResult] = await db.execute('UPDATE users SET profile_picture = NULL WHERE id = ?', [userId]);
+        if (!delResult.affectedRows) {
+            return res.status(404).json({ error: 'User not found' });
+        }
         res.json({ message: 'Profile picture removed successfully' });
     } catch (err) { next(err); }
 });
@@ -149,7 +171,7 @@ router.post('/profile-picture/:userId', upload.single('file'), async (req, res, 
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const db = getDb();
-        const userId = req.params.userId;
+        const userId = profileUserId(req);
 
         // Delete old profile pic
         const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [userId]);
@@ -164,7 +186,10 @@ router.post('/profile-picture/:userId', upload.single('file'), async (req, res, 
         }
 
         const storedPath = await persistFile(req.file.buffer, req.file.originalname, `profile-pictures/${userId}`);
-        await db.execute('UPDATE users SET profile_picture = ? WHERE id = ?', [storedPath, userId]);
+        const [upd] = await db.execute('UPDATE users SET profile_picture = ? WHERE id = ?', [storedPath, userId]);
+        if (!upd.affectedRows) {
+            return res.status(404).json({ error: 'User not found — profile was not saved. Check that your account ID matches the server.' });
+        }
         res.json({ message: 'Profile picture updated successfully', filePath: storedPath });
     } catch (err) { next(err); }
 });

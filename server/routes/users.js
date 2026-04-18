@@ -3,6 +3,21 @@ const router = express.Router();
 const { getDb, queryToObjects, queryOne } = require('../db');
 const { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail } = require('../email');
 
+/** Plain object for JSON responses (avoids mysql2 RowDataPacket quirks; stable profile_picture). */
+function publicUserFromRow(row) {
+    if (!row) return null;
+    const pic = row.profile_picture;
+    return {
+        id: row.id != null ? String(row.id) : '',
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        profile_picture: pic == null || pic === '' ? null : String(pic),
+        verified: row.verified === 1 || row.verified === true,
+        email_verified: row.email_verified === 1 || row.email_verified === true,
+    };
+}
+
 function validatePassword(password) {
     if (typeof password !== 'string' || password.length < 8) {
         return 'Password must be at least 8 characters';
@@ -108,10 +123,7 @@ router.post('/login', async (req, res, next) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        delete user.password;
-        user.verified = user.verified === 1 || user.verified === true;
-        user.email_verified = user.email_verified === 1 || user.email_verified === true;
-        res.json(user);
+        res.json(publicUserFromRow(user));
     } catch (err) {
         next(err);
     }
@@ -151,11 +163,7 @@ router.post('/verify-email', async (req, res, next) => {
             [user.id]
         );
 
-        user.verified = user.verified === 1 || user.verified === true;
-        user.email_verified = true;
-        delete user.email_verification_otp;
-        delete user.email_verification_expires;
-        res.json(user);
+        res.json(publicUserFromRow(user));
     } catch (err) {
         next(err);
     }
@@ -192,10 +200,7 @@ router.get('/verify-email-token', async (req, res, next) => {
             [user.id]
         );
 
-        user.verified = user.verified === 1 || user.verified === true;
-        user.email_verified = true;
-        delete user.email_verification_expires;
-        res.json(user);
+        res.json(publicUserFromRow(user));
     } catch (err) {
         next(err);
     }

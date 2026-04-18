@@ -3,8 +3,18 @@ import { Link, useParams } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import { getUser } from '../../lib/auth';
 import type { Course, Assignment, Submission } from '../../lib/api';
-import { Search, Clock, ChevronLeft } from 'lucide-react';
+import { Search, Clock, ChevronUp, ChevronDown } from 'lucide-react';
 import './ClassAssignments.css';
+
+type SortBy = 'due_date' | 'name' | 'status';
+type SortDir = 'asc' | 'desc';
+
+function displayStatusForRow(assignment: Assignment): string {
+    const dueDateObj = new Date(assignment.due_date);
+    const isPastDue = new Date() > dueDateObj;
+    if (assignment.status === 'active' && isPastDue) return 'late';
+    return assignment.status;
+}
 
 const ClassAssignments: React.FC = () => {
     const { courseId } = useParams();
@@ -16,6 +26,8 @@ const ClassAssignments: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [submissions, setSubmissions] = useState<Map<string, Submission>>(new Map());
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState<SortBy>('due_date');
+    const [sortDir, setSortDir] = useState<SortDir>('asc');
 
     useEffect(() => {
         async function loadData() {
@@ -56,16 +68,40 @@ const ClassAssignments: React.FC = () => {
         return upcomingSorted[0] ?? null;
     }, [assignments]);
 
-    const filteredAssignments = useMemo(() => {
+    const filteredAndSortedAssignments = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        if (!q) return assignments;
-        return assignments.filter(a => {
-            const title = (a.title ?? '').toLowerCase();
-            const desc = (a.description ?? '').toLowerCase();
-            const id = (a.id ?? '').toLowerCase();
-            return title.includes(q) || desc.includes(q) || id.includes(q);
+        const list = !q
+            ? [...assignments]
+            : assignments.filter((a) => {
+                  const title = (a.title ?? '').toLowerCase();
+                  const desc = (a.description ?? '').toLowerCase();
+                  const id = (a.id ?? '').toLowerCase();
+                  return title.includes(q) || desc.includes(q) || id.includes(q);
+              });
+
+        const mul = sortDir === 'asc' ? 1 : -1;
+
+        list.sort((a, b) => {
+            if (sortBy === 'due_date') {
+                const ta = a.due_date ? new Date(a.due_date).getTime() : Number.NaN;
+                const tb = b.due_date ? new Date(b.due_date).getTime() : Number.NaN;
+                const aBad = Number.isNaN(ta);
+                const bBad = Number.isNaN(tb);
+                if (aBad && bBad) return 0;
+                if (aBad) return 1;
+                if (bBad) return -1;
+                return (ta - tb) * mul;
+            }
+            if (sortBy === 'name') {
+                return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }) * mul;
+            }
+            const sa = displayStatusForRow(a).toLowerCase();
+            const sb = displayStatusForRow(b).toLowerCase();
+            return sa.localeCompare(sb) * mul;
         });
-    }, [assignments, searchQuery]);
+
+        return list;
+    }, [assignments, searchQuery, sortBy, sortDir]);
 
     if (!courseId) {
         return (
@@ -73,12 +109,9 @@ const ClassAssignments: React.FC = () => {
                 <div className="state-card">
                     <h1 className="assignments-title">Course not found</h1>
                     <p className="assignments-subtitle">Invalid course ID.</p>
-                    <div className="breadcrumb">
-                         <Link to="/student">
-                             <ChevronLeft size={14} />
-                             Back to Dashboard
-                         </Link>
-                    </div>
+                    <p style={{ marginTop: '1rem' }}>
+                        <Link to="/student" className="link-primary">Back to Dashboard</Link>
+                    </p>
                 </div>
             </div>
         );
@@ -86,19 +119,62 @@ const ClassAssignments: React.FC = () => {
 
     const header = (
         <div className="assignments-header">
-            <div>
+            <div className="assignments-header-text">
                 <h1 className="assignments-title">Assignments</h1>
-                <p className="assignments-subtitle">
-                    {course ? `${course.name} • ${course.term}` : 'Loading...'}
-                </p>
             </div>
+        </div>
+    );
+
+    const searchToolbar = (
+        <div className="assignments-toolbar">
+            <div className="assignments-search">
+                <Search size={18} className="assignments-search-icon" />
+                <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by title, description, or ID…"
+                    className="assignments-search-input"
+                    aria-label="Search assignments"
+                />
+            </div>
+            <div className="assignments-toolbar-actions" role="group" aria-label="Sort assignments">
+                <label htmlFor="assignments-sort-by" className="assignments-sort-label">
+                    Sort
+                </label>
+                <select
+                    id="assignments-sort-by"
+                    className="assignments-sort-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortBy)}
+                >
+                    <option value="due_date">Due date</option>
+                    <option value="name">Name</option>
+                    <option value="status">Status</option>
+                </select>
+                <button
+                    type="button"
+                    className="assignments-sort-dir"
+                    onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                    title={sortDir === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
+                    aria-label={sortDir === 'asc' ? 'Sort ascending, switch to descending' : 'Sort descending, switch to ascending'}
+                >
+                    {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
+            </div>
+        </div>
+    );
+
+    const pageHead = (includeSearch: boolean) => (
+        <div className="assignments-page-head">
+            {header}
+            {includeSearch ? searchToolbar : null}
         </div>
     );
 
     if (isLoading) {
         return (
             <div className="class-assignments">
-                {header}
+                {pageHead(false)}
                 <div className="state-card">Loading assignments...</div>
             </div>
         );
@@ -107,7 +183,7 @@ const ClassAssignments: React.FC = () => {
     if (error) {
         return (
             <div className="class-assignments">
-                {header}
+                {pageHead(false)}
                 <div className="state-card" style={{ color: '#dc2626' }}>{error}</div>
             </div>
         );
@@ -119,12 +195,9 @@ const ClassAssignments: React.FC = () => {
                 <div className="state-card">
                     <h1 className="assignments-title">Course not found</h1>
                     <p className="assignments-subtitle">We could not find that course.</p>
-                    <div className="breadcrumb">
-                        <Link to="/student">
-                            <ChevronLeft size={14} />
-                            Back to Dashboard
-                        </Link>
-                    </div>
+                    <p style={{ marginTop: '1rem' }}>
+                        <Link to="/student" className="link-primary">Back to Dashboard</Link>
+                    </p>
                 </div>
             </div>
         );
@@ -133,7 +206,7 @@ const ClassAssignments: React.FC = () => {
     if (assignments.length === 0) {
         return (
             <div className="class-assignments">
-                {header}
+                {pageHead(false)}
                 <div className="state-card">No assignments yet.</div>
             </div>
         );
@@ -141,24 +214,7 @@ const ClassAssignments: React.FC = () => {
 
     return (
         <div className="class-assignments">
-            <div className="breadcrumb">
-                 <Link to="/student">
-                     <ChevronLeft size={14} />
-                     Back to Dashboard
-                 </Link>
-            </div>
-            {header}
-            <div className="assignments-toolbar">
-                <div className="assignments-search">
-                    <Search size={18} className="assignments-search-icon" />
-                    <input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search assignments..."
-                        className="assignments-search-input"
-                    />
-                </div>
-            </div>
+            {pageHead(true)}
 
             {upcoming && (
                 <div className="upcoming-banner">
@@ -189,16 +245,20 @@ const ClassAssignments: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredAssignments.map((assignment) => {
+                        {filteredAndSortedAssignments.length === 0 ? (
+                            <tr>
+                                <td colSpan={6} className="assignments-no-matches">
+                                    No assignments match your search.{' '}
+                                    <button type="button" className="assignments-clear-search" onClick={() => setSearchQuery('')}>
+                                        Clear search
+                                    </button>
+                                </td>
+                            </tr>
+                        ) : (
+                            filteredAndSortedAssignments.map((assignment) => {
                             const submission = submissions.get(assignment.id);
                             const dueDateObj = new Date(assignment.due_date);
-                            const isPastDue = new Date() > dueDateObj;
-
-                            // Dynamic status calculation
-                            let displayStatus = assignment.status;
-                            if (assignment.status === 'active' && isPastDue) {
-                                displayStatus = 'late';
-                            }
+                            const displayStatus = displayStatusForRow(assignment);
 
                             const dueDate = dueDateObj.toLocaleDateString('en-US', {
                                 month: 'short',
@@ -265,7 +325,8 @@ const ClassAssignments: React.FC = () => {
                                     </td>
                                 </tr>
                             );
-                        })}
+                        })
+                        )}
                     </tbody>
                 </table>
             </div>

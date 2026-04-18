@@ -191,3 +191,70 @@ export function resolveWorkspaceRunContext(
 
     return { detectedLang, code };
 }
+
+/** First `public class Name` in source, or null. */
+export function inferJavaPublicClass(src: string): string | null {
+    const m = (src || '').match(/public\s+class\s+(\w+)/);
+    return m ? m[1] : null;
+}
+
+/**
+ * Payload for POST /assignments/:id/test and /run.
+ * For multiple `.java` files, sends `files` + `javaMainClass` so the server can `javac` the whole project
+ * (merging with `// File:` comments is not valid Java).
+ */
+export interface AssignmentExecutionPayload {
+    code: string;
+    language: string;
+    /** Multiple Java sources (same assignment language); server writes each file then compiles all. */
+    files?: { name: string; content: string }[];
+    /** Class whose `main` should run (usually the active tab's public class). */
+    javaMainClass?: string;
+}
+
+export function buildAssignmentExecutionPayload(
+    files: Array<{ id: string; name: string; content: string }>,
+    activeFileId: string | undefined,
+    assignmentLanguage: string
+): AssignmentExecutionPayload {
+    const active =
+        (activeFileId ? files.find((f) => f.id === activeFileId) : null) || files[0] || null;
+
+    if (!active) {
+        return { code: '', language: normalizeLanguage(assignmentLanguage || 'python') };
+    }
+
+    const fromExt = getLanguageFromFilename(active.name, '');
+    const baseLang = fromExt && fromExt.trim() !== '' ? fromExt : assignmentLanguage || 'python';
+    const detectedLang = normalizeLanguage(baseLang);
+
+    const matchingExts = new Set(getValidExtensions(detectedLang));
+    const sameLanguageFiles = files.filter((f) => {
+        const ext = f.name.split('.').pop()?.toLowerCase() || '';
+        return matchingExts.has(ext);
+    });
+    const relevantFiles = sameLanguageFiles.length > 0 ? sameLanguageFiles : [active];
+
+    if (detectedLang === 'java' && relevantFiles.length > 1) {
+        const javaMainClass =
+            inferJavaPublicClass(active.content) ||
+            relevantFiles.map((f) => inferJavaPublicClass(f.content)).find(Boolean) ||
+            'Main';
+        return {
+            code: active.content,
+            language: 'java',
+            files: relevantFiles.map((f) => ({ name: f.name, content: f.content })),
+            javaMainClass,
+        };
+    }
+
+    let code: string;
+    if (relevantFiles.length === 1) {
+        code = relevantFiles[0].content;
+    } else {
+        const comment = getCommentChar(detectedLang);
+        code = relevantFiles.map((f) => `${comment} File: ${f.name}\n${f.content}`).join('\n\n');
+    }
+
+    return { code, language: detectedLang };
+}

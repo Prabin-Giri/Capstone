@@ -10,7 +10,7 @@ import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, Pa
 import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
-import { getLanguageFromFilename, resolveWorkspaceRunContext } from '../../lib/utils';
+import { getLanguageFromFilename, buildAssignmentExecutionPayload } from '../../lib/utils';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -445,8 +445,8 @@ const SubmissionGrader: React.FC = () => {
         if (!assignment) return { stdout: '', stderr: 'Assignment not found', exitCode: 1, timedOut: false };
         setIsRunningCustom(true);
         try {
-            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(files, activeFileId, assignment.language || '');
-            const data = await runCustomCode(assignment.id, codeToRun, detectedLang, stdin);
+            const payload = buildAssignmentExecutionPayload(files, activeFileId, assignment.language || '');
+            const data = await runCustomCode(assignment.id, { ...payload, stdin });
             return data;
         } catch (err) {
             throw new Error(`Failed to execute code: ${err instanceof Error ? err.message : String(err)}`);
@@ -459,8 +459,8 @@ const SubmissionGrader: React.FC = () => {
         if (!assignment) throw new Error('No assignment loaded');
         setIsRunningCustom(true);
         try {
-            const { detectedLang, code: codeToRun } = resolveWorkspaceRunContext(files, activeFileId, assignment.language || '');
-            const data = await runTests(assignment.id, codeToRun, detectedLang);
+            const payload = buildAssignmentExecutionPayload(files, activeFileId, assignment.language || '');
+            const data = await runTests(assignment.id, payload);
             const results = data.results || [];
             const passedCount = results.filter((r: TestResult) => !!r.passed).length;
             const totalCount = results.length;
@@ -476,7 +476,7 @@ const SubmissionGrader: React.FC = () => {
             });
             const report = `Execution Summary\nPassed: ${passedCount}/${totalCount}\nStatus: ${totalCount > 0 && passedCount === totalCount ? 'Passed' : 'Failed'}\n\n${reportLines.join('\n\n')}`;
             setSubmission(prev => prev ? { ...prev, auto_feedback: report } : prev);
-            return { results: data.results, log: `Language: ${detectedLang} · ${codeToRun.length} bytes` };
+            return { results: data.results, log: `Language: ${payload.language} · ${payload.code.length} bytes${payload.files?.length ? ` + ${payload.files.length} Java files` : ''}` };
         } catch (err) {
             throw new Error(`Failed to run tests: ${err instanceof Error ? err.message : String(err)}`);
         } finally {

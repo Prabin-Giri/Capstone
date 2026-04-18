@@ -1,247 +1,364 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getSubmission, getSubmissionFileUrl, getSubmissions, getAssignment } from '../../lib/api';
-import type { Submission, Assignment } from '../../lib/api';
+import { getAssignment, getSubmission, getSubmissionFileUrl } from '../../lib/api';
+import type { Assignment, Submission, RubricConfig } from '../../lib/api';
 import { getUser } from '../../lib/auth';
-import { parseUTC } from '../../lib/utils';
-import { ChevronLeft } from 'lucide-react';
 import './SubmissionResults.css';
+import '../../components/ui/components.css';
 
-const SubmissionResults: React.FC = () => {
+type AutogradeTestRow = {
+    testId?: string;
+    passed?: boolean;
+    points?: number;
+    maxPoints?: number;
+    actual?: string;
+    expected?: string;
+    timedOut?: boolean;
+    exitCode?: number;
+};
+
+function parseAssignmentRubric(raw: string | RubricConfig | undefined | null): RubricConfig | null {
+    let parsed: unknown;
+    if (raw == null) return null;
+    if (typeof raw === 'string') {
+        if (!raw.trim()) return null;
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            return null;
+        }
+    } else {
+        parsed = raw;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const p = parsed as RubricConfig;
+    if (p.sections && Array.isArray(p.sections)) {
+        return { title: p.title ?? '', weighted: !!p.weighted, sections: p.sections };
+    }
+    if (p.criteria && Array.isArray(p.criteria)) {
+        return {
+            title: p.title || '',
+            weighted: !!p.weighted,
+            sections: [{ id: 'sec-1', title: '', items: p.criteria }],
+        };
+    }
+    return null;
+}
+
+function parseAutoFeedbackParts(raw?: string | null): { summaryLines: string[]; tests: AutogradeTestRow[] } {
+    if (!raw?.trim()) return { summaryLines: [], tests: [] };
+    const sep = '\n---\n';
+    const idx = raw.indexOf(sep);
+    const head = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? '' : raw.slice(idx + sep.length);
+    const summaryLines = head.split('\n').map((l) => l.trim()).filter(Boolean);
+    let tests: AutogradeTestRow[] = [];
+    if (tail.trim()) {
+        try {
+            const parsed = JSON.parse(tail.trim()) as unknown;
+            if (Array.isArray(parsed)) tests = parsed as AutogradeTestRow[];
+        } catch {
+            /* trailing block not JSON */
+        }
+    }
+    return { summaryLines, tests };
+}
+
+export default function SubmissionResults() {
     const { courseId, assignmentId, submissionId } = useParams();
     const user = getUser();
     const studentId = user?.id || 'student-001';
+
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [assignment, setAssignment] = useState<Assignment | null>(null);
-    const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    const rubric = useMemo(() => parseAssignmentRubric(assignment?.rubric_config ?? null), [assignment?.rubric_config]);
+    const autoParts = useMemo(
+        () => parseAutoFeedbackParts(submission?.auto_feedback),
+        [submission?.auto_feedback]
+    );
 
     useEffect(() => {
+        let cancelled = false;
+
         async function loadSubmission() {
-            if (!submissionId || !assignmentId) return;
+            if (!submissionId || !assignmentId || !studentId) return;
+            setLoading(true);
             try {
-                const [data, submissionsData, assignmentData] = await Promise.all([
+                const [subData, assignData] = await Promise.all([
                     getSubmission(parseInt(submissionId, 10)),
-                    getSubmissions({ assignment_id: assignmentId, student_id: studentId }),
-                    getAssignment(assignmentId)
+                    getAssignment(assignmentId),
                 ]);
-                setSubmission(data);
-                setAllSubmissions(submissionsData);
-                setAssignment(assignmentData);
-            } catch (err) {
-                setError('Failed to load submission');
-                console.error(err);
+                if (cancelled) return;
+                if (subData.student_id !== studentId) {
+                    setSubmission(null);
+                    setAssignment(null);
+                    return;
+                }
+                setSubmission(subData);
+                setAssignment(assignData);
+            } catch (e) {
+                console.error(e);
+                if (!cancelled) {
+                    setSubmission(null);
+                    setAssignment(null);
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
+
         loadSubmission();
-    }, [submissionId]);
+        return () => {
+            cancelled = true;
+        };
+    }, [submissionId, assignmentId, studentId]);
 
     if (loading) {
         return (
-            <div className="submission-results">
-                <div className="loading-state">
-                    <p>Loading submission...</p>
-                </div>
+            <div className="submission-results-page">
+                <div className="loading-spinner">Loading submission...</div>
             </div>
         );
     }
 
-    if (error || !submission) {
+    if (!submission || !assignment) {
         return (
-            <div className="submission-results">
-                <div className="breadcrumb">
-                    <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`}>
-                        <ChevronLeft size={14} />
-                        Back to Assignment
-                    </Link>
-                </div>
-                <div className="results-header">
-                    <h1 className="results-title">Submission Not Found</h1>
-                </div>
-                <p style={{ color: '#dc2626' }}>{error || 'This submission does not exist.'}</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="submission-results">
-            <div className="breadcrumb">
-                <Link to={`/student/courses/${courseId}/assignments/${assignmentId}`}>
-                    <ChevronLeft size={14} />
-                    Back to Assignment
+            <div className="submission-results-page">
+                <div className="error-message">Submission not found or access denied.</div>
+                <Link to={`/student/courses/${courseId}/grades`} className="btn-secondary">
+                    Back to Grades
                 </Link>
             </div>
+        );
+    }
 
+    const assignmentPoints = assignment.points ?? 100;
+    const hasInstructorFeedback = Boolean(submission.feedback?.trim());
+    const hasAutoNarrative =
+        autoParts.summaryLines.length > 0 || autoParts.tests.length > 0 || Boolean(submission.auto_feedback?.trim());
+    const breakdown =
+        submission.correctness_score != null ||
+        submission.style_points != null ||
+        submission.efficiency_points != null ||
+        submission.deduction_points != null;
+
+    return (
+        <div className="submission-results-page">
             <div className="results-header">
-                <h1 className="results-title">Submission Details</h1>
-                <span className={`status-pill status-${submission.status?.toLowerCase()}`} style={{
-                    padding: '2px 8px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    background: submission.status?.toLowerCase() === 'graded' ? 'var(--success-bg)' : submission.status?.toLowerCase() === 'pending' ? 'var(--secondary-color)' : 'var(--light-grey)',
-                    color: 'var(--text-primary)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: 'fit-content',
-                    textTransform: 'capitalize'
-                }}>
-                    {submission.status?.toLowerCase()}
-                </span>
+                <div className="header-top">
+                    <Link to={`/student/courses/${courseId}/assignments`} className="back-link">
+                        ← Back to Assignments
+                    </Link>
+                    <Link to={`/student/courses/${courseId}/grades`} className="back-link grades-back">
+                        Grades
+                    </Link>
+                </div>
+                <h1>{assignment.title}</h1>
+                <p className="assignment-meta">
+                    Submitted on {new Date(submission.submitted_at).toLocaleString()}
+                </p>
             </div>
 
-            <div className="results-content" style={{ marginTop: '24px' }}>
-                <div style={{
-                    background: 'var(--bg-surface)',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    marginBottom: '20px'
-                }}>
-                    <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 600 }}>File Information</h3>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <tbody>
-                            <tr>
-                                <td style={{ padding: '8px 0', color: 'var(--text-secondary)', verticalAlign: 'top' }}>Files Submitted:</td>
-                                <td style={{ padding: '8px 0', fontWeight: 500 }}>
-                                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
-                                            <li key={i}>{f.name}</li>
-                                        ))}
-                                    </ul>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Submitted At:</td>
-                                <td style={{ padding: '8px 0' }}>{parseUTC(submission.submitted_at).toLocaleString()}</td>
-                            </tr>
-                            {submission.updated_at !== submission.submitted_at && (
-                                <tr>
-                                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Last Updated:</td>
-                                    <td style={{ padding: '8px 0' }}>{parseUTC(submission.updated_at).toLocaleString()}</td>
-                                </tr>
+            <div className="results-content">
+                <div className="report-card grade-report-card">
+                    <h2>Grade report</h2>
+                    <div className="grade-report-grid">
+                        <div className="grade-report-item highlight">
+                            <span className="label">Final grade</span>
+                            <span className="value">
+                                {submission.grade != null
+                                    ? `${submission.grade} / ${assignmentPoints}`
+                                    : 'Not graded yet'}
+                            </span>
+                        </div>
+                        {submission.auto_grade != null && (
+                            <div className="grade-report-item">
+                                <span className="label">Autograder suggested</span>
+                                <span className="value">
+                                    {submission.auto_grade} / {assignmentPoints}
+                                </span>
+                            </div>
+                        )}
+                        <div className="grade-report-item">
+                            <span className="label">Status</span>
+                            <span className={`value status-badge status-${submission.status}`}>
+                                {submission.status}
+                            </span>
+                        </div>
+                    </div>
+                    {breakdown && (
+                        <div className="breakdown-grid">
+                            {submission.correctness_score != null && (
+                                <div className="grade-report-item">
+                                    <span className="label">Correctness</span>
+                                    <span className="value">{String(submission.correctness_score)}</span>
+                                </div>
                             )}
-                            {submission.grade !== null && submission.grade !== undefined && (
-                                <tr>
-                                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Grade:</td>
-                                    <td style={{ padding: '8px 0', fontWeight: 600, color: '#16a34a' }}>
-                                        {Number(submission.grade).toFixed(2)}/{((assignment?.points || 100)).toFixed(2)}
-                                    </td>
-                                </tr>
+                            {submission.style_points != null && (
+                                <div className="grade-report-item">
+                                    <span className="label">Style</span>
+                                    <span className="value">{String(submission.style_points)}</span>
+                                </div>
                             )}
-                        </tbody>
-                    </table>
+                            {submission.efficiency_points != null && (
+                                <div className="grade-report-item">
+                                    <span className="label">Efficiency</span>
+                                    <span className="value">{String(submission.efficiency_points)}</span>
+                                </div>
+                            )}
+                            {submission.deduction_points != null && (
+                                <div className="grade-report-item">
+                                    <span className="label">Deductions</span>
+                                    <span className="value">{String(submission.deduction_points)}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
-                {submission.feedback && (
-                    <div style={{
-                        background: 'var(--bg-surface)',
-                        padding: '20px',
-                        borderRadius: '8px',
-                        marginBottom: '20px'
-                    }}>
-                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600 }}>Instructor Feedback</h3>
-                        <p style={{ margin: 0, lineHeight: 1.6, wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>{submission.feedback}</p>
+                {hasInstructorFeedback && (
+                    <div className="report-card feedback-card">
+                        <h2>Instructor feedback</h2>
+                        <div className="feedback-content">{submission.feedback}</div>
                     </div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '24px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        {(submission.files || [{ name: submission.file_name, path: submission.file_path }]).map((f, i) => (
-                            <a
-                                key={i}
-                                href={getSubmissionFileUrl(submission.id, f.name)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-outline btn-pill"
-                                style={{ display: 'inline-flex', alignItems: 'center' }}
-                            >
-                                {f.name}
-                            </a>
+                {hasAutoNarrative && (
+                    <div className="report-card auto-feedback-card">
+                        <h2>Autograder report</h2>
+                        {autoParts.summaryLines.length > 0 && (
+                            <ul className="auto-summary-list">
+                                {autoParts.summaryLines.map((line, i) => (
+                                    <li key={i}>{line}</li>
+                                ))}
+                            </ul>
+                        )}
+                        {autoParts.tests.length > 0 && (
+                            <div className="test-results">
+                                <h3>Tests</h3>
+                                {autoParts.tests.map((test, idx) => (
+                                    <div
+                                        key={test.testId ?? idx}
+                                        className={`test-item ${test.passed ? 'passed' : 'failed'}`}
+                                    >
+                                        <div className="test-header">
+                                            <span className="test-name">{test.testId ?? `Test ${idx + 1}`}</span>
+                                            <span className="test-points">
+                                                {test.points != null && test.maxPoints != null
+                                                    ? `${test.points} / ${test.maxPoints}`
+                                                    : test.passed
+                                                      ? 'Passed'
+                                                      : 'Failed'}
+                                            </span>
+                                        </div>
+                                        {test.timedOut && <div className="test-detail warn">Timed out</div>}
+                                        {test.exitCode != null && (
+                                            <div className="test-detail">Exit code: {test.exitCode}</div>
+                                        )}
+                                        {test.actual != null && (
+                                            <div className="test-detail">
+                                                <strong>Actual:</strong> <code>{test.actual}</code>
+                                            </div>
+                                        )}
+                                        {test.expected != null && (
+                                            <div className="test-detail">
+                                                <strong>Expected:</strong> <code>{test.expected}</code>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {autoParts.summaryLines.length === 0 &&
+                            autoParts.tests.length === 0 &&
+                            submission.auto_feedback?.trim() && (
+                                <pre className="auto-feedback-raw">{submission.auto_feedback}</pre>
+                            )}
+                    </div>
+                )}
+
+                {rubric && rubric.sections && rubric.sections.length > 0 && (
+                    <div className="report-card rubric-readonly-card">
+                        <h2>Assignment rubric{rubric.title?.trim() ? `: ${rubric.title}` : ''}</h2>
+                        <p className="rubric-note">
+                            Criteria and maximum points for this assignment. Per-criterion scores from your grader
+                            appear in instructor feedback when provided.
+                        </p>
+                        {rubric.sections.map((section) => (
+                            <div key={section.id} className="rubric-section-readonly">
+                                {section.title?.trim() ? <h3>{section.title}</h3> : null}
+                                <table className="rubric-readonly-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Criterion</th>
+                                            <th>Max</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {section.items.map((c) => (
+                                            <tr key={c.id}>
+                                                <td>{c.name || '—'}</td>
+                                                <td>{c.maxPoints ?? '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         ))}
                     </div>
+                )}
+
+                <div className="files-section">
+                    <h2>Submitted files</h2>
+                    <div className="file-list">
+                        {submission.files && submission.files.length > 0 ? (
+                            submission.files.map((file, index) => (
+                                <div key={index} className="file-item">
+                                    <span className="file-icon">📄</span>
+                                    <span className="file-name">{file.name}</span>
+                                    <a
+                                        href={getSubmissionFileUrl(submission.id, file.name)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="download-btn"
+                                    >
+                                        Download
+                                    </a>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="file-item">
+                                <span className="file-icon">📄</span>
+                                <span className="file-name">{submission.file_name}</span>
+                                <a
+                                    href={getSubmissionFileUrl(submission.id, submission.file_name)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="download-btn"
+                                >
+                                    Download
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="actions-section">
                     <Link
-                        to={`/student/courses/${courseId}/assignments/${assignmentId}`}
-                        className="btn btn-primary btn-pill"
+                        to={`/student/courses/${courseId}/assignments/${assignmentId}/submit`}
+                        className="btn-resubmit"
                     >
-                        Resubmit Assignment
+                        Submit New Version
                     </Link>
                 </div>
 
-                {allSubmissions.length > 0 && (
-                    <div className="section" style={{ marginTop: '32px' }}>
-                        <h2 className="section-title" style={{ fontSize: '18px', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '8px', marginBottom: '16px' }}>Submission History</h2>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {allSubmissions.map((sub, index) => {
-                                const isSubGraded = ['graded', 'returned'].includes(sub.status?.toLowerCase() || '');
-                                const attemptLabel = `Attempt ${allSubmissions.length - index}`;
-                                const isCurrent = sub.id === parseInt(submissionId || '0', 10);
-
-                                return (
-                                    <div key={sub.id} style={{
-                                        border: isCurrent ? '2px solid var(--primary-light)' : '1px solid var(--border-color)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        background: isCurrent ? 'var(--light-grey)' : 'var(--bg-surface)',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
-                                        <div>
-                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                                                {attemptLabel}
-                                                {isCurrent && (
-                                                    <span style={{
-                                                        color: 'var(--text-primary)',
-                                                        marginLeft: '8px',
-                                                        fontSize: '12px',
-                                                        background: 'var(--light-grey)',
-                                                        padding: '2px 8px',
-                                                        borderRadius: '12px'
-                                                    }}>
-                                                        Current View
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                                Submitted: {parseUTC(sub.submitted_at).toLocaleString()}
-                                            </div>
-                                            <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>
-                                                <span style={{ fontWeight: 500 }}>Status:</span>{' '}
-                                                <span style={{
-                                                    color: isSubGraded ? '#16a34a' : '#d97706',
-                                                    textTransform: 'capitalize'
-                                                }}>
-                                                    {sub.status?.toLowerCase()}
-                                                </span>
-                                                {' • '}
-                                                <span style={{ fontWeight: 500 }}>Grade:</span>{' '}
-                                                {sub.grade !== null && sub.grade !== undefined
-                                                    ? `${Number(sub.grade).toFixed(2)}/${(assignment?.points || 100).toFixed(2)}`
-                                                    : `-/${(assignment?.points || 100).toFixed(2)}`}
-                                            </div>
-                                        </div>
-                                        {!isCurrent && (
-                                            <Link
-                                                to={`/student/courses/${courseId}/assignments/${assignmentId}/submissions/${sub.id}`}
-                                                className="btn btn-outline"
-                                                style={{ borderColor: 'var(--text-primary)', color: 'var(--text-primary)' }}
-                                            >
-                                                View Details
-                                            </Link>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                <div className="submission-history">
+                    <h3>Submission History</h3>
+                    <p>Version 1 (Current)</p>
+                </div>
             </div>
         </div>
     );
-};
-
-export default SubmissionResults;
+}

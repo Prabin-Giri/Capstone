@@ -1,13 +1,56 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getAssignment, createAssignment, updateAssignment, uploadStarterCode, getTestCases, createTestCase, updateTestCase, deleteTestCase, getEnrolledStudents, getAssignmentGroups, getSubmissions, deleteAssignment, getFileUrl, UPLOADS_BASE } from '../../lib/api';
-import type { TestCase, RubricConfig, User } from '../../lib/api';
+import {
+    getAssignment,
+    createAssignment,
+    updateAssignment,
+    uploadStarterCode,
+    getTestCases,
+    createTestCase,
+    updateTestCase,
+    deleteTestCase,
+    getEnrolledStudents,
+    getAssignmentGroups,
+    getSubmissions,
+    deleteAssignment,
+    getFileUrl,
+    getSavedRubrics,
+    saveRubricTemplate,
+    UPLOADS_BASE,
+} from '../../lib/api';
+import type { TestCase, RubricConfig, User, SavedRubric } from '../../lib/api';
 import { getRole } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
-import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus, X, Edit, BarChart2, Download, ChevronLeft } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus, X, Edit, BarChart2, Download, ChevronLeft, Save, House } from 'lucide-react';
 import './AssignmentWizard.css';
 import { showDialog } from '../../components/ui/Dialog';
+
+/** JSON payload for `assignments.rubric_config` (null = clear rubric). */
+function buildRubricConfigPayload(rubric: RubricConfig): string | null {
+    const sections = rubric.sections ?? (rubric.criteria ? [{ id: 'sec-1', title: '', items: rubric.criteria }] : []);
+    const hasRubricContent =
+        rubric.title.trim().length > 0 ||
+        sections.some(sec => (sec.title && sec.title.trim().length > 0) || sec.items.some(c => c.name && c.name.trim().length > 0));
+    const rubricToSave = { ...rubric, sections };
+    return hasRubricContent ? JSON.stringify(rubricToSave) : null;
+}
+
+function normalizeRubricFromStored(parsed: unknown): RubricConfig | null {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const p = parsed as RubricConfig;
+    if (p.sections && Array.isArray(p.sections)) {
+        return { title: p.title ?? '', weighted: !!p.weighted, sections: p.sections };
+    }
+    if (p.criteria && Array.isArray(p.criteria)) {
+        return {
+            title: p.title || '',
+            weighted: !!p.weighted,
+            sections: [{ id: 'sec-1', title: '', items: p.criteria }],
+        };
+    }
+    return null;
+}
 
 export interface AssignmentWizardProps {
     /** Read-only view of an existing assignment (same layout as edit; use Edit to open the editor). */
@@ -48,6 +91,12 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
     const [assignmentGroups, setAssignmentGroups] = useState<{ id: string; name: string; students: string[] }[]>([]);
     const [loading, setLoading] = useState(isEditing || viewOnly);
     const [saving, setSaving] = useState(false);
+    const [savingRubric, setSavingRubric] = useState(false);
+    const [savedRubrics, setSavedRubrics] = useState<SavedRubric[]>([]);
+    const [savedRubricsLoading, setSavedRubricsLoading] = useState(false);
+    const [rubricTemplateName, setRubricTemplateName] = useState('');
+    const [savingNamedRubric, setSavingNamedRubric] = useState(false);
+    const [savedRubricSelectKey, setSavedRubricSelectKey] = useState(0);
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [rubric, setRubric] = useState<RubricConfig>({
         title: '',
@@ -58,6 +107,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
     });
 
     const descriptionRef = useRef<HTMLDivElement>(null);
+    const [showRubricModal, setShowRubricModal] = useState(false);
     const attachmentInputRef = useRef<HTMLInputElement>(null);
 
     const API_BASE = `${UPLOADS_BASE}/api`;
@@ -71,6 +121,28 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
             .then((subs) => setSubmissionCount(subs.length))
             .catch(() => setSubmissionCount(0));
     }, [viewOnly, assignmentId]);
+
+    useEffect(() => {
+        if (!courseId || readOnly) {
+            setSavedRubrics([]);
+            return;
+        }
+        let cancelled = false;
+        setSavedRubricsLoading(true);
+        getSavedRubrics(courseId)
+            .then((list) => {
+                if (!cancelled) setSavedRubrics(list);
+            })
+            .catch(() => {
+                if (!cancelled) setSavedRubrics([]);
+            })
+            .finally(() => {
+                if (!cancelled) setSavedRubricsLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [courseId, readOnly]);
 
     useEffect(() => {
         if (courseId) {
@@ -126,17 +198,8 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                         const parsed = typeof data.rubric_config === 'string'
                             ? JSON.parse(data.rubric_config)
                             : data.rubric_config;
-                        if (parsed) {
-                            if (parsed.sections && Array.isArray(parsed.sections)) {
-                                setRubric(parsed as RubricConfig);
-                            } else if (parsed.criteria && Array.isArray(parsed.criteria)) {
-                                setRubric({
-                                    title: parsed.title || '',
-                                    weighted: !!parsed.weighted,
-                                    sections: [{ id: 'sec-1', title: '', items: parsed.criteria }]
-                                });
-                            }
-                        }
+                        const normalized = normalizeRubricFromStored(parsed);
+                        if (normalized) setRubric(normalized);
                     } catch (e) {
                         console.warn('Failed to parse rubric_config; using default', e);
                     }
@@ -256,12 +319,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
 
             const combinedDateTime = new Date(`${formData.due_date}T${formData.due_time}:00`).toISOString();
 
-            const sections = rubric.sections ?? (rubric.criteria ? [{ id: 'sec-1', title: '', items: rubric.criteria }] : []);
-            const hasRubricContent =
-                rubric.title.trim().length > 0 ||
-                sections.some(sec => (sec.title && sec.title.trim().length > 0) || sec.items.some(c => c.name && c.name.trim().length > 0));
-            const rubricToSave = { ...rubric, sections };
-            const rubricConfigPayload = hasRubricContent ? JSON.stringify(rubricToSave) : null;
+            const rubricConfigPayload = buildRubricConfigPayload(rubric);
 
             const payload = {
                 ...formData,
@@ -314,6 +372,88 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         }
     };
 
+    const handleSaveRubric = async () => {
+        if (!assignmentId || readOnly) return;
+        setSavingRubric(true);
+        try {
+            const rubric_config = buildRubricConfigPayload(rubric);
+            await updateAssignment(assignmentId, { rubric_config });
+            await showDialog({
+                type: 'success',
+                title: 'Rubric saved',
+                message: 'Your rubric has been saved. You can continue editing the assignment or leave this page.',
+                confirmText: 'OK',
+            });
+        } catch (err: unknown) {
+            console.error('Failed to save rubric', err);
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            await showDialog({
+                title: 'Save failed',
+                message: `Could not save rubric: ${message}`,
+                confirmText: 'OK',
+            });
+        } finally {
+            setSavingRubric(false);
+        }
+    };
+
+    const handleApplySavedRubric = (savedId: string) => {
+        const item = savedRubrics.find((r) => r.id === savedId);
+        if (!item) return;
+        const normalized = normalizeRubricFromStored(item.rubric);
+        if (normalized) setRubric(normalized);
+        setSavedRubricSelectKey((k) => k + 1);
+    };
+
+    const handleSaveNamedTemplate = async () => {
+        if (!courseId || readOnly) return;
+        const name = rubricTemplateName.trim();
+        if (!name) {
+            await showDialog({
+                title: 'Name required',
+                message: 'Enter a name to save this rubric for reuse (for example, “Lab homework standard”).',
+                confirmText: 'OK',
+            });
+            return;
+        }
+        const payloadStr = buildRubricConfigPayload(rubric);
+        if (!payloadStr) {
+            await showDialog({
+                title: 'Rubric is empty',
+                message: 'Add a rubric title, section titles, or criterion names before saving as a reusable template.',
+                confirmText: 'OK',
+            });
+            return;
+        }
+        let rubricObj: RubricConfig;
+        try {
+            rubricObj = JSON.parse(payloadStr) as RubricConfig;
+        } catch {
+            await showDialog({ title: 'Error', message: 'Could not prepare rubric data.', confirmText: 'OK' });
+            return;
+        }
+        setSavingNamedRubric(true);
+        try {
+            const res = await saveRubricTemplate(courseId, name, rubricObj);
+            const list = await getSavedRubrics(courseId);
+            setSavedRubrics(list);
+            await showDialog({
+                type: 'success',
+                title: res.updated ? 'Template updated' : 'Template saved',
+                message: res.updated
+                    ? `"${name}" now stores this rubric. Load it from "Load template" on any assignment in this course.`
+                    : `You can load "${name}" from "Load template" when editing other assignments in this course.`,
+                confirmText: 'OK',
+            });
+        } catch (err: unknown) {
+            console.error('Save named rubric failed', err);
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            await showDialog({ title: 'Save failed', message: `Could not save template: ${message}`, confirmText: 'OK' });
+        } finally {
+            setSavingNamedRubric(false);
+        }
+    };
+
     const handleDeleteAssignmentView = async () => {
         if (!assignmentId || !courseId) return;
         const confirmed = await showDialog({
@@ -342,36 +482,48 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         <div className={`assignment-wizard-container${readOnly ? ' view-only' : ''}`}>
             {readOnly && (
                 <div className="wizard-view-header">
-                    <div className="breadcrumb">
-                         <Link to={`${basePath}/courses/${courseId}`}>
-                             <ChevronLeft size={14} />
-                             Back to course
-                         </Link>
-                    </div>
-                    <div className="wizard-view-header-row">
-                        <h1 className="wizard-title wizard-title-view">{formData.title || 'Assignment'}</h1>
-                        <div className="wizard-view-actions">
-                            <Button type="button" variant="outline" size="sm" onClick={() => courseId && navigate(`${basePath}/courses/${courseId}/gradebook`)}>
-                                <Download size={16} />
-                                Grades
-                            </Button>
-                            <Button type="button" variant="primary" size="sm" onClick={() => gradingHref && navigate(gradingHref)}>
-                                <BarChart2 size={16} />
-                                Grade
-                            </Button>
-                            <Button type="button" variant="outline" size="sm" onClick={() => editHref && navigate(editHref)}>
-                                <Edit size={16} />
-                                Edit
-                            </Button>
-                            <Button type="button" variant="danger" size="sm" onClick={handleDeleteAssignmentView}>
-                                <Trash2 size={16} />
-                                Delete
-                            </Button>
+                    <Link to={`${basePath}/courses/${courseId}/assignments`} className="wizard-back-to-assignments">
+                        <ChevronLeft size={14} />
+                        Back to assignments
+                    </Link>
+                    <div className="wizard-view-header-card">
+                        <div className="wizard-view-header-row">
+                            <h1 className="wizard-title wizard-title-view">{formData.title || 'Assignment'}</h1>
+                            <div className="wizard-view-actions">
+                                <Button type="button" variant="primary" size="sm" onClick={() => courseId && navigate(`${basePath}/courses/${courseId}`)}>
+                                    <House size={16} />
+                                    Course Home
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowRubricModal(true)}
+                                >
+                                    Rubrics
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => courseId && navigate(`${basePath}/courses/${courseId}/gradebook`)}>
+                                    <Download size={16} />
+                                    Grades
+                                </Button>
+                                <Button type="button" variant="primary" size="sm" onClick={() => gradingHref && navigate(gradingHref)}>
+                                    <BarChart2 size={16} />
+                                    Grade
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => editHref && navigate(editHref)}>
+                                    <Edit size={16} />
+                                    Edit
+                                </Button>
+                                <Button type="button" variant="danger" size="sm" onClick={handleDeleteAssignmentView}>
+                                    <Trash2 size={16} />
+                                    Delete
+                                </Button>
+                            </div>
                         </div>
+                        {submissionCount !== null && (
+                            <p className="wizard-submission-count">Submissions: {submissionCount}</p>
+                        )}
                     </div>
-                    {submissionCount !== null && (
-                        <p className="wizard-submission-count">Submissions: {submissionCount}</p>
-                    )}
                 </div>
             )}
             {!readOnly && (
@@ -705,7 +857,22 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
 
                 {/* Rubric configuration */}
                 <div className="form-group">
-                    <label className="form-label">Grading Rubric</label>
+                    <div className="rubric-section-toolbar">
+                        <label className="form-label rubric-section-toolbar-label">Grading Rubric</label>
+                        {isEditing && assignmentId && !readOnly && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={saving || savingRubric}
+                                onClick={() => void handleSaveRubric()}
+                                title="Save rubric without updating the rest of the assignment"
+                            >
+                                <Save size={16} className="icon-left" aria-hidden />
+                                {savingRubric ? 'Saving…' : 'Save rubric'}
+                            </Button>
+                        )}
+                    </div>
                     <input
                         type="text"
                         className="form-input"
@@ -714,6 +881,65 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                         onChange={e => setRubric({ ...rubric, title: e.target.value })}
                     />
                 </div>
+
+                {courseId && !readOnly && (
+                    <div
+                        className="saved-rubric-panel"
+                        style={{
+                            marginBottom: '1.25rem',
+                            padding: '1rem 1.25rem',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--bg-body)',
+                        }}
+                    >
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
+                            Saved rubrics (this course)
+                        </div>
+                        <div className="form-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+                            <div className="form-group" style={{ flex: '1 1 220px', marginBottom: 0 }}>
+                                <label className="form-label">Load template</label>
+                                <select
+                                    key={savedRubricSelectKey}
+                                    className="form-select"
+                                    defaultValue=""
+                                    disabled={savedRubricsLoading}
+                                    aria-label="Load saved rubric template"
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        if (v) handleApplySavedRubric(v);
+                                    }}
+                                >
+                                    <option value="">{savedRubricsLoading ? 'Loading…' : 'Choose a saved rubric…'}</option>
+                                    {savedRubrics.map((s) => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ flex: '1 1 220px', marginBottom: 0 }}>
+                                <label className="form-label">Save current rubric as</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Template name for reuse"
+                                    value={rubricTemplateName}
+                                    onChange={(e) => setRubricTemplateName(e.target.value)}
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
+                                onClick={() => void handleSaveNamedTemplate()}
+                            >
+                                {savingNamedRubric ? 'Saving…' : 'Save for reuse'}
+                            </Button>
+                        </div>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', marginTop: '0.65rem', marginBottom: 0 }}>
+                            Reusing the same template name updates it. Templates are stored for this course only.
+                        </p>
+                    </div>
+                )}
 
                 <div className="form-row">
                     <div className="form-group">
@@ -1156,8 +1382,8 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
 
                 {readOnly ? (
                     <div className="form-actions">
-                        <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}`)}>
-                            Back to course
+                        <Button type="button" variant="ghost" onClick={() => navigate(`${basePath}/courses/${courseId}/assignments`)}>
+                            Back to assignments
                         </Button>
                     </div>
                 ) : (
@@ -1171,6 +1397,55 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                     </div>
                 )}
             </form>
+
+            {showRubricModal && (
+                <div className="rubric-modal-backdrop" onClick={() => setShowRubricModal(false)}>
+                    <div className="rubric-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="rubric-modal-header">
+                            <h3>Rubrics for this assignment</h3>
+                            <button
+                                type="button"
+                                className="rubric-modal-close"
+                                onClick={() => setShowRubricModal(false)}
+                                aria-label="Close rubric popup"
+                                title="Close"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="rubric-modal-content">
+                            {(rubric.sections ?? []).map((section, secIndex) => (
+                                <div key={section.id || `sec-${secIndex}`} className="rubric-modal-section">
+                                    <div className="rubric-modal-section-title">
+                                        {section.title?.trim() || `Section ${secIndex + 1}`}
+                                    </div>
+                                    <table className="rubric-modal-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Criterion</th>
+                                                {rubric.weighted && <th>Weight %</th>}
+                                                <th>Max Points</th>
+                                                <th>Comments / Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {section.items.map((crit, idx) => (
+                                                <tr key={crit.id || `${section.id}-${idx}`}>
+                                                    <td>{crit.name || '-'}</td>
+                                                    {rubric.weighted && <td>{crit.weight ?? '-'}</td>}
+                                                    <td>{crit.maxPoints ?? '-'}</td>
+                                                    <td>{crit.comment || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

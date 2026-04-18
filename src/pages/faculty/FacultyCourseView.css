@@ -1,8 +1,9 @@
-/* Page Container to match Student view (max-width + spacing) */
+/* Page container: horizontal inset comes from .course-page-content; keep left edge aligned with topbar + course strip */
 .faculty-course-container {
   max-width: 1400px;
-  margin: 0 auto;
-  padding: 2.5rem 2rem;
+  margin: 0;
+  padding: 2.5rem 0;
+  width: 100%;
 }
 
 /* Header Section */
@@ -280,6 +281,47 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+}
+
+.ta-info-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ta-info-users-icon {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Darker maroon than the card so the + stays visible on the maroon TA panel */
+.ta-info-add-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: #5a0018;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ta-info-add-btn:hover {
+  background: var(--primary-hover);
+  border-color: rgba(255, 255, 255, 0.65);
+  transform: scale(1.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.ta-info-add-btn:focus-visible {
+  outline: 2px solid var(--secondary-color);
+  outline-offset: 2px;
 }
 
 .ta-info-title {
@@ -634,7 +676,7 @@
 .assignment-card-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 14px 20px;
   margin-top: 1rem;
@@ -651,9 +693,9 @@
 }
 
 .due-date {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 6px 10px;
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -665,12 +707,14 @@
   letter-spacing: 0.08em;
   color: var(--text-tertiary);
   font-weight: 800;
+  line-height: 1;
 }
 
 .due-value {
   font-weight: 700;
   color: var(--text-primary);
   font-size: 0.95rem;
+  line-height: 1.25;
 }
 
 .assignment-card-actions {
@@ -681,7 +725,7 @@
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 0 6px;
+  padding: 2px 0;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
@@ -807,13 +851,13 @@
 /* --- Additional Responsive Adjustments --- */
 @media (max-width: 1024px) {
   .faculty-course-container {
-    padding: 1.5rem 1.25rem;
+    padding: 1.5rem 0;
   }
 }
 
 @media (max-width: 768px) {
   .faculty-course-container {
-    padding: 1rem;
+    padding: 1rem 0;
   }
 
   .faculty-course-header {

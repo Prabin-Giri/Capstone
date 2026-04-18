@@ -1,8 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
-import { getCourseGrades, getSubmissions, type GradebookData, inviteTA, getTAs, removeTA, unenrollStudent } from '../../lib/api';
-import { ChevronLeft, BarChart2, X, ExternalLink, UserPlus, ShieldCheck, Users, Trash, ShieldAlert } from 'lucide-react';
+import {
+    getCourseGrades,
+    getSubmissions,
+    getFileUrl,
+    enrollStudent,
+    searchStudents,
+    unenrollStudent,
+    type GradebookData,
+    type User,
+} from '../../lib/api';
+import { ChevronLeft, BarChart2, X, ExternalLink, Plus, Search, UserPlus, Trash, ShieldAlert } from 'lucide-react';
 import UserAvatar from '../../components/ui/UserAvatar';
+import { showDialog } from '../../components/ui/Dialog';
+import './FacultyCourseView.css';
 import './FacultyStudentListView.css';
 
 const FacultyStudentListView: React.FC = () => {
@@ -12,9 +23,11 @@ const FacultyStudentListView: React.FC = () => {
     const [data, setData] = useState<GradebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-    const [taIds, setTaIds] = useState<Set<string>>(new Set());
-    const [taActionModal, setTaActionModal] = useState<{ student: any, isAssign: boolean } | null>(null);
     const [studentToUnenroll, setStudentToUnenroll] = useState<{ id: string, name: string } | null>(null);
+    const [showEnrollModal, setShowEnrollModal] = useState(false);
+    const [studentSearchQuery, setStudentSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<User[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     const basePath = useMemo(() => {
         return pathname.startsWith('/ta') ? `/ta/courses/${courseId}` : `/faculty/courses/${courseId}`;
@@ -25,19 +38,8 @@ const FacultyStudentListView: React.FC = () => {
     useEffect(() => {
         if (courseId) {
             loadData();
-            loadTaData();
         }
     }, [courseId]);
-
-    async function loadTaData() {
-        if (!courseId) return;
-        try {
-            const tas = await getTAs(courseId);
-            setTaIds(new Set(tas.map(ta => ta.id)));
-        } catch (err) {
-            console.error('Failed to load TA data', err);
-        }
-    }
 
     async function loadData() {
         if (!courseId) return;
@@ -55,6 +57,43 @@ const FacultyStudentListView: React.FC = () => {
     if (!data) return <div className="student-list-container text-red-500">Failed to load course data</div>;
 
     const { course, students, assignments } = data;
+
+    const resetEnrollModal = () => {
+        setShowEnrollModal(false);
+        setStudentSearchQuery('');
+        setSearchResults([]);
+    };
+
+    const handleSearchStudents = async (query: string) => {
+        setStudentSearchQuery(query);
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            const results = await searchStudents(query);
+            const enrolledIds = new Set(students.map((s) => s.id));
+            setSearchResults(results.filter((s) => !enrolledIds.has(s.id)));
+        } catch (err) {
+            console.error('Search failed', err);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleEnroll = async (studentId: string) => {
+        if (!courseId) return;
+        try {
+            await enrollStudent(courseId, studentId);
+            await loadData();
+            resetEnrollModal();
+        } catch (err) {
+            console.error('Enrollment failed', err);
+            await showDialog({ title: 'Error', message: 'Failed to enroll student', confirmText: 'OK' });
+        }
+    };
 
     const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null;
 
@@ -155,6 +194,17 @@ const FacultyStudentListView: React.FC = () => {
                     <h1 className="page-title">{course.name} - Students</h1>
                     <p className="page-subtitle">{students.length} Enrolled Student{students.length !== 1 ? 's' : ''}</p>
                 </div>
+                {!isTA && (
+                    <button
+                        type="button"
+                        className="student-list-enroll-fab"
+                        aria-label="Enroll student"
+                        title="Enroll student"
+                        onClick={() => setShowEnrollModal(true)}
+                    >
+                        <Plus size={22} strokeWidth={2.5} aria-hidden />
+                    </button>
+                )}
             </div>
 
             <div className="student-list-table-container">
@@ -194,24 +244,13 @@ const FacultyStudentListView: React.FC = () => {
                                                 View Grades
                                             </button>
                                             {!isTA && (
-                                                <>
-                                                    <button 
-                                                        className={taIds.has(student.id) ? "ta-toggle-btn active" : "ta-toggle-btn"}
-                                                        onClick={() => setTaActionModal({ student, isAssign: !taIds.has(student.id) })}
-                                                        title={taIds.has(student.id) ? "Unassign as TA" : "Assign as TA"}
-                                                    >
-                                                        {taIds.has(student.id) ? <ShieldCheck size={16} /> : <UserPlus size={16} />}
-                                                        {taIds.has(student.id) ? "Revoke TA" : "Make TA"}
-                                                    </button>
-                                                    
-                                                    <button 
-                                                        className="roster-delete-btn"
-                                                        onClick={() => setStudentToUnenroll({ id: student.id, name: student.name })}
-                                                        title="Unenroll student from course"
-                                                    >
-                                                        <Trash size={18} strokeWidth={2.5} />
-                                                    </button>
-                                                </>
+                                                <button
+                                                    className="roster-delete-btn"
+                                                    onClick={() => setStudentToUnenroll({ id: student.id, name: student.name })}
+                                                    title="Unenroll student from course"
+                                                >
+                                                    <Trash size={18} strokeWidth={2.5} />
+                                                </button>
                                             )}
                                         </div>
                                     </td>
@@ -257,45 +296,76 @@ const FacultyStudentListView: React.FC = () => {
                 </div>
             )}
 
-            {/* TA Action Overlay */}
-            {taActionModal && (
-                <div className="report-modal-overlay">
-                    <div className="report-modal-content" style={{ maxWidth: '420px', textAlign: 'center', padding: '2rem' }}>
-                        <div className="unenroll-icon-wrapper" style={{ margin: '0 auto 1.5rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)' }}>
-                            <Users size={32} />
+            {showEnrollModal && (
+                <div className="modal-overlay" onClick={resetEnrollModal}>
+                    <div className="modal-content" style={{ maxWidth: '480px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="enroll-modal-header">
+                            <h3 className="enroll-modal-title">Enroll student</h3>
+                            <button type="button" className="enroll-modal-close" onClick={resetEnrollModal} aria-label="Close">
+                                <X size={20} />
+                            </button>
                         </div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                            {taActionModal.isAssign ? 'Assign Teaching Assistant?' : 'Revoke TA Privileges?'}
-                        </h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '2rem' }}>
-                            {taActionModal.isAssign 
-                                ? `Do you want to grant ${taActionModal.student.name} access to grade submissions and manage assignments for this course?`
-                                : `Are you sure you want to remove TA privileges for ${taActionModal.student.name}? They will still remain enrolled as a student.`
-                            }
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button className="ta-toggle-btn" style={{ flex: 1 }} onClick={() => setTaActionModal(null)}>
-                                Cancel
-                            </button>
-                            <button
-                                className="ta-toggle-btn active"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                                onClick={async () => {
-                                    try {
-                                        if (taActionModal.isAssign) {
-                                            await inviteTA(courseId!, { taId: taActionModal.student.id });
-                                        } else {
-                                            await removeTA(courseId!, taActionModal.student.id);
-                                        }
-                                        await loadTaData();
-                                        setTaActionModal(null);
-                                    } catch (err) {
-                                        console.error('Failed to toggle TA status', err);
-                                    }
-                                }}
-                            >
-                                {taActionModal.isAssign ? 'Assign TA' : 'Revoke TA'}
-                            </button>
+                        <div className="search-input-wrapper">
+                            <Search className="search-icon-inside" size={18} aria-hidden />
+                            <input
+                                type="text"
+                                value={studentSearchQuery}
+                                onChange={(e) => void handleSearchStudents(e.target.value)}
+                                placeholder="Search by name or email…"
+                                className="student-search-input"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="search-results-container custom-scrollbar">
+                            {isSearching ? (
+                                <p className="text-center py-4 text-gray-400 font-medium">Searching…</p>
+                            ) : searchResults.length > 0 ? (
+                                searchResults.map((studentRow) => (
+                                    <div key={studentRow.id} className="search-result-item">
+                                        <div className="search-result-info">
+                                            <div
+                                                className="search-result-avatar"
+                                                style={{ padding: studentRow.profile_picture ? 0 : undefined, overflow: 'hidden' }}
+                                            >
+                                                {studentRow.profile_picture ? (
+                                                    <img
+                                                        src={getFileUrl(studentRow.profile_picture)}
+                                                        alt=""
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.style.display = 'none';
+                                                            const parent = target.parentElement;
+                                                            if (parent) {
+                                                                parent.style.padding = '';
+                                                                parent.textContent = studentRow.name.charAt(0);
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    studentRow.name.charAt(0)
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="search-result-name">{studentRow.name}</p>
+                                                <p className="search-result-email">{studentRow.email}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleEnroll(studentRow.id)}
+                                            className="btn-enroll-icon"
+                                            title="Enroll student"
+                                        >
+                                            <UserPlus size={18} aria-hidden />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : studentSearchQuery.trim().length > 0 ? (
+                                <p className="text-center py-4 text-gray-500">No students found matching your search.</p>
+                            ) : (
+                                <p className="text-center py-4 text-xs text-gray-400 font-medium">Start typing to find students…</p>
+                            )}
                         </div>
                     </div>
                 </div>
