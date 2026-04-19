@@ -21,9 +21,8 @@ data:
   min_tokens: 50
 
 model:
-  # Local snapshot: run scripts/download_hf_models.py (microsoft/codebert-base -> artifacts/...).
-  model_name: artifacts/models/pretrained/microsoft-codebert-base
-  local_files_only: true
+  model_name: microsoft/codebert-base
+  local_files_only: false
   max_length: 256
   batch_size: 4
   learning_rate: 2.0e-5

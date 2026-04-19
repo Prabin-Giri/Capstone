@@ -9,7 +9,6 @@ from typing import Any
 
 from ..config import TrainConfig
 from ..utils.io import write_text
-from ..utils.transformers_compat import training_args_eval_strategy_epoch_kwarg
 from ..utils.seed import seed_everything
 from .classifier import load_saved_tokenizer_and_model, load_tokenizer_and_model, resolve_classifier_spec
 from .dataset import TokenizedCodeDataset, load_code_samples, summarize_code_samples
@@ -190,7 +189,7 @@ def _build_trainer(
     training_args = TrainingArguments(
         output_dir=str(config.outputs.model_dir),
         overwrite_output_dir=False,
-        **training_args_eval_strategy_epoch_kwarg(TrainingArguments),
+        evaluation_strategy="epoch",
         save_strategy="epoch",
         learning_rate=config.model.learning_rate,
         per_device_train_batch_size=config.model.batch_size,

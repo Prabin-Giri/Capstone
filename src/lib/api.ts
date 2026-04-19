@@ -814,12 +814,6 @@ export interface Submission {
     style_points?: number | null;
     efficiency_points?: number | null;
     deduction_points?: number | null;
-    /** Fingerprint of submission content used for AI reuse checks */
-    content_hash?: string | null;
-    /** AI analysis lifecycle state for faculty visibility */
-    ai_analysis_state?: 'pending' | 'analyzed' | 'reused' | 'failed' | 'skipped' | string;
-    ai_analyzed_at?: string | null;
-    ai_reused_from_submission_id?: number | null;
 }
 
 export async function getSubmissions(params?: {
@@ -1337,9 +1331,6 @@ export interface SubmissionAiDetectionResult {
 export interface SubmissionAiDetectionHistoryResponse {
     submission_id: number;
     requested_by?: string | null;
-    analysis_state?: 'pending' | 'analyzed' | 'reused' | 'failed' | 'skipped' | string;
-    analyzed_at?: string | null;
-    reused_from_submission_id?: number | null;
     count: number;
     results: SubmissionAiDetectionResult[];
 }
@@ -1350,30 +1341,15 @@ export interface RunSubmissionAiDetectionRequest {
     batch?: boolean;
 }
 
-export interface RunSubmissionAiDetectionResultRow {
-    file_name: string;
-    language: string;
-    detection_id: number | null;
-    recorded_at: string | null;
-    detector_result: Record<string, unknown> | null;
-    reused_from_submission_id?: number | null;
-}
-
 export interface RunSubmissionAiDetectionResponse {
     submission_id: number;
-    batch?: boolean;
-    mode?: 'fresh' | 'reused' | 'skipped' | string;
-    skipped?: boolean;
-    reason?: string;
-    source_submission_id?: number | null;
-    analysis_state?: 'pending' | 'analyzed' | 'reused' | 'failed' | 'skipped' | string;
-    analyzed_at?: string | null;
-    reused_from_submission_id?: number | null;
-    count: number;
-    results: RunSubmissionAiDetectionResultRow[];
+    file_name: string;
+    language: string;
     requested_by?: string | null;
+    detection_id: number | null;
+    recorded_at: string | null;
     model_version: string | null;
-    detector?: string;
+    detector_result: Record<string, unknown>;
     note: string;
 }
 
@@ -1390,7 +1366,6 @@ export interface AiDetectorStatusResponse {
         python_bin: string | null;
     };
     model_version: string | null;
-    reuse_on_unchanged?: boolean;
 }
 
 export async function getAiDetectorStatus(): Promise<AiDetectorStatusResponse> {
@@ -1439,40 +1414,9 @@ export async function getSubmissionAiDetections(
 
 export async function getAssignmentAiSummary(
     assignmentId: string
-): Promise<{
-    assignment_id: string;
-    totals?: {
-        submissions: number;
-        caution: number;
-        clean: number;
-        pending: number;
-        analyzed: number;
-        reused: number;
-        failed: number;
-        skipped: number;
-        no_results: number;
-    };
-    summary: Record<number, {
-        caution: boolean;
-        clean: boolean;
-        submission_id: number;
-        student_id: string;
-        analysis_state: 'pending' | 'analyzed' | 'reused' | 'failed' | 'skipped' | string;
-        analyzed_at: string | null;
-        reused_from_submission_id: number | null;
-        last_run: string | null;
-        latest_detection: {
-            file_name: string;
-            label: string;
-            score_used: number | null;
-            calibrated_score: number | null;
-            raw_score: number | null;
-            created_at: string;
-        } | null;
-    }>;
-}> {
+): Promise<{ assignment_id: string; summary: Record<number, { caution: boolean; clean: boolean; last_run: string }> }> {
     const params = new URLSearchParams({ user_id: getActorUserId() });
-    return apiFetch(
+    return apiFetch<{ assignment_id: string; summary: Record<number, { caution: boolean; clean: boolean; last_run: string }> }>(
         `/ai-detector/assignments/${assignmentId}/summary?${params.toString()}`
     );
 }

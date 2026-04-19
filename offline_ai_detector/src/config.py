@@ -16,18 +16,6 @@ import yaml
 from .paths import DETECTOR_ROOT
 
 
-def _resolve_model_identifier(value: str) -> str:
-    """Pass through Hub ids; resolve relative paths that exist under DETECTOR_ROOT."""
-
-    raw = Path(value)
-    if raw.is_absolute():
-        return str(raw.resolve()) if raw.exists() else value
-    candidate = (DETECTOR_ROOT / raw).resolve()
-    if candidate.exists():
-        return str(candidate)
-    return value
-
-
 def _resolve_path(value: str | Path | None) -> Path | None:
     if value is None:
         return None
@@ -219,8 +207,6 @@ def load_data_config(path: str | Path) -> DataConfig:
 
 def load_train_config(path: str | Path) -> TrainConfig:
     raw = _load_yaml(path)
-    model_block = dict(raw["model"])
-    model_block["model_name"] = _resolve_model_identifier(str(model_block["model_name"]))
     return TrainConfig(
         project=ProjectConfig(**raw["project"]),
         data=TrainingDataConfig(
@@ -235,7 +221,7 @@ def load_train_config(path: str | Path) -> TrainConfig:
             language_allowlist=raw["data"].get("language_allowlist"),
             min_tokens=raw["data"].get("min_tokens", 50),
         ),
-        model=ModelConfig(**model_block),
+        model=ModelConfig(**raw["model"]),
         calibration=CalibrationConfig(**raw.get("calibration", {})),
         thresholds=ThresholdConfig(**raw["thresholds"]),
         outputs=OutputConfig(

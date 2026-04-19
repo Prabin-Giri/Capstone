@@ -6,15 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // Dev / nginx proxy: allow your public hostname(s). Leading `.` = apex + all subdomains (e.g. www).
-    allowedHosts: ['.agnos.it.com', 'agnos.it.com', 'www.agnos.it.com'],
     watch: {
       ignored: ['**/offline_ai_detector/.venv/**', '**/offline_ai_detector/artifacts/**']
     }
-  },
-  // `server.*` does NOT apply to `vite preview`. If prod uses preview behind nginx, this is required.
-  preview: {
-    allowedHosts: ['.agnos.it.com', 'agnos.it.com', 'www.agnos.it.com']
   },
   build: {
     rollupOptions: {
