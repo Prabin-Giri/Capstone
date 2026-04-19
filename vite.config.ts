@@ -6,11 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    allowedHosts: true,
+    allowedHosts: ['.agnos.it.com', 'agnos.it.com', 'www.agnos.it.com'],
     watch: {
       ignored: ['**/offline_ai_detector/.venv/**', '**/offline_ai_detector/artifacts/**']
     }
   },
+  preview: {
+    allowedHosts: ['.agnos.it.com', 'agnos.it.com', 'www.agnos.it.com']
   build: {
     rollupOptions: {
       output: {
