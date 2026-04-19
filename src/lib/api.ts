@@ -8,10 +8,16 @@ export type { AssignmentExecutionPayload } from './utils';
 
 // Generic fetch wrapper with error handling
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_BASE}${url}`, options);
+    let response: Response;
+    try {
+        response = await fetch(`${API_BASE}${url}`, options);
+    } catch (err) {
+        console.error('Network error:', err);
+        throw new Error('Unable to connect to the server. Please check your internet connection or try again later.');
+    }
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(error.error || 'Request failed');
+        const error = await response.json().catch(() => ({ error: `Request failed (status ${response.status})` }));
+        throw new Error(error.error || `Request failed (status ${response.status})`);
     }
     return response.json();
 }
