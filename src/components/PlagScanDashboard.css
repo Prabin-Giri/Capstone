@@ -33,9 +33,13 @@
   gap: 0.5rem;
 }
 
-.ps-sidebar-high {
-  background: #840029;
-  color: white;
+.ps-sidebar-header {
+  padding: 1rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #840029;
 }
 
 .ps-sidebar-sub {
@@ -146,20 +150,48 @@
   white-space: nowrap;
 }
 
-.ps-sidebar-divider {
-  margin: 1rem 0 0;
-  height: 1px;
-  background: rgba(200, 201, 199, 0.15);
+.ps-student-focus-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
-.ps-sidebar-archived {
+.ps-focus-label {
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #646469;
-  margin-top: 0.25rem;
 }
 
-.ps-sidebar-archived-icon {
+.ps-focus-pill {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #121317;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
   font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
+
+.ps-focus-pill:hover {
+  background: #f8fafc;
+}
+
+.ps-focus-pill-active {
+  border-color: #840029;
+  background: #840029;
+  color: #ffffff;
+}
+
+.ps-focus-pill-clear {
+  border-color: transparent;
+  background: #f3f4f6;
+  color: #646469;
+}
+
+
 
 /* ─── Main Content ─────────────────────────────────────────────────────────── */
 .ps-main {
@@ -234,18 +266,18 @@
 /* ─── Stats Cards ──────────────────────────────────────────────────────────── */
 .ps-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 3rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .ps-stat-card {
-  padding: 2.5rem;
-  border-radius: 1.5rem;
+  padding: 1.4rem 1.3rem;
+  border-radius: 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  gap: 0.35rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
 .ps-stat-red {
@@ -266,9 +298,9 @@
 
 .ps-stat-value {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: 3.5rem;
-  font-weight: 900;
-  line-height: 1;
+  font-size: 2.3rem;
+  font-weight: 800;
+  line-height: 1.05;
   letter-spacing: -0.03em;
 }
 
@@ -277,16 +309,16 @@
 }
 
 .ps-stat-label {
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 /* ─── Hero Header ──────────────────────────────────────────────────────────── */
 .ps-hero-header {
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .ps-breadcrumb {
@@ -298,7 +330,7 @@
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: rgba(100, 100, 105, 0.5);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .ps-breadcrumb-sep {
@@ -308,19 +340,19 @@
 
 .ps-hero-title {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: 3.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #121317;
   letter-spacing: -0.03em;
-  line-height: 1.1;
-  margin-bottom: 1rem;
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
 }
 
 .ps-hero-desc {
-  max-width: 700px;
-  font-size: 0.95rem;
-  color: rgba(18,19,23,0.65);
-  line-height: 1.7;
+  max-width: 680px;
+  font-size: 0.9rem;
+  color: rgba(18,19,23,0.75);
+  line-height: 1.6;
   font-weight: 500;
 }
 

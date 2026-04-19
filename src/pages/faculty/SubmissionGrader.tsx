@@ -11,10 +11,6 @@ import {
     runTests,
     getAssignmentGroups,
     gradeAssignmentGroup,
-    runSubmissionAiDetection,
-    getSubmissionAiDetections,
-    getAiDetectorStatus,
-    getAssignmentAiSummary,
 } from '../../lib/api';
 import type {
     Submission,
@@ -22,29 +18,16 @@ import type {
     RubricConfig,
     TestResult,
     AssignmentGroup,
-    SubmissionAiDetectionResult,
-    AiDetectorStatusResponse,
 } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 import UserAvatar from '../../components/ui/UserAvatar';
-import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, PanelLeftOpen, ChevronLeft, CalendarDays, Layers, ShieldAlert, FileText } from 'lucide-react';
+import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, ChevronLeft, CalendarDays, Layers, ShieldAlert, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
 import { getLanguageFromFilename, buildAssignmentExecutionPayload } from '../../lib/utils';
-
-function pickDetectableSourceFile(submission: Submission): { filename: string; language: 'python' | 'java' } | null {
-    const files = submission.files || [{ name: submission.file_name, path: submission.file_path }];
-    for (const file of files) {
-        const name = String(file?.name || '').trim();
-        if (!name) continue;
-        if (/\.py$/i.test(name)) return { filename: name, language: 'python' };
-        if (/\.java$/i.test(name)) return { filename: name, language: 'java' };
-    }
-    return null;
-}
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -73,16 +56,6 @@ const SubmissionGrader: React.FC = () => {
     const [studentSearch, setStudentSearch] = useState('');
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
     const [testSummary, setTestSummary] = useState<{ passed: number | null; total: number | null }>({ passed: null, total: null });
-    const [aiHistory, setAiHistory] = useState<SubmissionAiDetectionResult[]>([]);
-    const [loadingAiHistory, setLoadingAiHistory] = useState(false);
-    const [runningAiDetection, setRunningAiDetection] = useState(false);
-    const [showAiHistoryModal, setShowAiHistoryModal] = useState(false);
-    const [aiDetectorStatus, setAiDetectorStatus] = useState<AiDetectorStatusResponse | null>(null);
-    const [loadingAiDetectorStatus, setLoadingAiDetectorStatus] = useState(false);
-    const [aiSummary, setAiSummary] = useState<Record<number, { caution: boolean; clean: boolean; last_run: string }>>({});
-    const [loadingAiSummary, setLoadingAiSummary] = useState(false);
-    void loadingAiHistory;
-    void loadingAiSummary;
 
     // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
     // Using refs instead of state so that saveDraftForCurrent() writes are
@@ -190,9 +163,6 @@ const SubmissionGrader: React.FC = () => {
 
     useEffect(() => {
         loadData();
-        void loadAiHistory();
-        void loadAiDetectorStatus();
-        if (assignmentId) void loadAiSummary(assignmentId);
     }, [submissionId]);
 
     // Fetch all students for the assignment (once per assignmentId)
@@ -210,12 +180,7 @@ const SubmissionGrader: React.FC = () => {
         }).catch(console.error);
     }, [assignmentId]);
 
-    useEffect(() => {
-        const target = allSubmissions[activeAttemptIndex];
-        if (target?.id) {
-            void loadAiHistory(target.id);
-        }
-    }, [allSubmissions, activeAttemptIndex]);
+    // (AI analysis removed from grading page)
 
     // Left sidebar resize — min/max in px so student names and grade badges stay visible
     useEffect(() => {
@@ -247,31 +212,37 @@ const SubmissionGrader: React.FC = () => {
         return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
     }, [isResizingRight, rightWidth]);
 
+    // Current attempt for this student (must not be a late `const` after hooks — TDZ if hooks/deps read it during render)
+    const activeAttempt = useMemo((): Submission | null => {
+        if (!submission) return null;
+        return allSubmissions[activeAttemptIndex] || submission;
+    }, [submission, allSubmissions, activeAttemptIndex]);
+
     // Sync workspace with current active attempt
     useEffect(() => {
         if (loading || !submission || allSubmissions.length === 0) return;
 
-        const activeAttempt = allSubmissions[activeAttemptIndex] || submission;
-        
+        const attemptForWorkspace = allSubmissions[activeAttemptIndex] || submission;
+
         // Conditions for loading:
         // 1. Workspace is already open (user is navigating attempts while viewing code)
         // 2. Initial load (auto-open on first arrival)
         const shouldLoad = isWorkspaceOpen || !loadedAttemptIdRef.current;
-        const isNewAttempt = loadedAttemptIdRef.current !== activeAttempt.id;
+        const isNewAttempt = loadedAttemptIdRef.current !== attemptForWorkspace.id;
 
         if (shouldLoad && isNewAttempt) {
-            const files = activeAttempt.files || [{ name: activeAttempt.file_name, path: activeAttempt.file_path }];
+            const files = attemptForWorkspace.files || [{ name: attemptForWorkspace.file_name, path: attemptForWorkspace.file_path }];
             const primary = files[0];
             if (primary && primary.path) {
-                void loadAttemptWorkspace(files, activeAttempt.id, primary.path);
-                loadedAttemptIdRef.current = activeAttempt.id;
+                void loadAttemptWorkspace(files, attemptForWorkspace.id, primary.path);
+                loadedAttemptIdRef.current = attemptForWorkspace.id;
             }
         }
     }, [loading, submission?.id, activeAttemptIndex, allSubmissions.length, isWorkspaceOpen]);
 
     // ─── Core: save current form to ref (synchronous, no batching issues) ─────
-    function saveDraftForCurrent() {
-        if (!submissionId) return;
+    function saveDraftForCurrent(): boolean {
+        if (!submissionId) return false;
 
         // Only save if something actually changed from the loaded/clean state
         const clean = cleanStateRef.current;
@@ -279,7 +250,7 @@ const SubmissionGrader: React.FC = () => {
             feedback !== clean.feedback ||
             JSON.stringify(rubricScores) !== JSON.stringify(clean.rubricScores);
 
-        if (!isDirty) return; // Nothing changed — don't mark as draft
+        if (!isDirty) return false; // Nothing changed — don't mark as draft
 
         pendingGradesRef.current = {
             ...pendingGradesRef.current,
@@ -287,6 +258,7 @@ const SubmissionGrader: React.FC = () => {
         };
         draftIdsRef.current = new Set(draftIdsRef.current).add(submissionId);
         setDraftVersion(v => v + 1);
+        return true;
     }
 
     // Helper: update a single field in the draft ref for current student
@@ -420,110 +392,7 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
-    async function loadAiHistory(targetSubmissionId?: number) {
-        const sid = targetSubmissionId || (submissionId ? parseInt(submissionId, 10) : NaN);
-        if (!sid || Number.isNaN(sid)) return;
-        setLoadingAiHistory(true);
-        try {
-            const history = await getSubmissionAiDetections(sid, { limit: 15 });
-            setAiHistory(history.results || []);
-        } catch (err) {
-            console.error(err);
-            setAiHistory([]);
-        } finally {
-            setLoadingAiHistory(false);
-        }
-    }
-
-    async function loadAiSummary(aid?: string) {
-        const id = aid || assignmentId;
-        if (!id) return;
-        setLoadingAiSummary(true);
-        try {
-            const data = await getAssignmentAiSummary(id);
-            setAiSummary(data.summary || {});
-        } catch (err) {
-            console.error('Failed to load AI summary:', err);
-        } finally {
-            setLoadingAiSummary(false);
-        }
-    }
-
-    async function loadAiDetectorStatus(): Promise<AiDetectorStatusResponse | null> {
-        setLoadingAiDetectorStatus(true);
-        try {
-            const status = await getAiDetectorStatus();
-            setAiDetectorStatus(status);
-            return status;
-        } catch (err) {
-            console.error(err);
-            const fallbackStatus: AiDetectorStatusResponse = {
-                enabled: false,
-                ready: false,
-                reason: err instanceof Error ? err.message : 'Could not load AI detector status.',
-                detector: 'offline_ai_detector',
-                paths: {
-                    root: null,
-                    script: null,
-                    config: null,
-                    model_dir: null,
-                    python_bin: null,
-                },
-                model_version: null,
-            };
-            setAiDetectorStatus(fallbackStatus);
-            return fallbackStatus;
-        } finally {
-            setLoadingAiDetectorStatus(false);
-        }
-    }
-
-    async function handleRunAiDetection(targetSubmission: Submission) {
-        const source = pickDetectableSourceFile(targetSubmission);
-        if (!source) {
-            setAlertConfig({
-                show: true,
-                type: 'info',
-                title: 'Unsupported file type',
-                message: 'No .py or .java file was found in this submission attempt.',
-            });
-            return;
-        }
-        const status = await loadAiDetectorStatus();
-        if (!status?.ready) {
-            setAlertConfig({
-                show: true,
-                type: 'info',
-                title: 'AI detector unavailable',
-                message: status?.reason || 'AI detector is not ready right now.',
-            });
-            return;
-        }
-        setRunningAiDetection(true);
-        try {
-            await runSubmissionAiDetection(targetSubmission.id, {
-                batch: true,
-            });
-            await loadAiHistory(targetSubmission.id);
-            if (assignmentId) void loadAiSummary(assignmentId);
-            setAlertConfig({
-                show: true,
-                type: 'success',
-                title: 'AI detection complete',
-                message: 'All detectable files in this latest attempt have been scanned.',
-            });
-        } catch (err) {
-            console.error(err);
-            setAlertConfig({
-                show: true,
-                type: 'error',
-                title: 'AI detection failed',
-                message: err instanceof Error ? err.message : 'Could not run AI detection.',
-            });
-        } finally {
-            setRunningAiDetection(false);
-        }
-    }
+    // (AI analysis removed from grading page)
 
     async function handleDownload(url: string, filename: string) {
         try {
@@ -724,7 +593,8 @@ const SubmissionGrader: React.FC = () => {
                 return updateSubmission(subIdNum, {
                     grade: gradeValue,
                     feedback: data.feedback,
-                    status: newStatus
+                    status: newStatus,
+                    rubric_scores: Object.keys(data.rubricScores).length > 0 ? data.rubricScores : undefined
                 });
             });
 
@@ -788,6 +658,18 @@ const SubmissionGrader: React.FC = () => {
         }
     }
 
+    function handleSaveDraftOnly() {
+        const didSave = saveDraftForCurrent();
+        setAlertConfig({
+            show: true,
+            type: 'info',
+            title: didSave ? 'Draft saved' : 'No changes to save',
+            message: didSave
+                ? 'Saved locally. Use “Finalize & Post” to publish grades.'
+                : 'Make a change to grade/feedback/rubric to save a draft.',
+        });
+    }
+
     // When names are hidden, search is disabled — show all students unfiltered
     const filteredStudents = hideNames
         ? allStudentSubmissions
@@ -846,56 +728,18 @@ const SubmissionGrader: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClick);
     }, [showPlagPopover]);
     
-    const latestAiStatus = useMemo(() => {
-        const att = allSubmissions[activeAttemptIndex] || submission;
-        if (!att || aiHistory.length === 0) return { label: 'Not run', signal: 'none' as const, filesScanned: 0 };
-        const currentSid = att.id;
-        const currentResults = aiHistory.filter((h) => h.submission_id === currentSid);
-        if (currentResults.length === 0) return { label: 'Not run', signal: 'none' as const, filesScanned: 0 };
-        const hasAi = currentResults.some((r) => r.label.toLowerCase().includes('likely ai'));
-        const hasUnclear = currentResults.some((r) => r.label.toLowerCase().includes('unclear'));
-        if (hasAi) {
-            return {
-                label: 'Likely AI-written',
-                signal: 'caution' as const,
-                filesScanned: currentResults.length,
-                results: currentResults,
-            };
-        }
-        if (hasUnclear) {
-            return {
-                label: 'Suspicious / Unclear',
-                signal: 'caution' as const,
-                filesScanned: currentResults.length,
-                results: currentResults,
-            };
-        }
-        return {
-            label: 'Likely Human',
-            signal: 'clean' as const,
-            filesScanned: currentResults.length,
-            results: currentResults,
-        };
-    }, [aiHistory, allSubmissions, activeAttemptIndex, submission]);
+    // (AI analysis removed from grading page)
 
     if (loading) return <div className="grader-container"><div className="grader-loading">Loading...</div></div>;
-    if (!submission || !assignment) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
+    if (!submission || !assignment || !activeAttempt) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
 
     const maxPoints = assignment.points || 100;
-    const activeAttempt = allSubmissions[activeAttemptIndex] || submission;
     const activeAttemptFiles = activeAttempt.files || [{ name: activeAttempt.file_name, path: activeAttempt.file_path }];
     const attemptPrimaryFile = activeAttemptFiles[0];
     const canGoPrevAttempt = activeAttemptIndex > 0;
     const canGoNextAttempt = activeAttemptIndex < allSubmissions.length - 1;
     const studentDisplayName = hideNames ? anonLabel(submission.student_id) : (submission.student_name || 'Student');
     const isSubmissionGraded = submission.status === 'graded';
-
-    const activeAttemptDetectableFile = pickDetectableSourceFile(activeAttempt);
-    const aiDetectorReady = Boolean(aiDetectorStatus?.ready);
-    const aiDetectorBlockedReason = aiDetectorStatus && !aiDetectorStatus.ready
-        ? aiDetectorStatus.reason || 'AI detector is not ready.'
-        : null;
-
 
     const showDrawerBackdrop = isNarrowLayout && (leftDrawerOpen || rightDrawerOpen);
 
@@ -924,10 +768,20 @@ const SubmissionGrader: React.FC = () => {
                 <div className="sidebar-header">
                     <span className="sidebar-header-title">Students</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button className="sidebar-header-count">{allStudentSubmissions.length}</button>
+                        <button className="sidebar-header-count" type="button" aria-label="Student count">
+                            <Users size={14} />
+                            <span>{allStudentSubmissions.length}</span>
+                        </button>
                         <button className="sidebar-toggle-btn desktop-only" onClick={() => toggleLeftSidebar(true)} title="Collapse Student List"><PanelLeftClose size={16} /></button>
                         <button className="drawer-close-btn" onClick={() => setLeftDrawerOpen(false)}><X size={15} /></button>
                     </div>
+                </div>
+
+                <div className="grader-sidebar-back-link">
+                    <Link to={`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`}>
+                        <ChevronLeft size={14} />
+                        Back to Grading List
+                    </Link>
                 </div>
 
                 {/* TA notice when faculty has hidden names */}
@@ -1002,11 +856,6 @@ const SubmissionGrader: React.FC = () => {
                                                                                     <div className="student-list-info">
                                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                                             <span className="student-list-name">{displayName}</span>
-                                                                                            {aiSummary[s.id] && (
-                                                                                                <div className={`student-list-ai-icon ${aiSummary[s.id].caution ? 'caution' : 'clean'}`} title={aiSummary[s.id].caution ? 'AI Flags Detected' : 'Likely Human'}>
-                                                                                                    <ShieldAlert size={10} />
-                                                                                                </div>
-                                                                                            )}
                                                                                         </div>
                                                                                         {isModified && <span className="unsaved-dot" title="Unsaved draft">●</span>}
                                                                                     </div>
@@ -1050,11 +899,6 @@ const SubmissionGrader: React.FC = () => {
                                         <div className="student-list-info">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span className="student-list-name">{displayName}</span>
-                                                {aiSummary[s.id] && (
-                                                    <div className={`student-list-ai-icon ${aiSummary[s.id].caution ? 'caution' : 'clean'}`} title={aiSummary[s.id].caution ? 'AI Flags Detected' : 'Likely Human'}>
-                                                        <ShieldAlert size={10} />
-                                                    </div>
-                                                )}
                                             </div>
                                             {isModified && <span className="unsaved-dot" title="Draft — not yet posted">●</span>}
                                         </div>
@@ -1078,21 +922,22 @@ const SubmissionGrader: React.FC = () => {
 
             {/* ── MIDDLE: Submission + Preview ─────────────── */}
             <div className={`grader-panel-middle${switching ? ' switching' : ''}`}>
-                
-                {/* 1. Top Navigation Bar (Expand Sidebar + Back) */}
+
+                <div className="grader-main-back-link">
+                    <Link to={`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`}>
+                        <ChevronLeft size={14} />
+                        Back to Grading List
+                    </Link>
+                </div>
+
+                {/* 1. Top Navigation Bar */}
                 <div className="grader-top-nav-bar" style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '0 28px 16px' }}>
                     {isLeftSidebarCollapsed && (
                         <button className="sidebar-expand-btn" onClick={() => toggleLeftSidebar(false)} title="Expand Student List">
-                            <PanelLeftOpen size={18} />
+                            <Users size={18} />
                             <span style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Student List</span>
                         </button>
                     )}
-                    <div className="breadcrumb grader-breadcrumb" style={{ padding: 0, margin: 0 }}>
-                        <Link to={`${basePath}/courses/${courseId}/assignments/${assignmentId}/grading`}>
-                            <ChevronLeft size={14} />
-                            Back to Grading List
-                        </Link>
-                    </div>
                 </div>
 
                 {/* Mobile toolbar — drawer toggles */}
@@ -1366,66 +1211,7 @@ const SubmissionGrader: React.FC = () => {
                                 </Button>
                             </div>
 
-                            <div className="ai-detection-card">
-                                <div className="ai-detection-card-header">
-                                    <span className="autograde-label">AI Content Analysis</span>
-                                    <div 
-                                        className={`ai-status-pill ${latestAiStatus.signal === 'caution' ? 'caution' : latestAiStatus.signal === 'clean' ? 'clean' : ''}`}
-                                        onClick={() => latestAiStatus.filesScanned > 0 && setShowAiHistoryModal(true)}
-                                        style={{ cursor: latestAiStatus.filesScanned > 0 ? 'pointer' : 'default' }}
-                                    >
-                                        {latestAiStatus.signal === 'caution' ? <ShieldAlert size={14} /> : null}
-                                        {latestAiStatus.label}
-                                    </div>
-                                </div>
-                                <div className="ai-detection-card-meta">
-                                    <div>
-                                        Files scanned: <strong>{latestAiStatus.filesScanned}</strong>
-                                    </div>
-                                    <div>
-                                        Last scan:{' '}
-                                        <strong>
-                                            {latestAiStatus.filesScanned > 0
-                                                ? new Date(latestAiStatus.results![0].created_at).toLocaleString()
-                                                : 'Never'}
-                                        </strong>
-                                    </div>
-                                </div>
-                                <div className="ai-detection-card-actions">
-                                    <Button
-                                        size="sm"
-                                        onClick={() => void handleRunAiDetection(activeAttempt)}
-                                        disabled={runningAiDetection || loadingAiDetectorStatus || !aiDetectorReady}
-                                        className="btn-batch-ai"
-                                    >
-                                        {runningAiDetection ? 'Analyzing All Files...' : 'Scan Latest Submission'}
-                                    </Button>
-                                    {latestAiStatus.filesScanned > 0 && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowAiHistoryModal(true)}
-                                        >
-                                            View Details
-                                        </Button>
-                                    )}
-                                </div>
-                                {loadingAiDetectorStatus && (
-                                    <div className="ai-detection-inline-note">
-                                        Checking AI detector readiness...
-                                    </div>
-                                )}
-                                {aiDetectorBlockedReason && !loadingAiDetectorStatus && (
-                                    <div className="ai-detection-inline-note">
-                                        {aiDetectorBlockedReason}
-                                    </div>
-                                )}
-                                {!activeAttemptDetectableFile && (
-                                    <div className="ai-detection-inline-note">
-                                        No .py or .java file detected in this attempt.
-                                    </div>
-                                )}
-                            </div>
+                            {/* AI Content Analysis removed */}
 
                             {/* 3. Rubric scoring */}
                             {rubric && (
@@ -1575,6 +1361,16 @@ const SubmissionGrader: React.FC = () => {
                                 />
                             </div>
 
+                            <div className="form-actions single" style={{ marginTop: '0.5rem' }}>
+                                <Button
+                                    onClick={handleSaveDraftOnly}
+                                    variant="outline"
+                                    style={{ width: '100%' }}
+                                >
+                                    Save Grade (Draft Only)
+                                </Button>
+                            </div>
+
                         </div>
                 </div>
             </div>
@@ -1598,66 +1394,6 @@ const SubmissionGrader: React.FC = () => {
                                         <Button size="sm" variant="outline">Select & Run</Button>
                                     </div>
                                 ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showAiHistoryModal && (
-                <div className="modal-overlay" onClick={() => setShowAiHistoryModal(false)}>
-                    <div className="modal-content ai-history-modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">AI Detection Report</h3>
-                            <button className="modal-close" onClick={() => setShowAiHistoryModal(false)}>✕</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="ai-report-summary-header">
-                                <div className={`ai-status-pill ${latestAiStatus.signal === 'caution' ? 'caution' : latestAiStatus.signal === 'clean' ? 'clean' : ''}`}>
-                                    {latestAiStatus.signal === 'caution' ? <ShieldAlert size={16} /> : null}
-                                    {latestAiStatus.label}
-                                </div>
-                                <p className="ai-report-context">
-                                    Analyzed {latestAiStatus.filesScanned} file(s) from Attempt {activeAttemptIndex + 1}.
-                                </p>
-                            </div>
-
-                            {latestAiStatus.filesScanned === 0 ? (
-                                <p className="ai-history-empty">No AI detection results found for this attempt.</p>
-                            ) : (
-                                <div className="ai-report-file-list">
-                                    {latestAiStatus.results!.map((entry) => (
-                                        <div key={entry.id} className="ai-report-file-item">
-                                            <div className="ai-report-file-top">
-                                                <span className="ai-report-filename">{entry.file_name}</span>
-                                                <span className={`ai-label-pill sm ${
-                                                    entry.label.toLowerCase().includes('likely ai') ? 'ai-label-ai' :
-                                                    entry.label.toLowerCase().includes('likely human') ? 'ai-label-human' : 'ai-label-unclear'
-                                                }`}>
-                                                    {entry.label}
-                                                </span>
-                                            </div>
-                                            <div className="ai-report-file-details">
-                                                <div className="ai-report-metric">
-                                                    Confidence Score: <strong>{(entry.calibrated_score ?? entry.raw_score ?? 0).toFixed(3)}</strong>
-                                                </div>
-                                                <div className="ai-report-metric">
-                                                    Language: <strong>{entry.language}</strong>
-                                                </div>
-                                            </div>
-                                            {entry.label.toLowerCase().includes('ai') && (
-                                                <div className="ai-report-warning-note">
-                                                    This file contains patterns consistent with AI-generated code.
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="ai-report-disclaimer">
-                                <ShieldAlert size={14} />
-                                <span>Note: AI detection is a probabilistic estimate. Always manually review flagged code before taking action.</span>
                             </div>
                         </div>
                     </div>

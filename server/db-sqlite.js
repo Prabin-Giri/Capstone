@@ -71,6 +71,7 @@ async function initDb() {
             feedback TEXT DEFAULT NULL,
             submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            rubric_scores TEXT,
             FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
             FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
         )`,

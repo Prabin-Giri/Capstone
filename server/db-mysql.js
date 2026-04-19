@@ -183,6 +183,7 @@ const CREATE_TABLES = [
         deduction_points DOUBLE DEFAULT 0,
         file_name_2 VARCHAR(500),
         file_path_2 VARCHAR(500),
+        rubric_scores JSON DEFAULT NULL,
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
         FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
     )`,

@@ -167,7 +167,7 @@ const PlagiarismReportModal: React.FC<PlagiarismReportProps> = ({ assignmentId, 
 
                                             <button 
                                                 onClick={() => {
-                                                    navigate(`${basePath}/plagscan?assignment=${assignmentId}&s1=${match.student1.id}&s2=${match.student2.id}`);
+                                                    navigate(`${basePath}/plagscan?assignment=${assignmentId}&student=${match.student1.id}&active=${match.student2.id}`);
                                                     onClose();
                                                 }}
                                                 className="pm-btn-view-diff"
