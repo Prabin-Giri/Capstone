@@ -7,18 +7,6 @@ const { runInDocker } = require('./dockerRunner');
 const { runLocally } = require('./localRunner');
 const config = require('./config');
 
-function shouldFallbackFromDockerToLocal(result) {
-    const stderr = String(result?.stderr || '');
-    return result?.exitCode === -1 && /docker command not found|spawn docker enonent|spawn docker enoent/i.test(stderr);
-}
-
-function allowDockerLocalFallback() {
-    if (/^(1|true|yes)$/i.test(String(process.env.GRADER_ALLOW_LOCAL_FALLBACK || ''))) {
-        return true;
-    }
-    return process.env.NODE_ENV !== 'production';
-}
-
 /** If DOCKER_HOST is ssh://user@host, return { user, host }; else null */
 function getRemoteDockerTarget() {
     const dh = process.env.DOCKER_HOST;
@@ -139,7 +127,8 @@ function getRunCommand(language, entryFileName, { runArgs = [], javaMainClass = 
             // Single container: avoids two Docker cold-starts (often exceeded short timeouts on Windows).
             return {
                 image,
-                steps: [{ cmd: ['sh', '-c', `javac *.java && java ${safeClass}${tail}`] }],
+                // Compile to an in-memory writable location (/tmp) and run from there
+                steps: [{ cmd: ['sh', '-c', `javac -d /tmp *.java && java -cp /tmp ${safeClass}${tail}`] }],
             };
         }
         default:
@@ -216,7 +205,8 @@ async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = confi
             const lang = (language || 'python').toLowerCase();
             image = config.images[lang] || config.images.python;
             if (lang === 'java') {
-                steps = [{ cmd: ['sh', '-c', `javac *.java && java ${entryFileName}`] }];
+                // Compile to /tmp (writable tmpfs) to avoid writing to the read-only /work mount
+                steps = [{ cmd: ['sh', '-c', `javac -d /tmp *.java && java -cp /tmp ${entryFileName}`] }];
             } else {
                 steps = [{ cmd: lang === 'python' ? ['python3', entryFileName] : ['node', entryFileName] }];
             }
@@ -246,24 +236,6 @@ async function runCode({ sourceFilePath, language, stdin = '', timeoutMs = confi
                     stdin: step === steps[steps.length - 1] ? runStdin : '',
                     timeoutMs,
                 });
-                if (shouldFallbackFromDockerToLocal(lastResult)) {
-                    if (!allowDockerLocalFallback()) {
-                        lastResult = {
-                            stdout: '',
-                            stderr: 'Docker runtime is unavailable and secure local fallback is disabled.',
-                            exitCode: -1,
-                            timedOut: false,
-                        };
-                    } else {
-                        console.warn('[grader] Docker unavailable; auto-falling back to local execution for this run.');
-                        lastResult = await runLocally({
-                            cmd: step.cmd,
-                            workDir: effectiveWorkDir,
-                            stdin: step === steps[steps.length - 1] ? runStdin : '',
-                            timeoutMs,
-                        });
-                    }
-                }
             }
             if (lastResult.exitCode !== 0 && lastResult.exitCode !== null) {
                 break;
