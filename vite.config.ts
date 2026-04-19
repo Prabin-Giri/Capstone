@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    allowedHosts: true,
     watch: {
       ignored: ['**/offline_ai_detector/.venv/**', '**/offline_ai_detector/artifacts/**']
     }
