@@ -1,12 +1,12 @@
-# Inference config for the pretrained detector.
+# Inference config for a saved detector checkpoint (local transformers, no Inference API).
 #
-# model_dir: path to the saved checkpoint directory (produced by download_pretrained.py).
-# calibration_path: set to null — we use raw softmax scores from the pretrained model.
-#                   Re-enable after running calibrate_model.py on the custom-trained model.
-# language_allowlist: only python and java are supported.
-# min_tokens: below this a reduced-confidence note is added to the output.
-# max_length: tokenizer truncation limit.
-# local_files_only: set to true after download_pretrained.py has run successfully.
+# model_dir: fine-tuned output from scripts/train_model.py (same as outputs.model_dir in train.yaml).
+#   After training, local_files_only can stay true if the checkpoint is fully on disk.
+# Optional quick smoke (prose-oriented, not the code baseline): point model_dir to
+#   artifacts/models/pretrained/hello-simpleai-chatgpt-detector-roberta
+#   after: python scripts/download_hf_models.py --models smoke-detector
+# calibration_path: null uses raw softmax; set after scripts/calibrate_model.py on your checkpoint.
+# local_files_only: true once weights exist under model_dir (no Hub access at inference).
 
 runtime:
   model_dir: artifacts/models/m1_code_detector_smoke

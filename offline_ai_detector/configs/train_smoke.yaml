@@ -1,5 +1,4 @@
-# Phase 1 scaffold only.
-# Phase 7 will finalize the actual baseline model once the dataset pipeline is validated.
+# Minimal local smoke run: tiny synthetic JSONL + 1 epoch. Not for real metrics.
 
 project:
   name: offline_ai_code_detector
@@ -18,28 +17,27 @@ data:
   language_allowlist:
     - python
     - java
-  min_tokens: 50
+  min_tokens: 0
 
 model:
-  # Local snapshot: run scripts/download_hf_models.py (microsoft/codebert-base -> artifacts/...).
   model_name: artifacts/models/pretrained/microsoft-codebert-base
   local_files_only: true
-  max_length: 256
-  batch_size: 4
+  max_length: 128
+  batch_size: 2
   learning_rate: 2.0e-5
   weight_decay: 0.01
   num_epochs: 1
   warmup_ratio: 0.1
-  gradient_accumulation_steps: 4
-  save_total_limit: 2
-  logging_steps: 10
+  gradient_accumulation_steps: 2
+  save_total_limit: 1
+  logging_steps: 5
   metric_for_best_model: f1
-  early_stopping_patience: 2
-  resume_from_checkpoint: true
+  early_stopping_patience: null
+  resume_from_checkpoint: false
 
 calibration:
   method: temperature_scaling
-  enabled: true
+  enabled: false
   ece_bins: 10
   risk_target: 0.05
   report_top_k_thresholds: 5

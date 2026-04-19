@@ -169,6 +169,10 @@ const CREATE_TABLES = [
         student_id VARCHAR(255) NOT NULL,
         file_name VARCHAR(500) NOT NULL,
         file_path VARCHAR(500) NOT NULL,
+        content_hash VARCHAR(64) DEFAULT NULL,
+        ai_analysis_state VARCHAR(32) DEFAULT 'pending',
+        ai_analyzed_at DATETIME DEFAULT NULL,
+        ai_reused_from_submission_id INT DEFAULT NULL,
         status VARCHAR(50) DEFAULT 'pending',
         grade DOUBLE DEFAULT NULL,
         feedback TEXT,
@@ -184,6 +188,8 @@ const CREATE_TABLES = [
         file_name_2 VARCHAR(500),
         file_path_2 VARCHAR(500),
         rubric_scores JSON DEFAULT NULL,
+        INDEX idx_submissions_assignment_student_time (assignment_id, student_id, submitted_at),
+        INDEX idx_submissions_content_hash (assignment_id, student_id, content_hash),
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
         FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
@@ -473,6 +479,41 @@ async function initDb() {
         await pool.execute('ALTER TABLE assignments ADD COLUMN max_group_members INT DEFAULT NULL');
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure submissions.content_hash exists
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN content_hash VARCHAR(64) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure submissions.ai_analysis_state exists
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN ai_analysis_state VARCHAR(32) DEFAULT "pending"');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure submissions.ai_analyzed_at exists
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN ai_analyzed_at DATETIME NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure submissions.ai_reused_from_submission_id exists
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN ai_reused_from_submission_id INT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure indexes for hash-based detector result reuse
+    try {
+        await pool.execute('CREATE INDEX idx_submissions_assignment_student_time ON submissions (assignment_id, student_id, submitted_at)');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_KEYNAME' && !String(e.message || '').includes('Duplicate key name'))) throw e;
+    }
+    try {
+        await pool.execute('CREATE INDEX idx_submissions_content_hash ON submissions (assignment_id, student_id, content_hash)');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_KEYNAME' && !String(e.message || '').includes('Duplicate key name'))) throw e;
     }
 
     const { migrateMysqlCourseOfferings } = require('./courseOfferingMigrate');
