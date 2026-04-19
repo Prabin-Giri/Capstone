@@ -4,7 +4,6 @@ import {
     getCourseAssignments,
     getCourse,
     deleteAssignment,
-    getCourseGradesExportUrl,
     type Assignment,
     type Course
 } from '../../lib/api';
@@ -12,15 +11,6 @@ import { Plus, Search, Edit, Trash2, Download, BarChart2, ArrowUpDown, House } f
 import { showDialog } from '../../components/ui/Dialog';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import './FacultyAssignmentList.css';
-
-function triggerDownload(url: string) {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.rel = 'noopener';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-}
 
 const FacultyAssignmentList: React.FC = () => {
     const { courseId } = useParams();
@@ -32,8 +22,6 @@ const FacultyAssignmentList: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [sortField, setSortField] = useState<'due_date' | 'title' | 'points'>('due_date');
     const [showSortDropdown, setShowSortDropdown] = useState(false);
-    const [exportTargetAssignment, setExportTargetAssignment] = useState<Assignment | null>(null);
-    const [exportingFormat, setExportingFormat] = useState<'csv' | 'excel' | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -113,25 +101,6 @@ const FacultyAssignmentList: React.FC = () => {
             setSortOrder('asc');
         }
         setShowSortDropdown(false);
-    };
-
-    const handleOpenGradesExport = (assignment: Assignment) => {
-        setExportTargetAssignment(assignment);
-    };
-
-    const handleDownloadGrades = (format: 'csv' | 'excel') => {
-        if (!courseId || !exportTargetAssignment) return;
-        setExportingFormat(format);
-        try {
-            const url = getCourseGradesExportUrl(courseId, format, {
-                type: 'assignments',
-                assignmentIds: [exportTargetAssignment.id],
-            });
-            triggerDownload(url);
-            setExportTargetAssignment(null);
-        } finally {
-            setExportingFormat(null);
-        }
     };
 
     return (
@@ -264,7 +233,7 @@ const FacultyAssignmentList: React.FC = () => {
                                     <div className="fal-actions">
                                         <button
                                             className="fal-action-btn"
-                                            onClick={() => handleOpenGradesExport(a)}
+                                            onClick={() => navigate(`/faculty/courses/${courseId}/gradebook`)}
                                             title="View Grades"
                                         >
                                             <Download size={14} />
@@ -301,45 +270,6 @@ const FacultyAssignmentList: React.FC = () => {
                     </tbody>
                 </table>
             </div>
-
-            {exportTargetAssignment && (
-                <div className="fal-export-modal-backdrop" onClick={() => !exportingFormat && setExportTargetAssignment(null)}>
-                    <div className="fal-export-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="fal-export-modal-header">
-                            <h3>Download Assignment Grades</h3>
-                        </div>
-                        <p className="fal-export-modal-text">
-                            Select format for {exportTargetAssignment.title} grades (all students).
-                        </p>
-                        <div className="fal-export-modal-actions">
-                            <button
-                                type="button"
-                                className="fal-export-btn fal-export-btn-primary"
-                                onClick={() => handleDownloadGrades('csv')}
-                                disabled={!!exportingFormat}
-                            >
-                                {exportingFormat === 'csv' ? 'Downloading CSV...' : 'Download CSV'}
-                            </button>
-                            <button
-                                type="button"
-                                className="fal-export-btn"
-                                onClick={() => handleDownloadGrades('excel')}
-                                disabled={!!exportingFormat}
-                            >
-                                {exportingFormat === 'excel' ? 'Downloading Excel...' : 'Download Excel'}
-                            </button>
-                            <button
-                                type="button"
-                                className="fal-export-btn fal-export-btn-ghost"
-                                onClick={() => setExportTargetAssignment(null)}
-                                disabled={!!exportingFormat}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

@@ -6,7 +6,7 @@ import {
     getCourseGrades,
     deleteAssignment,
     getFileUrl,
-    getCourseGradesExportUrl,
+    getAssignmentGradesExportUrl,
     updateCourse,
     deleteCourse,
     enrollStudent,
@@ -30,15 +30,6 @@ import './FacultyCourseView.css';
 import { showDialog } from '../../components/ui/Dialog';
 import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 
-function triggerDownload(url: string) {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.rel = 'noopener';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-}
-
 const FacultyCourseView: React.FC = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
@@ -49,8 +40,6 @@ const FacultyCourseView: React.FC = () => {
     const [showArchiveModal, setShowArchiveModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null);
-    const [assignmentToExport, setAssignmentToExport] = useState<Assignment | null>(null);
-    const [exportingGradeFormat, setExportingGradeFormat] = useState<'csv' | 'excel' | null>(null);
     const [archiveInput, setArchiveInput] = useState('');
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
     const [pendingCount, setPendingCount] = useState(0);
@@ -146,21 +135,6 @@ const FacultyCourseView: React.FC = () => {
         } catch (err) {
             console.error('Failed to delete', err);
             await showDialog({ title: 'Error', message: 'Failed to delete assignment', confirmText: 'OK' });
-        }
-    }
-
-    function handleDownloadAssignmentGrades(format: 'csv' | 'excel') {
-        if (!courseId || !assignmentToExport) return;
-        setExportingGradeFormat(format);
-        try {
-            const url = getCourseGradesExportUrl(courseId, format, {
-                type: 'assignments',
-                assignmentIds: [assignmentToExport.id],
-            });
-            triggerDownload(url);
-            setAssignmentToExport(null);
-        } finally {
-            setExportingGradeFormat(null);
         }
     }
 
@@ -468,15 +442,15 @@ const FacultyCourseView: React.FC = () => {
                                             </div>
 
                                             <div className="assignment-card-actions" role="toolbar" aria-label="Assignment actions">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setAssignmentToExport(assignment)}
+                                                <a
+                                                    href={getAssignmentGradesExportUrl(assignment.id)}
+                                                    download
                                                     className="assignment-tool-btn"
-                                                    title="Download grades"
+                                                    title="Download grades CSV"
                                                 >
                                                     <Download size={15} aria-hidden />
                                                     <span>Grades</span>
-                                                </button>
+                                                </a>
                                                 <button
                                                     type="button"
                                                     className="assignment-tool-btn assignment-tool-btn--primary"
@@ -604,50 +578,6 @@ const FacultyCourseView: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {assignmentToExport && (
-                <div className="modal-overlay" onClick={() => !exportingGradeFormat && setAssignmentToExport(null)}>
-                    <div className="modal-content" style={{ maxWidth: '420px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
-                        <div className="enroll-modal-header">
-                            <h3 className="enroll-modal-title">Download Assignment Grades</h3>
-                            <button className="enroll-modal-close" onClick={() => setAssignmentToExport(null)} disabled={!!exportingGradeFormat}>
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div style={{ padding: '0 1.5rem 1.25rem' }}>
-                            <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.85rem' }}>
-                                Choose file format for {assignmentToExport.title} grades (all students).
-                            </p>
-                            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                                <button
-                                    type="button"
-                                    className="assignment-tool-btn assignment-tool-btn--primary"
-                                    onClick={() => handleDownloadAssignmentGrades('csv')}
-                                    disabled={!!exportingGradeFormat}
-                                >
-                                    {exportingGradeFormat === 'csv' ? 'Downloading CSV...' : 'Download CSV'}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="assignment-tool-btn"
-                                    onClick={() => handleDownloadAssignmentGrades('excel')}
-                                    disabled={!!exportingGradeFormat}
-                                >
-                                    {exportingGradeFormat === 'excel' ? 'Downloading Excel...' : 'Download Excel'}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="assignment-tool-btn"
-                                    onClick={() => setAssignmentToExport(null)}
-                                    disabled={!!exportingGradeFormat}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Archive Confirmation Modal */}
             {showArchiveModal && (
