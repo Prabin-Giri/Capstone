@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 const { uploadToS3, getFromS3, deleteFromS3, s3Enabled } = require('../s3');
 const aiDetectorRouter = require('./aiDetector');
@@ -37,6 +38,26 @@ function findStoredFile(files, filename) {
         file?.path === filename ||
         path.basename(file?.path || '') === filename
     ));
+}
+
+function sha256Hex(value) {
+    return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function normalizeBufferForHashing(buffer) {
+    return buffer.toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+function computeSubmissionContentHash(uploadedFiles) {
+    if (!Array.isArray(uploadedFiles) || uploadedFiles.length === 0) return null;
+    const entries = uploadedFiles.map((file) => {
+        const filename = String(file?.originalname || file?.name || '').trim();
+        const content = normalizeBufferForHashing(file?.buffer || Buffer.from(''));
+        const fileHash = sha256Hex(content);
+        return `${filename}:${fileHash}`;
+    });
+    entries.sort();
+    return sha256Hex(entries.join('\n'));
 }
 
 /**
@@ -176,6 +197,7 @@ router.post('/', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.body;
+        const contentHash = computeSubmissionContentHash(req.files);
 
         if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
         if (!assignment_id || !student_id) return res.status(400).json({ error: 'assignment_id and student_id are required' });
@@ -199,8 +221,17 @@ router.post('/', upload.array('files'), async (req, res, next) => {
 
         // Insert a placeholder row to get the submission ID (needed for S3 key)
         await db.execute(
-            "INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
-            [assignment_id, student_id, 'uploading...', '']
+            `INSERT INTO submissions (
+                assignment_id,
+                student_id,
+                file_name,
+                file_path,
+                content_hash,
+                ai_analysis_state,
+                ai_analyzed_at,
+                ai_reused_from_submission_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [assignment_id, student_id, 'uploading...', '', contentHash, 'pending', null, null]
         );
         const [idRows] = await db.execute(
             'SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
@@ -218,8 +249,15 @@ router.post('/', upload.array('files'), async (req, res, next) => {
         const file_path = JSON.stringify(filesData);
 
         await db.execute(
-            'UPDATE submissions SET file_name = ?, file_path = ? WHERE id = ?',
-            [file_name, file_path, newId]
+            `UPDATE submissions
+             SET file_name = ?,
+                 file_path = ?,
+                 content_hash = ?,
+                 ai_analysis_state = ?,
+                 ai_analyzed_at = NULL,
+                 ai_reused_from_submission_id = NULL
+             WHERE id = ?`,
+            [file_name, file_path, contentHash, 'pending', newId]
         );
 
         const createdSubmissionIds = [newId];
@@ -228,8 +266,17 @@ router.post('/', upload.array('files'), async (req, res, next) => {
         for (const tid of targetStudentIds) {
             if (tid === student_id) continue;
             await db.execute(
-                "INSERT INTO submissions (assignment_id, student_id, file_name, file_path) VALUES (?, ?, ?, ?)",
-                [assignment_id, tid, file_name, file_path]
+                `INSERT INTO submissions (
+                    assignment_id,
+                    student_id,
+                    file_name,
+                    file_path,
+                    content_hash,
+                    ai_analysis_state,
+                    ai_analyzed_at,
+                    ai_reused_from_submission_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [assignment_id, tid, file_name, file_path, contentHash, 'pending', null, null]
             );
             const [copyRows] = await db.execute(
                 'SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1',
@@ -258,16 +305,35 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
         const { status, grade, feedback, rubric_scores } = req.body;
+        const fileUpdateHash = req.files && req.files.length > 0
+            ? computeSubmissionContentHash(req.files)
+            : null;
         const updates = [];
         const params = [];
+        const analysisSubmissionIds = [];
+        let assignmentIdForAnalysis = null;
 
         if (req.files && req.files.length > 0) {
             const filesData = await Promise.all(req.files.map(async (f) => {
                 const storedPath = await persistFile(f.buffer, f.originalname, req.params.id);
                 return { name: f.originalname, path: storedPath };
             }));
-            updates.push('file_name = ?', 'file_path = ?');
-            params.push(`${req.files.length} file${req.files.length > 1 ? 's' : ''}`, JSON.stringify(filesData));
+            updates.push(
+                'file_name = ?',
+                'file_path = ?',
+                'content_hash = ?',
+                'ai_analysis_state = ?',
+                'ai_analyzed_at = ?',
+                'ai_reused_from_submission_id = ?'
+            );
+            params.push(
+                `${req.files.length} file${req.files.length > 1 ? 's' : ''}`,
+                JSON.stringify(filesData),
+                fileUpdateHash,
+                'pending',
+                null,
+                null
+            );
         }
         if (status)            { updates.push('status = ?');   params.push(status); }
         if (grade !== undefined) { updates.push('grade = ?');  params.push(grade === null || grade === '' ? null : parseFloat(grade)); }
@@ -283,9 +349,13 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
         const [currRows] = await db.execute('SELECT assignment_id, student_id FROM submissions WHERE id = ?', [req.params.id]);
         if (currRows.length > 0) {
             const { assignment_id, student_id } = currRows[0];
+            assignmentIdForAnalysis = assignment_id;
             const [aRows] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignment_id]);
             const assignment = aRows[0];
             const sync_group = req.body.sync_group === 'true';
+            if (req.files && req.files.length > 0) {
+                analysisSubmissionIds.push(Number(req.params.id));
+            }
             if (assignment && assignment.type === 'group' && assignment.group_submission_type === 'one_for_all' && sync_group) {
                 const [gRows] = await db.execute(`
                     SELECT student_id FROM group_members
@@ -303,10 +373,20 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
                         if (lastRows.length > 0) {
                             const syncParams = [...params.slice(0, -1), lastRows[0].id];
                             await db.execute(`UPDATE submissions SET ${updates.join(', ')} WHERE id = ?`, syncParams);
+                            if (req.files && req.files.length > 0) {
+                                analysisSubmissionIds.push(Number(lastRows[0].id));
+                            }
                         }
                     }
                 }
             }
+        }
+
+        if (req.files && req.files.length > 0 && assignmentIdForAnalysis) {
+            triggerSubmissionAutoAnalysis({
+                assignmentId: assignmentIdForAnalysis,
+                submissionIds: analysisSubmissionIds,
+            });
         }
 
         const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);

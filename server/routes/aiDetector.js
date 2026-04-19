@@ -25,6 +25,12 @@ function isDetectorEnabled() {
     return parseBooleanEnv(process.env.AI_DETECTOR_ENABLED);
 }
 
+function reuseOnUnchangedEnabled() {
+    const configured = process.env.AI_REUSE_ON_UNCHANGED;
+    if (configured == null || String(configured).trim() === '') return true;
+    return parseBooleanEnv(configured);
+}
+
 function requireDetectorUserContext() {
     return process.env.AI_DETECTOR_REQUIRE_USER !== 'false';
 }
@@ -155,6 +161,7 @@ function detectorRuntimeStatus() {
             python_bin: pythonBin,
         },
         model_version: detectorModelVersion(),
+        reuse_on_unchanged: reuseOnUnchangedEnabled(),
     };
 }
 
@@ -216,8 +223,13 @@ async function fetchSubmissionAccessRow(submissionId) {
         `SELECT
             s.id,
             s.assignment_id,
+            s.student_id,
             s.file_name,
             s.file_path,
+            s.content_hash,
+            s.ai_analysis_state,
+            s.ai_analyzed_at,
+            s.ai_reused_from_submission_id,
             a.course_id,
             c.instructor_id
         FROM submissions s
@@ -228,6 +240,151 @@ async function fetchSubmissionAccessRow(submissionId) {
         [submissionId]
     );
     return rows && rows[0] ? rows[0] : null;
+}
+
+function parseDetectorPayload(row) {
+    try {
+        return row.detector_payload ? JSON.parse(row.detector_payload) : null;
+    } catch {
+        return null;
+    }
+}
+
+async function getLatestDetectionBySubmission(submissionId, allowedFileNames = null) {
+    const db = getDb();
+    const [rows] = await db.execute(
+        `SELECT
+            id,
+            submission_id,
+            file_name,
+            language,
+            label,
+            raw_score,
+            calibrated_score,
+            score_used,
+            lower_threshold,
+            upper_threshold,
+            model_version,
+            detector_payload,
+            created_at
+        FROM submission_ai_detections
+        WHERE submission_id = ?
+        ORDER BY id DESC`,
+        [submissionId]
+    );
+
+    const allowed = Array.isArray(allowedFileNames) && allowedFileNames.length > 0
+        ? new Set(allowedFileNames.map((name) => String(name)))
+        : null;
+    const latestByFile = new Map();
+    for (const row of rows || []) {
+        if (allowed && !allowed.has(String(row.file_name))) {
+            continue;
+        }
+        if (!latestByFile.has(row.file_name)) {
+            latestByFile.set(row.file_name, row);
+        }
+    }
+    return Array.from(latestByFile.values()).sort((a, b) => Number(a.id) - Number(b.id));
+}
+
+async function cloneDetectionRows({ sourceSubmissionId, targetSubmissionId, fileNames = null }) {
+    const db = getDb();
+    const sourceRows = await getLatestDetectionBySubmission(sourceSubmissionId, fileNames);
+    if (sourceRows.length === 0) return [];
+
+    for (const row of sourceRows) {
+        await db.execute(
+            `INSERT INTO submission_ai_detections (
+                submission_id,
+                file_name,
+                language,
+                label,
+                raw_score,
+                calibrated_score,
+                score_used,
+                lower_threshold,
+                upper_threshold,
+                model_version,
+                detector_payload
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                targetSubmissionId,
+                row.file_name,
+                row.language,
+                row.label,
+                row.raw_score,
+                row.calibrated_score,
+                row.score_used,
+                row.lower_threshold,
+                row.upper_threshold,
+                row.model_version,
+                row.detector_payload,
+            ]
+        );
+    }
+
+    const clonedRows = await getLatestDetectionBySubmission(targetSubmissionId, fileNames);
+    return clonedRows.map((row) => ({
+        file_name: row.file_name,
+        language: row.language,
+        detection_id: row.id,
+        recorded_at: row.created_at,
+        detector_result: parseDetectorPayload(row),
+        reused_from_submission_id: sourceSubmissionId,
+    }));
+}
+
+async function findReusableSubmissionSource(submissionRow) {
+    const contentHash = String(submissionRow?.content_hash || '').trim();
+    if (!contentHash) return null;
+
+    const db = getDb();
+    const [rows] = await db.execute(
+        `SELECT s.id
+         FROM submissions s
+         WHERE s.assignment_id = ?
+           AND s.student_id = ?
+           AND s.content_hash = ?
+           AND s.id <> ?
+           AND EXISTS (
+             SELECT 1
+             FROM submission_ai_detections d
+             WHERE d.submission_id = s.id
+           )
+         ORDER BY s.submitted_at DESC, s.id DESC
+         LIMIT 1`,
+        [
+            submissionRow.assignment_id,
+            submissionRow.student_id,
+            contentHash,
+            submissionRow.id,
+        ]
+    );
+
+    return rows && rows[0] ? Number(rows[0].id) : null;
+}
+
+async function updateSubmissionAnalysisState(submissionId, state, reusedFromSubmissionId = null) {
+    const db = getDb();
+    await db.execute(
+        `UPDATE submissions
+         SET ai_analysis_state = ?,
+             ai_analyzed_at = CURRENT_TIMESTAMP,
+             ai_reused_from_submission_id = ?
+         WHERE id = ?`,
+        [state, reusedFromSubmissionId, submissionId]
+    );
+}
+
+function buildSubmissionAnalysisMeta(submissionRow) {
+    return {
+        analysis_state: submissionRow?.ai_analysis_state || 'pending',
+        analyzed_at: submissionRow?.ai_analyzed_at || null,
+        reused_from_submission_id: submissionRow?.ai_reused_from_submission_id != null
+            ? Number(submissionRow.ai_reused_from_submission_id)
+            : null,
+    };
 }
 
 async function assertSubmissionAccess({ actor, submissionRow }) {
@@ -451,21 +608,25 @@ async function runSubmissionDetectionInternal(submissionId, options = {}) {
 
     const idNum = Number(submissionId);
     if (!Number.isFinite(idNum)) {
-        throw new Error('Invalid submission ID.');
+        throw httpError('Invalid submission ID.', 400);
     }
 
     const submissionRow = await fetchSubmissionAccessRow(idNum);
     if (!submissionRow) {
-        throw new Error('Submission not found.');
+        throw httpError('Submission not found.', 404);
     }
 
-    const files = parseStoredFiles(submissionRow.file_path, submissionRow.file_name);
+    const files = Array.isArray(options.preParsedFiles)
+        ? options.preParsedFiles
+        : parseStoredFiles(submissionRow.file_path, submissionRow.file_name);
     if (!Array.isArray(files) || files.length === 0) {
-        throw new Error('Submission does not contain any stored files.');
+        throw httpError('Submission does not contain any stored files.', 400);
     }
 
     const isBatch = options.batch !== false;
     const requestedFilename = String(options.filename || '').trim();
+    const force = options.force === true || parseBooleanEnv(options.force);
+    const allowReuse = reuseOnUnchangedEnabled() && !force;
     const filesToProcess = [];
 
     if (isBatch) {
@@ -475,56 +636,115 @@ async function runSubmissionDetectionInternal(submissionId, options = {}) {
             if (lang) filesToProcess.push({ file, language: lang });
         }
         if (filesToProcess.length === 0) {
-            return { skipped: true, reason: 'No supported files (.py, .java) found in submission.' };
+            await updateSubmissionAnalysisState(idNum, 'skipped', null);
+            return {
+                skipped: true,
+                mode: 'skipped',
+                reason: 'No supported files (.py, .java) found in submission.',
+                submission_id: idNum,
+                count: 0,
+                results: [],
+                source_submission_id: null,
+                model_version: detectorModelVersion(),
+                ...buildSubmissionAnalysisMeta({
+                    ai_analysis_state: 'skipped',
+                    ai_analyzed_at: new Date().toISOString(),
+                    ai_reused_from_submission_id: null,
+                }),
+                note: 'AI detector output is a review signal only, not proof of authorship.',
+            };
         }
     } else {
         let selectedFile = null;
         if (requestedFilename) {
             selectedFile = findStoredFile(files, requestedFilename);
-            if (!selectedFile) throw new Error(`File '${requestedFilename}' was not found in submission.`);
+            if (!selectedFile) throw httpError(`File '${requestedFilename}' was not found in submission.`, 400);
         } else if (files.length === 1) {
             selectedFile = files[0];
         } else {
-            throw new Error('Submission has multiple files and no filename was provided.');
+            throw httpError('Submission has multiple files and no filename was provided.', 400);
         }
         const selectedFilename = selectedFile?.name || path.basename(selectedFile?.path || '');
         const explicitLanguage = String(options.language || '').trim().toLowerCase();
         const language = explicitLanguage || detectLanguage(selectedFilename);
         if (!language || !['python', 'java'].includes(language)) {
-            throw new Error(`Unsupported language for selected file '${selectedFilename}'.`);
+            throw httpError(`Unsupported language for selected file '${selectedFilename}'.`, 400);
         }
         filesToProcess.push({ file: selectedFile, language });
     }
 
-    const results = [];
-    for (const item of filesToProcess) {
-        const currentFilename = item.file?.name || path.basename(item.file?.path || '');
-        const contentBuffer = await readSubmissionFile(idNum, item.file);
-        const code = contentBuffer.toString('utf8');
-        const result = await runDetectorOnCode({ code, language: item.language });
-        const persisted = await persistDetectorResult({
-            submissionId: idNum,
-            fileName: currentFilename,
-            language: item.language,
-            detectorResult: result,
-        });
-        results.push({
-            file_name: currentFilename,
-            language: item.language,
-            detection_id: persisted?.id,
-            recorded_at: persisted?.created_at,
-            detector_result: result,
-        });
+    if (allowReuse) {
+        const sourceSubmissionId = await findReusableSubmissionSource(submissionRow);
+        if (sourceSubmissionId) {
+            const requestedFileNames = filesToProcess.map(
+                (item) => item.file?.name || path.basename(item.file?.path || '')
+            );
+            const reusedResults = await cloneDetectionRows({
+                sourceSubmissionId,
+                targetSubmissionId: idNum,
+                fileNames: requestedFileNames,
+            });
+            if (reusedResults.length > 0) {
+                await updateSubmissionAnalysisState(idNum, 'reused', sourceSubmissionId);
+                const refreshedSubmission = await fetchSubmissionAccessRow(idNum);
+                return {
+                    submission_id: idNum,
+                    batch: isBatch,
+                    mode: 'reused',
+                    source_submission_id: sourceSubmissionId,
+                    count: reusedResults.length,
+                    results: reusedResults,
+                    model_version: detectorModelVersion(),
+                    ...buildSubmissionAnalysisMeta(refreshedSubmission),
+                    note: 'AI detector output is a review signal only, not proof of authorship.',
+                };
+            }
+        }
     }
 
-    return {
-        submission_id: idNum,
-        batch: isBatch,
-        count: results.length,
-        results,
-        model_version: detectorModelVersion(),
-        note: 'AI detector output is a review signal only, not proof of authorship.',
-    };
+    try {
+        const results = [];
+        for (const item of filesToProcess) {
+            const currentFilename = item.file?.name || path.basename(item.file?.path || '');
+            const contentBuffer = await readSubmissionFile(idNum, item.file);
+            const code = contentBuffer.toString('utf8');
+            const result = await runDetectorOnCode({ code, language: item.language });
+            const persisted = await persistDetectorResult({
+                submissionId: idNum,
+                fileName: currentFilename,
+                language: item.language,
+                detectorResult: result,
+            });
+            results.push({
+                file_name: currentFilename,
+                language: item.language,
+                detection_id: persisted?.id,
+                recorded_at: persisted?.created_at,
+                detector_result: result,
+            });
+        }
+
+        await updateSubmissionAnalysisState(idNum, 'analyzed', null);
+        const refreshedSubmission = await fetchSubmissionAccessRow(idNum);
+        return {
+            submission_id: idNum,
+            batch: isBatch,
+            mode: 'fresh',
+            source_submission_id: null,
+            count: results.length,
+            results,
+            model_version: detectorModelVersion(),
+            ...buildSubmissionAnalysisMeta(refreshedSubmission),
+            note: 'AI detector output is a review signal only, not proof of authorship.',
+        };
+    } catch (error) {
+        try {
+            await updateSubmissionAnalysisState(idNum, 'failed', null);
+        } catch {
+            // best effort only
+        }
+        throw error;
+    }
 }
 
 router.post('/submissions/:id/run', async (req, res, next) => {
@@ -553,99 +773,20 @@ router.post('/submissions/:id/run', async (req, res, next) => {
             return res.status(403).json({ error: 'You do not have permission to access this submission.' });
         }
 
-        const files = parseStoredFiles(submissionRow.file_path, submissionRow.file_name);
-        if (!Array.isArray(files) || files.length === 0) {
-            return res.status(400).json({ error: 'Submission does not contain any stored files.' });
-        }
-
         const isBatch = parseBooleanEnv(req.body?.batch || req.query?.batch);
         const requestedFilename = String(req.body?.filename || req.query?.filename || '').trim();
-        
-        const filesToProcess = [];
-
-        if (isBatch) {
-            // Filter only supported files (.py, .java)
-            for (const file of files) {
-                const name = file?.name || path.basename(file?.path || '');
-                const lang = detectLanguage(name);
-                if (lang) {
-                    filesToProcess.push({ file, language: lang });
-                }
-            }
-            if (filesToProcess.length === 0) {
-                return res.status(400).json({ error: 'No supported files (.py, .java) found in this submission for batch processing.' });
-            }
-        } else {
-            let selectedFile = null;
-            if (requestedFilename) {
-                selectedFile = findStoredFile(files, requestedFilename);
-                if (!selectedFile) {
-                    return res.status(400).json({
-                        error: `File '${requestedFilename}' was not found in this submission.`,
-                        available_files: files.map((file) => file?.name || path.basename(file?.path || '')).filter(Boolean),
-                    });
-                }
-            } else if (files.length === 1) {
-                selectedFile = files[0];
-            } else {
-                return res.status(400).json({
-                    error: 'Submission has multiple files. Provide `filename` in request body or `batch=true`.',
-                    available_files: files.map((file) => file?.name || path.basename(file?.path || '')).filter(Boolean),
-                });
-            }
-            const selectedFilename = selectedFile?.name || path.basename(selectedFile?.path || '');
-            const explicitLanguage = String(req.body?.language || '').trim().toLowerCase();
-            const language = explicitLanguage || detectLanguage(selectedFilename);
-            if (!language || !['python', 'java'].includes(language)) {
-                return res.status(400).json({
-                    error: 'Could not determine a supported language for the selected file.',
-                    selected_file: selectedFilename,
-                });
-            }
-            filesToProcess.push({ file: selectedFile, language });
-        }
-
-        const results = [];
-        for (const item of filesToProcess) {
-            const currentFilename = item.file?.name || path.basename(item.file?.path || '');
-            try {
-                const contentBuffer = await readSubmissionFile(submissionId, item.file);
-                const code = contentBuffer.toString('utf8');
-                const result = await runDetectorOnCode({ code, language: item.language });
-                const persisted = await persistDetectorResult({
-                    submissionId,
-                    fileName: currentFilename,
-                    language: item.language,
-                    detectorResult: result,
-                });
-                results.push({
-                    file_name: currentFilename,
-                    language: item.language,
-                    detection_id: persisted?.id,
-                    recorded_at: persisted?.created_at,
-                    detector_result: result,
-                });
-            } catch (err) {
-                if (isBatch) {
-                    results.push({
-                        file_name: currentFilename,
-                        language: item.language,
-                        error: err.message || 'Detection failed for this file.',
-                    });
-                } else {
-                    throw err;
-                }
-            }
-        }
+        const explicitLanguage = String(req.body?.language || '').trim().toLowerCase();
+        const force = parseBooleanEnv(req.body?.force || req.query?.force);
+        const result = await runSubmissionDetectionInternal(submissionId, {
+            batch: isBatch,
+            filename: requestedFilename || undefined,
+            language: explicitLanguage || undefined,
+            force,
+        });
 
         return res.json({
-            submission_id: submissionId,
-            batch: isBatch,
-            count: results.length,
-            results: results,
-            model_version: detectorModelVersion(),
+            ...result,
             requested_by: actor?.id || null,
-            note: 'AI detector output is a review signal only, not proof of authorship.',
         });
     } catch (err) {
         next(err);
@@ -706,13 +847,8 @@ router.get('/submissions/:id/results', async (req, res, next) => {
             submission_id: submissionId,
             requested_by: actor?.id || null,
             count: Array.isArray(rows) ? rows.length : 0,
+            ...buildSubmissionAnalysisMeta(submissionRow),
             results: (rows || []).map((row) => {
-                let payload = null;
-                try {
-                    payload = row.detector_payload ? JSON.parse(row.detector_payload) : null;
-                } catch {
-                    payload = null;
-                }
                 return {
                     id: row.id,
                     submission_id: row.submission_id,
@@ -727,7 +863,7 @@ router.get('/submissions/:id/results', async (req, res, next) => {
                         upper: row.upper_threshold,
                     },
                     model_version: row.model_version,
-                    detector_result: payload,
+                    detector_result: parseDetectorPayload(row),
                     created_at: row.created_at,
                 };
             }),
@@ -745,15 +881,24 @@ router.get('/assignments/:assignmentId/summary', async (req, res, next) => {
         const assignmentId = req.params.assignmentId;
         const db = getDb();
 
-        // Get the latest detection label for each submission in this assignment
+        // Include submission analysis state for every submission in the assignment,
+        // plus latest detector result when available.
         const [rows] = await db.execute(
             `SELECT 
                 s.id as submission_id,
+                s.student_id,
+                s.ai_analysis_state,
+                s.ai_analyzed_at,
+                s.ai_reused_from_submission_id,
                 d.label,
-                d.created_at
+                d.created_at,
+                d.file_name,
+                d.score_used,
+                d.calibrated_score,
+                d.raw_score
             FROM submissions s
-            JOIN (
-                SELECT submission_id, label, created_at,
+            LEFT JOIN (
+                SELECT submission_id, file_name, label, created_at, score_used, calibrated_score, raw_score,
                        ROW_NUMBER() OVER (PARTITION BY submission_id ORDER BY id DESC) as rn
                 FROM submission_ai_detections
             ) d ON s.id = d.submission_id AND d.rn = 1
@@ -762,20 +907,60 @@ router.get('/assignments/:assignmentId/summary', async (req, res, next) => {
         );
 
         const summary = {};
+        const totals = {
+            submissions: Array.isArray(rows) ? rows.length : 0,
+            caution: 0,
+            clean: 0,
+            pending: 0,
+            analyzed: 0,
+            reused: 0,
+            failed: 0,
+            skipped: 0,
+            no_results: 0,
+        };
         rows.forEach(row => {
             const hasAi = String(row.label).toLowerCase().includes('likely ai');
             const hasUnclear = String(row.label).toLowerCase().includes('unclear');
-            
+            const clean = !hasAi && !hasUnclear && String(row.label).toLowerCase().includes('likely human');
+            const analysisState = String(row.ai_analysis_state || 'pending').toLowerCase();
+
+            if (hasAi || hasUnclear) totals.caution += 1;
+            if (clean) totals.clean += 1;
+            if (analysisState === 'pending') totals.pending += 1;
+            else if (analysisState === 'analyzed') totals.analyzed += 1;
+            else if (analysisState === 'reused') totals.reused += 1;
+            else if (analysisState === 'failed') totals.failed += 1;
+            else if (analysisState === 'skipped') totals.skipped += 1;
+            if (!row.label) totals.no_results += 1;
+
             summary[row.submission_id] = {
                 caution: hasAi || hasUnclear,
-                clean: !hasAi && !hasUnclear && String(row.label).toLowerCase().includes('likely human'),
-                last_run: row.created_at
+                clean,
+                submission_id: row.submission_id,
+                student_id: row.student_id,
+                analysis_state: analysisState,
+                analyzed_at: row.ai_analyzed_at,
+                reused_from_submission_id: row.ai_reused_from_submission_id != null
+                    ? Number(row.ai_reused_from_submission_id)
+                    : null,
+                last_run: row.ai_analyzed_at || row.created_at || null,
+                latest_detection: row.label
+                    ? {
+                        file_name: row.file_name,
+                        label: row.label,
+                        score_used: row.score_used,
+                        calibrated_score: row.calibrated_score,
+                        raw_score: row.raw_score,
+                        created_at: row.created_at,
+                    }
+                    : null,
             };
         });
 
         return res.json({
             assignment_id: assignmentId,
-            summary: summary
+            totals,
+            summary: summary,
         });
     } catch (err) {
         next(err);

@@ -540,6 +540,16 @@ const SubmissionGrader: React.FC = () => {
         return null;
     }
 
+    function toNumericRubricScores(scores: Record<string, number | ''>): Record<string, number> {
+        const numeric: Record<string, number> = {};
+        Object.entries(scores).forEach(([criterionId, raw]) => {
+            if (raw === '' || raw == null) return;
+            const parsed = typeof raw === 'number' ? raw : Number(raw);
+            if (Number.isFinite(parsed)) numeric[criterionId] = parsed;
+        });
+        return numeric;
+    }
+
     async function handleSave() {
         // Capture current student into ref first
         saveDraftForCurrent();
@@ -590,11 +600,12 @@ const SubmissionGrader: React.FC = () => {
                 }
 
                 savedIndividualCount++;
+                const numericRubricScores = toNumericRubricScores(data.rubricScores);
                 return updateSubmission(subIdNum, {
                     grade: gradeValue,
                     feedback: data.feedback,
                     status: newStatus,
-                    rubric_scores: Object.keys(data.rubricScores).length > 0 ? data.rubricScores : undefined
+                    rubric_scores: Object.keys(numericRubricScores).length > 0 ? numericRubricScores : undefined
                 });
             });
 
