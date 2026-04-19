@@ -21,22 +21,74 @@ import UserAvatar from '../../components/ui/UserAvatar';
 
 import './GradingDashboard.css';
 
+type AiAnalysisState = 'pending' | 'analyzed' | 'reused' | 'failed' | 'skipped' | string;
+
+type AiDetectionMeta = {
+    analysis_state: AiAnalysisState;
+    analyzed_at: string | null;
+    reused_from_submission_id: number | null;
+};
+
 type AiDetectionRowState = {
     loading: boolean;
     running: boolean;
     latest: SubmissionAiDetectionResult | null;
+    byFile: SubmissionAiDetectionResult[];
+    meta: AiDetectionMeta;
     error: string | null;
 };
 
-function pickDetectableSourceFile(submission: Submission): { filename: string; language: 'python' | 'java' } | null {
+function pickDetectableSourceFiles(submission: Submission): Array<{ filename: string; language: 'python' | 'java' }> {
     const files = submission.files || [{ name: submission.file_name, path: submission.file_path }];
+    const detected: Array<{ filename: string; language: 'python' | 'java' }> = [];
     for (const file of files) {
         const name = String(file?.name || '').trim();
         if (!name) continue;
-        if (/\.py$/i.test(name)) return { filename: name, language: 'python' };
-        if (/\.java$/i.test(name)) return { filename: name, language: 'java' };
+        if (/\.py$/i.test(name)) detected.push({ filename: name, language: 'python' });
+        else if (/\.java$/i.test(name)) detected.push({ filename: name, language: 'java' });
     }
-    return null;
+    return detected;
+}
+
+function pickLatestDetectionsByFile(results: SubmissionAiDetectionResult[]): SubmissionAiDetectionResult[] {
+    const latest = new Map<string, SubmissionAiDetectionResult>();
+    for (const item of results || []) {
+        if (!latest.has(item.file_name)) {
+            latest.set(item.file_name, item);
+        }
+    }
+    return Array.from(latest.values());
+}
+
+function getSubmissionMeta(submission: Submission): AiDetectionMeta {
+    return {
+        analysis_state: submission.ai_analysis_state || 'pending',
+        analyzed_at: submission.ai_analyzed_at || null,
+        reused_from_submission_id: submission.ai_reused_from_submission_id ?? null,
+    };
+}
+
+function getHistoryMeta(
+    submission: Submission,
+    history: { analysis_state?: string; analyzed_at?: string | null; reused_from_submission_id?: number | null }
+): AiDetectionMeta {
+    return {
+        analysis_state: history.analysis_state || submission.ai_analysis_state || 'pending',
+        analyzed_at: history.analyzed_at ?? submission.ai_analyzed_at ?? null,
+        reused_from_submission_id: history.reused_from_submission_id ?? submission.ai_reused_from_submission_id ?? null,
+    };
+}
+
+function getRunMeta(runResult: {
+    analysis_state?: string;
+    analyzed_at?: string | null;
+    reused_from_submission_id?: number | null;
+}): AiDetectionMeta {
+    return {
+        analysis_state: runResult.analysis_state || '',
+        analyzed_at: runResult.analyzed_at ?? null,
+        reused_from_submission_id: runResult.reused_from_submission_id ?? null,
+    };
 }
 
 const GradingDashboard: React.FC = () => {
@@ -204,16 +256,37 @@ const GradingDashboard: React.FC = () => {
         [groupedSubmissions]
     );
 
+    const applySubmissionMetaToGroups = useCallback((submissionId: number, meta: AiDetectionMeta) => {
+        setGroupedSubmissions((prev) => {
+            const next: Record<string, Submission[]> = {};
+            for (const [studentId, group] of Object.entries(prev)) {
+                next[studentId] = group.map((item) => {
+                    if (item.id !== submissionId) return item;
+                    return {
+                        ...item,
+                        ai_analysis_state: meta.analysis_state,
+                        ai_analyzed_at: meta.analyzed_at,
+                        ai_reused_from_submission_id: meta.reused_from_submission_id,
+                    };
+                });
+            }
+            return next;
+        });
+    }, []);
+
     const loadAiRowsForModal = useCallback(async () => {
         if (latestSubmissions.length === 0) return;
         setHydratingAiRows(true);
         setAiRows((prev) => {
             const next = { ...prev };
             for (const sub of latestSubmissions) {
+                const fallbackMeta = getSubmissionMeta(sub);
                 next[sub.id] = {
                     loading: true,
                     running: prev[sub.id]?.running || false,
                     latest: prev[sub.id]?.latest || null,
+                    byFile: prev[sub.id]?.byFile || [],
+                    meta: prev[sub.id]?.meta || fallbackMeta,
                     error: null,
                 };
             }
@@ -223,16 +296,21 @@ const GradingDashboard: React.FC = () => {
         try {
             await Promise.all(latestSubmissions.map(async (sub) => {
                 try {
-                    const history = await getSubmissionAiDetections(sub.id, { limit: 1 });
+                    const history = await getSubmissionAiDetections(sub.id, { limit: 100 });
+                    const byFile = pickLatestDetectionsByFile(history.results || []);
+                    const meta = getHistoryMeta(sub, history);
                     setAiRows((prev) => ({
                         ...prev,
                         [sub.id]: {
                             loading: false,
                             running: prev[sub.id]?.running || false,
-                            latest: history.results[0] || null,
+                            latest: byFile[0] || null,
+                            byFile,
+                            meta,
                             error: null,
                         },
                     }));
+                    applySubmissionMetaToGroups(sub.id, meta);
                 } catch (err) {
                     const message = err instanceof Error ? err.message : 'Failed to load AI detection results.';
                     setAiRows((prev) => ({
@@ -241,6 +319,8 @@ const GradingDashboard: React.FC = () => {
                             loading: false,
                             running: prev[sub.id]?.running || false,
                             latest: prev[sub.id]?.latest || null,
+                            byFile: prev[sub.id]?.byFile || [],
+                            meta: prev[sub.id]?.meta || getSubmissionMeta(sub),
                             error: message,
                         },
                     }));
@@ -249,7 +329,7 @@ const GradingDashboard: React.FC = () => {
         } finally {
             setHydratingAiRows(false);
         }
-    }, [latestSubmissions]);
+    }, [applySubmissionMetaToGroups, latestSubmissions]);
 
     const runAiForSubmission = useCallback(async (
         submission: Submission,
@@ -264,6 +344,8 @@ const GradingDashboard: React.FC = () => {
                         loading: false,
                         running: false,
                         latest: prev[submission.id]?.latest || null,
+                        byFile: prev[submission.id]?.byFile || [],
+                        meta: prev[submission.id]?.meta || getSubmissionMeta(submission),
                         error: status?.reason || 'AI detector is not ready.',
                     },
                 }));
@@ -271,14 +353,16 @@ const GradingDashboard: React.FC = () => {
             }
         }
 
-        const target = pickDetectableSourceFile(submission);
-        if (!target) {
+        const targets = pickDetectableSourceFiles(submission);
+        if (targets.length === 0) {
             setAiRows((prev) => ({
                 ...prev,
                 [submission.id]: {
                     loading: false,
                     running: false,
                     latest: prev[submission.id]?.latest || null,
+                    byFile: prev[submission.id]?.byFile || [],
+                    meta: prev[submission.id]?.meta || getSubmissionMeta(submission),
                     error: 'No .py or .java file found in this submission.',
                 },
             }));
@@ -291,25 +375,37 @@ const GradingDashboard: React.FC = () => {
                 loading: false,
                 running: true,
                 latest: prev[submission.id]?.latest || null,
+                byFile: prev[submission.id]?.byFile || [],
+                meta: prev[submission.id]?.meta || getSubmissionMeta(submission),
                 error: null,
             },
         }));
 
         try {
-            await runSubmissionAiDetection(submission.id, {
-                filename: target.filename,
-                language: target.language,
+            const runResult = await runSubmissionAiDetection(submission.id, {
+                batch: true,
             });
-            const history = await getSubmissionAiDetections(submission.id, { limit: 1 });
+            const history = await getSubmissionAiDetections(submission.id, { limit: 100 });
+            const byFile = pickLatestDetectionsByFile(history.results || []);
+            const historyMeta = getHistoryMeta(submission, history);
+            const runMeta = getRunMeta(runResult);
+            const mergedMeta: AiDetectionMeta = {
+                analysis_state: runMeta.analysis_state || historyMeta.analysis_state,
+                analyzed_at: runMeta.analyzed_at ?? historyMeta.analyzed_at,
+                reused_from_submission_id: runMeta.reused_from_submission_id ?? historyMeta.reused_from_submission_id,
+            };
             setAiRows((prev) => ({
                 ...prev,
                 [submission.id]: {
                     loading: false,
                     running: false,
-                    latest: history.results[0] || null,
+                    latest: byFile[0] || null,
+                    byFile,
+                    meta: mergedMeta,
                     error: null,
                 },
             }));
+            applySubmissionMetaToGroups(submission.id, mergedMeta);
             return true;
         } catch (err) {
             const message = err instanceof Error ? err.message : 'AI detection failed.';
@@ -319,12 +415,14 @@ const GradingDashboard: React.FC = () => {
                     loading: false,
                     running: false,
                     latest: prev[submission.id]?.latest || null,
+                    byFile: prev[submission.id]?.byFile || [],
+                    meta: prev[submission.id]?.meta || getSubmissionMeta(submission),
                     error: message,
                 },
             }));
             return false;
         }
-    }, []);
+    }, [applySubmissionMetaToGroups]);
 
     const handleRunAiForAll = useCallback(async () => {
         if (latestSubmissions.length === 0) {
@@ -496,6 +594,29 @@ const GradingDashboard: React.FC = () => {
         if (normalized.includes('likely human')) return 'ai-label-human';
         return 'ai-label-unclear';
     };
+    const normalizeAiAnalysisState = (value?: string | null): AiAnalysisState => {
+        const normalized = String(value || 'pending').toLowerCase().trim();
+        if (normalized === 'analyzed' || normalized === 'reused' || normalized === 'failed' || normalized === 'skipped') {
+            return normalized;
+        }
+        return 'pending';
+    };
+    const aiAnalysisStateClass = (value?: string | null) => {
+        const normalized = normalizeAiAnalysisState(value);
+        if (normalized === 'analyzed') return 'ai-state-analyzed';
+        if (normalized === 'reused') return 'ai-state-reused';
+        if (normalized === 'failed') return 'ai-state-failed';
+        if (normalized === 'skipped') return 'ai-state-skipped';
+        return 'ai-state-pending';
+    };
+    const aiAnalysisStateLabel = (value?: string | null) => {
+        const normalized = normalizeAiAnalysisState(value);
+        if (normalized === 'analyzed') return 'AI: Fresh';
+        if (normalized === 'reused') return 'AI: Reused';
+        if (normalized === 'failed') return 'AI: Failed';
+        if (normalized === 'skipped') return 'AI: Skipped';
+        return 'AI: Pending';
+    };
     const aiDetectorReady = Boolean(aiDetectorStatus?.ready);
     const aiDetectorBlockedReason = aiDetectorStatus && !aiDetectorStatus.ready
         ? aiDetectorStatus.reason || 'AI detector is not ready.'
@@ -549,7 +670,7 @@ const GradingDashboard: React.FC = () => {
                         Plagiarism check
                     </button>
                     <Link
-                        to={`${basePath}/courses/${courseId}/gradebook${assignmentId ? `?assignmentId=${encodeURIComponent(assignmentId)}` : ''}`}
+                        to={`${basePath}/courses/${courseId}/gradebook`}
                         className="btn-dashboard-action btn-gradebook"
                     >
                         <BarChart2 size={18} />
@@ -642,6 +763,7 @@ const GradingDashboard: React.FC = () => {
                                 const effectiveStatus = (latestSubmission.grade !== null && latestSubmission.grade !== undefined)
                                     ? latestSubmission.status
                                     : 'pending';
+                                const submissionMeta = getSubmissionMeta(latestSubmission);
                                 return (
                                     <tr key={latestSubmission.student_id}>
                                         <td className="text-medium">
@@ -739,6 +861,16 @@ const GradingDashboard: React.FC = () => {
                                         </td>
                                         <td>
                                             <StatusBadge status={effectiveStatus} />
+                                            <div className="ai-state-inline">
+                                                <span className={`ai-state-pill ${aiAnalysisStateClass(submissionMeta.analysis_state)}`}>
+                                                    {aiAnalysisStateLabel(submissionMeta.analysis_state)}
+                                                </span>
+                                                {submissionMeta.analysis_state === 'reused' && submissionMeta.reused_from_submission_id != null && (
+                                                    <div className="ai-reuse-note">
+                                                        Reused from submission #{submissionMeta.reused_from_submission_id}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="text-medium">
                                             {latestSubmission.grade !== undefined && latestSubmission.grade !== null
@@ -891,9 +1023,9 @@ const GradingDashboard: React.FC = () => {
                                     <thead>
                                         <tr>
                                             <th>Student</th>
-                                            <th>Source file</th>
-                                            <th>Latest label</th>
-                                            <th>Score</th>
+                                            <th>Files checked</th>
+                                            <th>Per-file result</th>
+                                            <th>Analysis state</th>
                                             <th>Last run</th>
                                             <th>Action</th>
                                         </tr>
@@ -908,8 +1040,10 @@ const GradingDashboard: React.FC = () => {
                                         ) : (
                                             latestSubmissions.map((sub) => {
                                                 const state = aiRows[sub.id];
-                                                const source = pickDetectableSourceFile(sub);
-                                                const latest = state?.latest || null;
+                                                const sources = pickDetectableSourceFiles(sub);
+                                                const latestByFile = state?.byFile || [];
+                                                const latest = state?.latest || latestByFile[0] || null;
+                                                const meta = state?.meta || getSubmissionMeta(sub);
                                                 const displayName = hideNames
                                                     ? anonLabel(sub.student_id)
                                                     : (sub.student_name || sub.student_id);
@@ -923,12 +1057,37 @@ const GradingDashboard: React.FC = () => {
                                                                     ? `${sub.student_name} (${sub.student_id})`
                                                                     : sub.student_id)}
                                                         </td>
-                                                        <td>{source?.filename || 'No .py/.java file'}</td>
                                                         <td>
-                                                            {latest ? (
-                                                                <span className={`ai-label-pill ${aiRowBadgeClass(latest.label)}`}>
-                                                                    {latest.label}
-                                                                </span>
+                                                            {sources.length > 0 ? (
+                                                                <div className="ai-files-list">
+                                                                    {sources.map((source) => (
+                                                                        <div key={source.filename} className="ai-file-item">
+                                                                            {source.filename}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-secondary">No .py/.java file</span>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {latestByFile.length > 0 ? (
+                                                                <div className="ai-result-list">
+                                                                    {latestByFile.map((result) => (
+                                                                        <div key={`${sub.id}-${result.file_name}-${result.id}`} className="ai-result-item">
+                                                                            <div className="ai-result-item-top">
+                                                                                <span className="ai-result-file">{result.file_name}</span>
+                                                                                <span className={`ai-label-pill ${aiRowBadgeClass(result.label)}`}>
+                                                                                    {result.label}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="ai-result-item-meta">
+                                                                                Score: {formatAiScore(result)}
+                                                                                {result.created_at ? ` • ${new Date(result.created_at).toLocaleString()}` : ''}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             ) : (
                                                                 <span className="text-secondary">Not run</span>
                                                             )}
@@ -936,14 +1095,27 @@ const GradingDashboard: React.FC = () => {
                                                                 <div className="ai-inline-error">{state.error}</div>
                                                             )}
                                                         </td>
-                                                        <td>{formatAiScore(latest)}</td>
-                                                        <td>{latest?.created_at ? new Date(latest.created_at).toLocaleString() : '—'}</td>
+                                                        <td>
+                                                            <span className={`ai-state-pill ${aiAnalysisStateClass(meta.analysis_state)}`}>
+                                                                {aiAnalysisStateLabel(meta.analysis_state)}
+                                                            </span>
+                                                            {meta.analysis_state === 'reused' && meta.reused_from_submission_id != null && (
+                                                                <div className="ai-reuse-note">
+                                                                    No new code changes. Reused submission #{meta.reused_from_submission_id}.
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {meta.analyzed_at
+                                                                ? new Date(meta.analyzed_at).toLocaleString()
+                                                                : (latest?.created_at ? new Date(latest.created_at).toLocaleString() : '—')}
+                                                        </td>
                                                         <td>
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
                                                                 onClick={() => void runAiForSubmission(sub)}
-                                                                disabled={state?.running || runningAiForAll || loadingAiDetectorStatus || !aiDetectorReady || !source}
+                                                                disabled={state?.running || runningAiForAll || loadingAiDetectorStatus || !aiDetectorReady || sources.length === 0}
                                                             >
                                                                 {state?.running ? 'Running…' : 'Run'}
                                                             </Button>

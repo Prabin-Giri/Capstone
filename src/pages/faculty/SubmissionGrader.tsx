@@ -549,6 +549,16 @@ const SubmissionGrader: React.FC = () => {
         return null;
     }
 
+    function toNumericRubricScores(scores: Record<string, number | ''>): Record<string, number> {
+        const numeric: Record<string, number> = {};
+        Object.entries(scores).forEach(([criterionId, raw]) => {
+            if (raw === '' || raw == null) return;
+            const parsed = typeof raw === 'number' ? raw : Number(raw);
+            if (Number.isFinite(parsed)) numeric[criterionId] = parsed;
+        });
+        return numeric;
+    }
+
     async function handleSave() {
         // Capture current student into ref first
         saveDraftForCurrent();
