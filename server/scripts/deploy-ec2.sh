@@ -7,6 +7,17 @@ PM2_APP_NAME="${PM2_APP_NAME:-autograde-backend}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_APP_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+load_env_file() {
+  local env_file="$1"
+  if [ -f "$env_file" ]; then
+    echo "[deploy] loading env vars from $env_file"
+    set -a
+    # shellcheck disable=SC1090
+    . "$env_file"
+    set +a
+  fi
+}
+
 # Support both repo root (~/Capstone) and backend dir (~/Capstone/server).
 if [ -d "$APP_DIR/server" ]; then
   :
@@ -38,19 +49,24 @@ if [ "$AVAIL_MB" -lt 500 ]; then
   rm -rf offline_ai_detector/.venv || true
 fi
 
-if [ -f "$APP_DIR/.env" ]; then
-  echo "[deploy] loading env vars from $APP_DIR/.env"
-  set -a
-  # shellcheck disable=SC1090
-  . "$APP_DIR/.env"
-  set +a
-fi
+# Load root and server env files (if present). Root .env supports monorepo setups;
+# server/.env supports legacy EC2 setups.
+load_env_file "$APP_DIR/.env"
+load_env_file "$APP_DIR/server/.env"
+
+# Backward-compatible aliases for older EC2 env names.
+export MYSQL_HOST="${MYSQL_HOST:-${DB_HOST:-}}"
+export MYSQL_PORT="${MYSQL_PORT:-${DB_PORT:-}}"
+export MYSQL_USER="${MYSQL_USER:-${DB_USER:-}}"
+export MYSQL_PASSWORD="${MYSQL_PASSWORD:-${DB_PASSWORD:-${DB_PASS:-}}}"
+export MYSQL_DATABASE="${MYSQL_DATABASE:-${DB_NAME:-}}"
+export AWS_S3_BUCKET="${AWS_S3_BUCKET:-${S3_BUCKET_NAME:-}}"
 
 echo "[deploy] fetching latest main"
 git fetch origin main
 git checkout main
 git reset --hard origin/main
-git clean -fd
+git clean -fd -e .env -e server/.env
 
 echo "[deploy] installing backend dependencies"
 cd server

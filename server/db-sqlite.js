@@ -5,6 +5,7 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { courseOfferingStorageId } = require('./courseOfferingKey');
 const { migrateSqliteCourseOfferings } = require('./courseOfferingMigrate');
 
@@ -14,7 +15,15 @@ let db = null;
 function shouldSeedSampleData() {
     const explicit = process.env.AUTO_SEED_SAMPLE_DATA;
     if (explicit != null) return /^(1|true|yes)$/i.test(String(explicit));
-    return true;
+    return process.env.NODE_ENV !== 'production';
+}
+
+function resolveSeedPassword() {
+    const configured = String(process.env.SEED_DEFAULT_PASSWORD || '').trim();
+    if (configured) return configured;
+    const generated = crypto.randomBytes(9).toString('base64url');
+    console.warn(`[db] SEED_DEFAULT_PASSWORD not set; generated one-time sqlite sample password: ${generated}`);
+    return generated;
 }
 
 async function initDb() {
@@ -212,6 +221,12 @@ async function initDb() {
         'ALTER TABLE submissions ADD COLUMN ai_reused_from_submission_id INTEGER DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN student_id TEXT DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0',
+        'ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0',
+        'ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL',
+        'ALTER TABLE users ADD COLUMN email_verification_otp TEXT DEFAULT NULL',
+        'ALTER TABLE users ADD COLUMN email_verification_expires TEXT DEFAULT NULL',
+        'ALTER TABLE users ADD COLUMN password_reset_token TEXT DEFAULT NULL',
+        'ALTER TABLE users ADD COLUMN password_reset_expires TEXT DEFAULT NULL',
         'ALTER TABLE courses ADD COLUMN course_code TEXT',
         `CREATE TABLE IF NOT EXISTS course_tas (
             course_id TEXT NOT NULL,
@@ -275,9 +290,21 @@ async function initDb() {
     const result = db.exec('SELECT COUNT(*) as count FROM users');
     const count = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : 0;
     if (count === 0 && shouldSeedSampleData()) {
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
+        const seedPassword = resolveSeedPassword();
+        const seedUser = (id, name, email, role) => {
+            db.run(
+                'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
+                [id, name, email, seedPassword, role]
+            );
+        };
+        seedUser('student-001', 'Prabin Giri', 'prabin@example.edu', 'student');
+        seedUser('faculty-001', 'Dr. Smith', 'smith@example.edu', 'faculty');
+        seedUser('admin-001', 'Admin User', 'faculty1@gmail.com', 'admin');
+        try {
+            db.run("UPDATE users SET must_change_password = 1 WHERE id IN ('student-001','faculty-001','admin-001')");
+        } catch {
+            /* older schema */
+        }
         const termSeed = 'Spring 2026';
         const id4060 = courseOfferingStorageId('CSCI4060', termSeed);
         const id2100 = courseOfferingStorageId('CSCI2100', termSeed);
@@ -294,9 +321,9 @@ async function initDb() {
         
         // --- Mock Data for Plagiarism Checker ---
         // 3 Students
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag1', 'Alice Coder', 'alice@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag2', 'Bob Copier', 'bob@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag3', 'Charlie Original', 'charlie@b.c', 'password123', 'student')");
+        seedUser('std-plag1', 'Alice Coder', 'alice@b.c', 'student');
+        seedUser('std-plag2', 'Bob Copier', 'bob@b.c', 'student');
+        seedUser('std-plag3', 'Charlie Original', 'charlie@b.c', 'student');
         
         // Enroll in course CSCI4060 (offering id)
         db.run('INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)', [id4060, 'std-plag1']);
@@ -311,18 +338,18 @@ async function initDb() {
         // --- Additional Mock Data for Plagiarism Checker Extensions ---
         
         // Single File High/Moderate/Low Plagiarism students
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag4', 'Dave Clone', 'dave@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag5', 'Eve Mimic', 'eve@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag6', 'Frank Reorder', 'frank@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag7', 'Grace Mod', 'grace@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag8', 'Hank Unique', 'hank@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag9', 'Ivy Divergent', 'ivy@b.c', 'password123', 'student')");
+        seedUser('std-plag4', 'Dave Clone', 'dave@b.c', 'student');
+        seedUser('std-plag5', 'Eve Mimic', 'eve@b.c', 'student');
+        seedUser('std-plag6', 'Frank Reorder', 'frank@b.c', 'student');
+        seedUser('std-plag7', 'Grace Mod', 'grace@b.c', 'student');
+        seedUser('std-plag8', 'Hank Unique', 'hank@b.c', 'student');
+        seedUser('std-plag9', 'Ivy Divergent', 'ivy@b.c', 'student');
         
         // Multi-File Plagiarism students
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag10', 'Jack Multi', 'jack@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag11', 'Karen Multi', 'karen@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag12', 'Leo Refactor', 'leo@b.c', 'password123', 'student')");
-        db.run("INSERT INTO users (id, name, email, password, role) VALUES ('std-plag13', 'Mia Safe', 'mia@b.c', 'password123', 'student')");
+        seedUser('std-plag10', 'Jack Multi', 'jack@b.c', 'student');
+        seedUser('std-plag11', 'Karen Multi', 'karen@b.c', 'student');
+        seedUser('std-plag12', 'Leo Refactor', 'leo@b.c', 'student');
+        seedUser('std-plag13', 'Mia Safe', 'mia@b.c', 'student');
 
         // Enroll everyone
         for(let i=4; i<=13; i++) {

@@ -28,6 +28,7 @@ import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
 import { getLanguageFromFilename, buildAssignmentExecutionPayload } from '../../lib/utils';
+import { getUser } from '../../lib/auth';
 
 const SubmissionGrader: React.FC = () => {
     const { courseId, assignmentId, submissionId } = useParams();
@@ -56,6 +57,15 @@ const SubmissionGrader: React.FC = () => {
     const [studentSearch, setStudentSearch] = useState('');
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
     const [testSummary, setTestSummary] = useState<{ passed: number | null; total: number | null }>({ passed: null, total: null });
+    const authToken = getUser()?.authToken || localStorage.getItem('token') || '';
+    const fetchWithAuth = (url: string, init?: RequestInit) => {
+        if (!authToken) return fetch(url, init);
+        const headers = new Headers(init?.headers || {});
+        if (!headers.has('Authorization')) {
+            headers.set('Authorization', `Bearer ${authToken}`);
+        }
+        return fetch(url, { ...init, headers });
+    };
 
     // ─── Draft grade buffer (REFS — immune to stale closures) ─────────────────
     // Using refs instead of state so that saveDraftForCurrent() writes are
@@ -396,7 +406,11 @@ const SubmissionGrader: React.FC = () => {
 
     async function handleDownload(url: string, filename: string) {
         try {
-            const res = await fetch(url);
+            const res = await fetchWithAuth(url);
+            if (!res.ok) {
+                const msg = await res.text().catch(() => '');
+                throw new Error(msg || `Download failed (${res.status})`);
+            }
             const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -406,8 +420,16 @@ const SubmissionGrader: React.FC = () => {
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-        } catch {
-            window.open(url, '_blank');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Download failed.';
+            setAlertConfig({
+                show: true,
+                type: 'error',
+                title: 'Download unavailable',
+                message: /not found/i.test(message)
+                    ? 'This file is no longer available in storage for this submission attempt.'
+                    : message,
+            });
         }
     }
 
@@ -418,23 +440,40 @@ const SubmissionGrader: React.FC = () => {
                 ? [...files].sort((a, b) => (a.path === preferredPath ? -1 : b.path === preferredPath ? 1 : 0))
                 : files;
             const loaded = await Promise.all(ordered.map(async (f, idx) => {
-                const url = getSubmissionFileUrl(targetSubmissionId, f.name);
+                const fileRef = String(f.path || f.name || '').trim();
+                const displayName = String(f.name || fileRef.split('/').pop() || `file-${idx + 1}`);
+                if (!fileRef) {
+                    return {
+                        id: `missing-ref-${idx}`,
+                        name: displayName,
+                        content: 'This file is missing path metadata and cannot be previewed.',
+                        language: getLanguageFromFilename(displayName, assignment?.language || ''),
+                    } as EditorFile;
+                }
+                const url = getSubmissionFileUrl(targetSubmissionId, fileRef);
                 try {
-                    const res = await fetch(url);
-                    if (!res.ok) throw new Error();
+                    const res = await fetchWithAuth(url);
+                    if (!res.ok) {
+                        const body = await res.text().catch(() => '');
+                        throw new Error(`HTTP_${res.status}:${body}`);
+                    }
                     const content = await res.text();
                     return {
-                        id: `${f.path}-${idx}`,
-                        name: f.name,
+                        id: `${fileRef}-${idx}`,
+                        name: displayName,
                         content,
-                        language: getLanguageFromFilename(f.name, assignment?.language || ''),
+                        language: getLanguageFromFilename(displayName, assignment?.language || ''),
                     } as EditorFile;
-                } catch {
+                } catch (err) {
+                    const reason = err instanceof Error ? err.message : String(err);
+                    const fileMissing = /HTTP_404|not found/i.test(reason);
                     return {
-                        id: `${f.path}-${idx}`,
-                        name: f.name,
-                        content: 'Unable to render this file in editor preview. Please use Download.',
-                        language: getLanguageFromFilename(f.name, assignment?.language || ''),
+                        id: `${fileRef}-${idx}`,
+                        name: displayName,
+                        content: fileMissing
+                            ? 'This file is no longer available in storage for this submission attempt.'
+                            : 'Unable to render this file in editor preview. Please use Download.',
+                        language: getLanguageFromFilename(displayName, assignment?.language || ''),
                     } as EditorFile;
                 }
             }));
@@ -747,6 +786,8 @@ const SubmissionGrader: React.FC = () => {
     const maxPoints = assignment.points || 100;
     const activeAttemptFiles = activeAttempt.files || [{ name: activeAttempt.file_name, path: activeAttempt.file_path }];
     const attemptPrimaryFile = activeAttemptFiles[0];
+    const attemptPrimaryFileRef = String(attemptPrimaryFile?.path || attemptPrimaryFile?.name || '').trim();
+    const attemptPrimaryFileName = String(attemptPrimaryFile?.name || attemptPrimaryFileRef.split('/').pop() || 'download');
     const canGoPrevAttempt = activeAttemptIndex > 0;
     const canGoNextAttempt = activeAttemptIndex < allSubmissions.length - 1;
     const studentDisplayName = hideNames ? anonLabel(submission.student_id) : (submission.student_name || 'Student');
@@ -1122,8 +1163,8 @@ const SubmissionGrader: React.FC = () => {
                                         variant="primary"
                                         className="btn-pill"
                                         size="sm"
-                                        onClick={() => attemptPrimaryFile && handleDownload(getSubmissionFileUrl(activeAttempt.id, attemptPrimaryFile.name), attemptPrimaryFile.name)}
-                                        disabled={!attemptPrimaryFile}
+                                        onClick={() => attemptPrimaryFileRef && handleDownload(getSubmissionFileUrl(activeAttempt.id, attemptPrimaryFileRef), attemptPrimaryFileName)}
+                                        disabled={!attemptPrimaryFileRef}
                                     >
                                         Download
                                     </Button>

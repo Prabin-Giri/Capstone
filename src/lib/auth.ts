@@ -14,6 +14,7 @@ export interface UserSession {
     name: string;
     email: string;
     role: AuthRole;
+    authToken?: string;
     profilePicture?: string;
     verified?: boolean;
     emailVerified?: boolean;
@@ -46,6 +47,9 @@ export const getUser = (): UserSession | null => {
 };
 export const login = (user: UserSession) => {
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    if (user.authToken) {
+        localStorage.setItem('token', user.authToken);
+    }
 
     // If email not verified, redirect to verification page
     if (user.emailVerified === false) {
@@ -89,6 +93,7 @@ export const isFacultyVerified = (): boolean => {
 
 export const logout = () => {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('token');
     window.location.href = '/';
 };
 

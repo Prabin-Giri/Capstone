@@ -5,7 +5,7 @@ async function fixSchema() {
   const connection = await mysql.createConnection({
     host: process.env.MYSQL_HOST || '127.0.0.1',
     user: process.env.MYSQL_USER || 'admin',
-    password: process.env.MYSQL_PASSWORD || 'LonSuddo-69',
+    password: process.env.MYSQL_PASSWORD || '',
     database: process.env.MYSQL_DATABASE || 'autograde-db',
   });
 

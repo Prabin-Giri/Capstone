@@ -167,6 +167,8 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
         setIsSaving(true);
         try {
             const updates: Partial<UserSession> = {};
+            const token = userData.authToken || localStorage.getItem('token') || '';
+            const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;
 
             // 1. Handle avatar changes (Upload or Remove)
             if (editingFields.avatar && pendingAvatar) {
@@ -177,6 +179,7 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
 
                     const uploadResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${encodeURIComponent(userData.id)}`, {
                         method: 'POST',
+                        headers: authHeaders,
                         body: formData
                     });
 
@@ -186,7 +189,8 @@ const AccountDrawer: React.FC<AccountDrawerProps> = ({ isOpen, onClose }) => {
                 } else {
                     // REMOVE
                     const deleteResponse = await fetch(`${UPLOADS_BASE}/api/uploads/profile-picture/${encodeURIComponent(userData.id)}`, {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        headers: authHeaders
                     });
 
                     if (!deleteResponse.ok) throw new Error('Failed to remove avatar');

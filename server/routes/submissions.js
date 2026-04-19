@@ -8,13 +8,53 @@ const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 const { uploadToS3, getFromS3, deleteFromS3, s3Enabled } = require('../s3');
 const aiDetectorRouter = require('./aiDetector');
 const assignmentsRouter = require('./assignments');
+const { hasAnyRole } = require('../auth');
 
 // ── Local disk fallback (for local dev without S3) ─────────────────────────
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Use memory storage: we decide where to write after multer parses the request
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        files: 10,
+        fileSize: 25 * 1024 * 1024,
+    },
+});
+
+function actorUserId(req) {
+    return String(req.auth?.userId || '').trim();
+}
+
+function isStaff(req) {
+    return hasAnyRole(req, 'admin', 'faculty', 'ta');
+}
+
+function sanitizeFileName(input) {
+    const base = path.basename(String(input || '').replace(/\\/g, '/'));
+    const safe = base.replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (!safe || safe === '.' || safe === '..') return 'upload.bin';
+    return safe.slice(0, 160);
+}
+
+function normalizeRequestedFileName(input) {
+    const base = path.basename(String(input || '').replace(/\\/g, '/'));
+    if (!base || base === '.' || base === '..') return '';
+    if (base.includes('\0')) return '';
+    return base;
+}
+
+function resolveSafeLocalUploadPath(storedPath) {
+    const normalized = String(storedPath || '').replace(/\\/g, '/').trim();
+    if (!normalized) return null;
+    const base = path.basename(normalized);
+    if (!base || base === '.' || base === '..') return null;
+    const candidate = path.resolve(path.join(uploadsDir, base));
+    const root = path.resolve(uploadsDir) + path.sep;
+    if (!candidate.startsWith(root)) return null;
+    return candidate;
+}
 
 // ── Key helpers ────────────────────────────────────────────────────────────
 function submissionKey(submissionId, filename) {
@@ -65,12 +105,13 @@ function computeSubmissionContentHash(uploadedFiles) {
  * Returns the value to store in `file_path` column (S3 key or local filename).
  */
 async function persistFile(buffer, originalName, submissionId) {
+    const safeName = sanitizeFileName(originalName);
     if (s3Enabled) {
-        const key = submissionKey(submissionId, originalName);
+        const key = submissionKey(submissionId, safeName);
         await uploadToS3(key, buffer);
         return key; // stored as S3 key
     } else {
-        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + originalName;
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + safeName;
         fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
         return uniqueName; // stored as filename
     }
@@ -110,17 +151,48 @@ function triggerSubmissionAutoAnalysis({ assignmentId, submissionIds }) {
     });
 }
 
+async function fetchSubmissionAccessRow(db, submissionId) {
+    const [rows] = await db.execute(
+        `SELECT s.id, s.student_id, s.assignment_id, a.course_id
+         FROM submissions s
+         JOIN assignments a ON a.id = s.assignment_id
+         WHERE s.id = ? LIMIT 1`,
+        [submissionId]
+    );
+    return rows && rows[0] ? rows[0] : null;
+}
+
+function assertSubmissionAccess(req, submissionRow) {
+    const actorId = actorUserId(req);
+    if (!actorId || !submissionRow) return false;
+    if (isStaff(req)) return true;
+    return String(submissionRow.student_id) === actorId;
+}
+
 // GET /api/submissions - Get all submissions (optionally filter)
 router.get('/', async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.query;
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
         const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
         let sql = `SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE 1=1`;
         const params = [];
 
         if (assignment_id) { sql += ' AND submissions.assignment_id = ?'; params.push(assignment_id); }
-        if (student_id)    { sql += ' AND submissions.student_id = ?';    params.push(student_id); }
+        if (isStaff(req)) {
+            if (student_id) {
+                sql += ' AND submissions.student_id = ?';
+                params.push(student_id);
+            }
+        } else {
+            if (student_id && String(student_id) !== actorId) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
+            sql += ' AND submissions.student_id = ?';
+            params.push(actorId);
+        }
         sql += ' ORDER BY submissions.submitted_at DESC';
 
         const result = await db.execute(sql, params);
@@ -132,6 +204,11 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
     try {
         const db = getDb();
+        const accessRow = await fetchSubmissionAccessRow(db, req.params.id);
+        if (!accessRow) return res.status(404).json({ error: 'Submission not found' });
+        if (!assertSubmissionAccess(req, accessRow)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
         const timeField = (f) => isMySQL ? `DATE_FORMAT(${f}, '%Y-%m-%dT%H:%i:%sZ')` : f;
         const result = await db.execute(
             `SELECT submissions.*, ${timeField('submissions.submitted_at')} AS submitted_at, ${timeField('submissions.updated_at')} AS updated_at, users.name as student_name, users.profile_picture as student_profile_picture FROM submissions LEFT JOIN users ON submissions.student_id = users.id WHERE submissions.id = ?`,
@@ -149,17 +226,24 @@ router.get('/:id/file/:filename', async (req, res, next) => {
     try {
         const { id, filename } = req.params;
         const db = getDb();
+        const accessRow = await fetchSubmissionAccessRow(db, id);
+        if (!accessRow) return res.status(404).send('Submission not found');
+        if (!assertSubmissionAccess(req, accessRow)) {
+            return res.status(403).send('Forbidden');
+        }
         const [rows] = await db.execute('SELECT file_name, file_path FROM submissions WHERE id = ?', [id]);
         if (!rows || rows.length === 0) return res.status(404).send('Submission not found');
 
+        const requestedFile = normalizeRequestedFileName(filename);
+        if (!requestedFile) return res.status(400).send('Invalid file name');
         const files = parseStoredFiles(rows[0].file_path, rows[0].file_name);
-        const matchedFile = findStoredFile(files, filename);
+        const matchedFile = findStoredFile(files, requestedFile);
         const storedPath = matchedFile?.path;
 
         if (s3Enabled) {
             const candidateKeys = [
                 storedPath,
-                submissionKey(id, filename),
+                submissionKey(id, requestedFile),
             ].filter((value, index, list) => value && list.indexOf(value) === index);
 
             for (const key of candidateKeys) {
@@ -179,10 +263,11 @@ router.get('/:id/file/:filename', async (req, res, next) => {
             storedPath,
             matchedFile?.path ? path.basename(matchedFile.path) : null,
             rows[0].file_path,
-            filename,
+            requestedFile,
         ]
             .filter((value, index, list) => value && list.indexOf(value) === index)
-            .map((value) => path.join(uploadsDir, value));
+            .map((value) => resolveSafeLocalUploadPath(value))
+            .filter(Boolean);
 
         const localPath = localCandidates.find((candidate) => fs.existsSync(candidate));
         if (!localPath) return res.status(404).send('File not found');
@@ -197,10 +282,15 @@ router.post('/', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
         const { assignment_id, student_id } = req.body;
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
         const contentHash = computeSubmissionContentHash(req.files);
 
         if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
         if (!assignment_id || !student_id) return res.status(400).json({ error: 'assignment_id and student_id are required' });
+        if (!isStaff(req) && String(student_id) !== actorId) {
+            return res.status(403).json({ error: 'Students can only submit their own work' });
+        }
 
         // Check if assignment is group one_for_all (need to know target student IDs before we can build keys)
         const [aRows] = await db.execute('SELECT type, group_submission_type FROM assignments WHERE id = ?', [assignment_id]);
@@ -305,6 +395,14 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
         const { status, grade, feedback, rubric_scores } = req.body;
+        const accessRow = await fetchSubmissionAccessRow(db, req.params.id);
+        if (!accessRow) return res.status(404).json({ error: 'Submission not found' });
+        if (!assertSubmissionAccess(req, accessRow)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        if (!isStaff(req) && (status !== undefined || grade !== undefined || feedback !== undefined || rubric_scores !== undefined)) {
+            return res.status(403).json({ error: 'Students cannot change grading fields' });
+        }
         const fileUpdateHash = req.files && req.files.length > 0
             ? computeSubmissionContentHash(req.files)
             : null;
@@ -401,6 +499,9 @@ router.delete('/:id', async (req, res, next) => {
         const db = getDb();
         const [rows] = await db.execute('SELECT * FROM submissions WHERE id = ?', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
+        if (!assertSubmissionAccess(req, rows[0])) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
 
         // Delete file(s) from S3 or local disk
         try {
@@ -410,16 +511,16 @@ router.delete('/:id', async (req, res, next) => {
                     if (s3Enabled) {
                         await deleteFromS3(f.path).catch(() => {});
                     } else {
-                        const localPath = path.join(uploadsDir, f.path);
-                        if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+                        const localPath = resolveSafeLocalUploadPath(f.path);
+                        if (localPath && fs.existsSync(localPath)) fs.unlinkSync(localPath);
                     }
                 }
             }
         } catch {
             // Fallback for older non-JSON entries
             if (!s3Enabled) {
-                const localPath = path.join(uploadsDir, rows[0].file_path);
-                if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+                const localPath = resolveSafeLocalUploadPath(rows[0].file_path);
+                if (localPath && fs.existsSync(localPath)) fs.unlinkSync(localPath);
             }
         }
 

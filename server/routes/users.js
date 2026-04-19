@@ -1,8 +1,37 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryToObjects, queryOne } = require('../db');
+const { getDb, queryToObjects } = require('../db');
 const { getClientIp, getUserAgent, recordLoginAttempt, recordActivity, touchUserLastSeen } = require('../audit');
 const { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail } = require('../email');
+const { hashPassword, verifyPassword, isPasswordHash } = require('../passwords');
+const { createAuthToken, requireAuth, requireRoles, requireSelfOrRoles, hasAnyRole } = require('../auth');
+
+const authAttemptBuckets = new Map();
+
+function normalizeAttemptKey(req, bucketName, subject = '') {
+    const ip = getClientIp(req) || 'unknown-ip';
+    const ua = getUserAgent(req) || 'unknown-ua';
+    return `${bucketName}|${ip}|${ua}|${String(subject || '').trim().toLowerCase()}`;
+}
+
+function consumeRateLimitAttempt(req, { bucket, subject = '', maxAttempts, windowMs }) {
+    const now = Date.now();
+    const key = normalizeAttemptKey(req, bucket, subject);
+    const current = authAttemptBuckets.get(key);
+    if (!current || now - current.start > windowMs) {
+        authAttemptBuckets.set(key, { start: now, count: 1 });
+        return { allowed: true, retryAfterSec: 0 };
+    }
+    current.count += 1;
+    authAttemptBuckets.set(key, current);
+    if (current.count <= maxAttempts) return { allowed: true, retryAfterSec: 0 };
+    const retryAfterSec = Math.max(1, Math.ceil((windowMs - (now - current.start)) / 1000));
+    return { allowed: false, retryAfterSec };
+}
+
+function actorUserId(req) {
+    return String(req.auth?.userId || '').trim();
+}
 
 /** Plain object for JSON responses (avoids mysql2 RowDataPacket quirks; stable profile_picture). */
 function publicUserFromRow(row) {
@@ -85,9 +114,11 @@ router.post('/signup', async (req, res, next) => {
         const otp = generateOTP();
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
+        const hashedPassword = await hashPassword(password);
+
         await db.execute(
             'INSERT INTO users (id, name, email, password, role, verified, student_id, email_verified, email_verification_token, email_verification_otp, email_verification_expires) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)',
-            [id, normalizedName, normalizedEmail, password, role, verified, role === 'student' ? normalizedStudentId : null, verificationToken, otp, expires]
+            [id, normalizedName, normalizedEmail, hashedPassword, role, verified, role === 'student' ? normalizedStudentId : null, verificationToken, otp, expires]
         );
 
         // Send verification email (don't fail signup if email fails, but log it)
@@ -102,7 +133,22 @@ router.post('/signup', async (req, res, next) => {
             });
         }
 
-        res.status(201).json({ id, name: normalizedName, email: normalizedEmail, role, profile_picture: null, verified: verified === 1, email_verified: false });
+        const authToken = createAuthToken({
+            id,
+            role,
+            verified: verified === 1,
+            email_verified: false,
+        });
+        res.status(201).json({
+            id,
+            name: normalizedName,
+            email: normalizedEmail,
+            role,
+            profile_picture: null,
+            verified: verified === 1,
+            email_verified: false,
+            auth_token: authToken,
+        });
     } catch (err) {
         next(err);
     }
@@ -115,6 +161,16 @@ router.post('/login', async (req, res, next) => {
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
         if (!normalizedEmail || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
+        }
+        const limiter = consumeRateLimitAttempt(req, {
+            bucket: 'users-login',
+            subject: normalizedEmail,
+            maxAttempts: 10,
+            windowMs: 15 * 60 * 1000,
+        });
+        if (!limiter.allowed) {
+            res.set('Retry-After', String(limiter.retryAfterSec));
+            return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
         }
 
         const db = getDb();
@@ -138,7 +194,8 @@ router.post('/login', async (req, res, next) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        if (user.password !== password) {
+        const passwordMatches = await verifyPassword(password, user.password);
+        if (!passwordMatches) {
             await recordLoginAttempt(db, {
                 email: normalizedEmail,
                 userId: user.id,
@@ -148,6 +205,13 @@ router.post('/login', async (req, res, next) => {
                 userAgent: ua,
             });
             return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Transparent one-time migration: promote legacy plaintext passwords to bcrypt.
+        if (!isPasswordHash(user.password)) {
+            const upgradedHash = await hashPassword(password);
+            await db.execute('UPDATE users SET password = ? WHERE id = ?', [upgradedHash, user.id]);
+            user.password = upgradedHash;
         }
 
         await recordLoginAttempt(db, {
@@ -161,7 +225,16 @@ router.post('/login', async (req, res, next) => {
         await recordActivity(db, { userId: user.id, action: 'login', detail: { email: normalizedEmail }, ip });
         await touchUserLastSeen(db, user.id);
 
-        res.json(publicUserFromRow(user));
+        const publicUser = publicUserFromRow(user);
+        res.json({
+            ...publicUser,
+            auth_token: createAuthToken({
+                id: publicUser.id,
+                role: publicUser.role,
+                verified: publicUser.verified,
+                email_verified: publicUser.email_verified,
+            }),
+        });
     } catch (err) {
         next(err);
     }
@@ -174,6 +247,16 @@ router.post('/verify-email', async (req, res, next) => {
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
         if (!normalizedEmail || !otp) {
             return res.status(400).json({ error: 'Email and verification code are required' });
+        }
+        const limiter = consumeRateLimitAttempt(req, {
+            bucket: 'users-verify-email',
+            subject: normalizedEmail,
+            maxAttempts: 10,
+            windowMs: 10 * 60 * 1000,
+        });
+        if (!limiter.allowed) {
+            res.set('Retry-After', String(limiter.retryAfterSec));
+            return res.status(429).json({ error: 'Too many verification attempts. Please try again later.' });
         }
 
         const db = getDb();
@@ -245,7 +328,7 @@ router.get('/verify-email-token', async (req, res, next) => {
 });
 
 // GET /api/users/diag/env - Censors secrets but confirms if Vercel is reading the SMTP/Email env vars
-router.get('/diag/env', async (req, res) => {
+router.get('/diag/env', requireAuth, requireRoles('admin'), async (req, res) => {
     const mask = (val) => {
         if (!val) return 'MISSING';
         if (typeof val !== 'string') return 'PRESENT (Not a string)';
@@ -301,7 +384,7 @@ router.get('/diag/env', async (req, res) => {
 });
 
 // POST /api/users/test-smtp - Send a simple test email to diagnostic credentials
-router.post('/test-smtp', async (req, res) => {
+router.post('/test-smtp', requireAuth, requireRoles('admin'), async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) {
@@ -335,6 +418,16 @@ router.post('/resend-verification', async (req, res, next) => {
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
         if (!normalizedEmail) {
             return res.status(400).json({ error: 'Email is required' });
+        }
+        const limiter = consumeRateLimitAttempt(req, {
+            bucket: 'users-resend-verification',
+            subject: normalizedEmail,
+            maxAttempts: 5,
+            windowMs: 10 * 60 * 1000,
+        });
+        if (!limiter.allowed) {
+            res.set('Retry-After', String(limiter.retryAfterSec));
+            return res.status(429).json({ error: 'Too many resend attempts. Please try again later.' });
         }
 
         const db = getDb();
@@ -392,6 +485,16 @@ router.post('/forgot-password', async (req, res, next) => {
         if (!normalizedEmail) {
             return res.status(400).json({ error: 'Email is required' });
         }
+        const limiter = consumeRateLimitAttempt(req, {
+            bucket: 'users-forgot-password',
+            subject: normalizedEmail,
+            maxAttempts: 6,
+            windowMs: 15 * 60 * 1000,
+        });
+        if (!limiter.allowed) {
+            res.set('Retry-After', String(limiter.retryAfterSec));
+            return res.status(429).json({ error: 'Too many reset requests. Please try again later.' });
+        }
 
         const db = getDb();
         const [rows] = await db.execute('SELECT id, name FROM users WHERE LOWER(email) = ?', [normalizedEmail]);
@@ -429,6 +532,16 @@ router.post('/reset-password', async (req, res, next) => {
         if (!token || !newPassword) {
             return res.status(400).json({ error: 'Token and new password are required' });
         }
+        const limiter = consumeRateLimitAttempt(req, {
+            bucket: 'users-reset-password',
+            subject: String(token).slice(0, 24),
+            maxAttempts: 8,
+            windowMs: 20 * 60 * 1000,
+        });
+        if (!limiter.allowed) {
+            res.set('Retry-After', String(limiter.retryAfterSec));
+            return res.status(429).json({ error: 'Too many reset attempts. Please try again later.' });
+        }
 
         const passwordError = validatePassword(newPassword);
         if (passwordError) {
@@ -451,9 +564,11 @@ router.post('/reset-password', async (req, res, next) => {
             return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
         }
 
+        const hashedPassword = await hashPassword(newPassword);
+
         await db.execute(
             'UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL, must_change_password = 0 WHERE id = ?',
-            [newPassword, user.id]
+            [hashedPassword, user.id]
         );
 
         res.json({ message: 'Password has been reset successfully' });
@@ -463,7 +578,7 @@ router.post('/reset-password', async (req, res, next) => {
 });
 
 // GET /api/users/students - Get all students (for enrollment)
-router.get('/students', async (req, res, next) => {
+router.get('/students', requireAuth, requireRoles('faculty', 'ta', 'admin'), async (req, res, next) => {
     const { q } = req.query;
     try {
         const db = getDb();
@@ -482,7 +597,7 @@ router.get('/students', async (req, res, next) => {
 });
 
 // GET /api/users/search - Get users dynamically by role
-router.get('/search', async (req, res, next) => {
+router.get('/search', requireAuth, requireRoles('faculty', 'ta', 'admin'), async (req, res, next) => {
     const { q, role } = req.query;
     try {
         const db = getDb();
@@ -516,7 +631,7 @@ router.put('/profile', async (req, res, next) => {
 });
 
 // GET /api/users/:id/verified - Check if user (e.g. faculty) is verified (for pending page refresh)
-router.get('/:id/verified', async (req, res, next) => {
+router.get('/:id/verified', requireAuth, requireSelfOrRoles((req) => req.params.id, 'admin'), async (req, res, next) => {
     try {
         const db = getDb();
         const [rows] = await db.execute('SELECT verified, email_verified FROM users WHERE id = ?', [req.params.id]);
@@ -530,11 +645,16 @@ router.get('/:id/verified', async (req, res, next) => {
 });
 
 // POST /api/users/change-password
-router.post('/change-password', async (req, res, next) => {
+router.post('/change-password', requireAuth, async (req, res, next) => {
     try {
-        const { userId, currentPassword, newPassword } = req.body;
+        const { userId: bodyUserId, currentPassword, newPassword } = req.body;
+        const actorId = actorUserId(req);
+        const userId = bodyUserId && hasAnyRole(req, 'admin') ? String(bodyUserId) : actorId;
         if (!userId || !currentPassword || !newPassword) {
             return res.status(400).json({ error: 'All fields are required' });
+        }
+        if (bodyUserId && String(bodyUserId) !== actorId && !hasAnyRole(req, 'admin')) {
+            return res.status(403).json({ error: 'You can only change your own password' });
         }
 
         const passwordError = validatePassword(newPassword);
@@ -546,11 +666,13 @@ router.post('/change-password', async (req, res, next) => {
         const [rows] = await db.execute('SELECT password FROM users WHERE id = ?', [userId]);
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
-        if (rows[0].password !== currentPassword) {
+        const currentMatches = await verifyPassword(currentPassword, rows[0].password);
+        if (!currentMatches) {
             return res.status(401).json({ error: 'Current password is incorrect' });
         }
 
-        await db.execute('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', [newPassword, userId]);
+        const hashedPassword = await hashPassword(newPassword);
+        await db.execute('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', [hashedPassword, userId]);
         res.json({ message: 'Password updated successfully' });
     } catch (err) {
         next(err);
@@ -558,7 +680,7 @@ router.post('/change-password', async (req, res, next) => {
 });
 
 // GET /api/users/:id/groups - Get all groups a user belongs to
-router.get('/:id/groups', async (req, res, next) => {
+router.get('/:id/groups', requireAuth, requireSelfOrRoles((req) => req.params.id, 'admin', 'faculty', 'ta'), async (req, res, next) => {
     try {
         const db = getDb();
         const [rows] = await db.execute(`
@@ -590,7 +712,7 @@ router.get('/:id/groups', async (req, res, next) => {
 });
 
 // GET /api/users/:id/groups - Get all assignment groups a student belongs to
-router.get('/:id/groups', async (req, res, next) => {
+router.get('/:id/groups', requireAuth, requireSelfOrRoles((req) => req.params.id, 'admin', 'faculty', 'ta'), async (req, res, next) => {
     try {
         const db = getDb();
         const [rows] = await db.execute(`

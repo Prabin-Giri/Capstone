@@ -8,7 +8,8 @@ function generateToken() {
 }
 
 function generateOTP() {
-    return String(Math.floor(100000 + Math.random() * 900000));
+    // Crypto-safe 6-digit OTP
+    return String(crypto.randomInt(100000, 1000000));
 }
 
 function hasPlaceholderSmtpConfig() {

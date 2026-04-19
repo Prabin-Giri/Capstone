@@ -172,6 +172,8 @@ function httpError(message, status) {
 }
 
 function readActorUserId(req) {
+    const fromAuth = String(req.auth?.userId || '').trim();
+    if (fromAuth) return fromAuth;
     const fromBody = String(req.body?.user_id || '').trim();
     if (fromBody) return fromBody;
     const fromQuery = String(req.query?.user_id || '').trim();

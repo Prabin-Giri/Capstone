@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { query, getDb, isMySQL } = require('../db');
+const { hashPassword } = require('../passwords');
 
 const FACULTY_METRICS_SQL = `
     SELECT u.id, u.name, u.email, u.verified, u.created_at, u.updated_at,
@@ -11,6 +12,27 @@ const FACULTY_METRICS_SQL = `
         (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id) AS messages_sent,
         (SELECT COUNT(DISTINCT ce.student_id) FROM course_enrollments ce INNER JOIN courses c ON ce.course_id = c.id WHERE c.instructor_id = u.id) AS unique_students
     FROM users u WHERE u.role = 'faculty'`;
+
+function isSafeIdentifier(value) {
+    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(value || ''));
+}
+
+function quoteIdentifier(id) {
+    return isMySQL ? `\`${id}\`` : `"${id}"`;
+}
+
+async function getTableColumnNameSet(db, tableName) {
+    if (!isSafeIdentifier(tableName)) return new Set();
+    if (isMySQL) {
+        const [rows] = await db.execute(
+            'SELECT COLUMN_NAME AS name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+            [tableName]
+        );
+        return new Set((rows || []).map((r) => String(r.name || '')));
+    }
+    const [rows] = await db.execute(`PRAGMA table_info(${quoteIdentifier(tableName)})`);
+    return new Set((rows || []).map((r) => String(r.name || '')));
+}
 
 function normalizeFacultyRow(row) {
     const n = { ...row };
@@ -61,14 +83,16 @@ async function insertAdminStudentRecord(db, { studentId, name, email, password }
         throw err;
     }
     if (isMySQL) {
+        const hashedPassword = await hashPassword(pw);
         await db.execute(
             `INSERT INTO users (id, name, email, password, role, verified, student_id, email_verified, email_verification_token, email_verification_otp, email_verification_expires) VALUES (?, ?, ?, ?, 'student', 1, ?, 1, NULL, NULL, NULL)`,
-            [sid, normalizedName, normalizedEmail, pw, sid]
+            [sid, normalizedName, normalizedEmail, hashedPassword, sid]
         );
     } else {
+        const hashedPassword = await hashPassword(pw);
         await db.execute(
             `INSERT INTO users (id, name, email, password, role, verified, student_id) VALUES (?, ?, ?, ?, 'student', 1, ?)`,
-            [sid, normalizedName, normalizedEmail, pw, sid]
+            [sid, normalizedName, normalizedEmail, hashedPassword, sid]
         );
     }
     if (pw === 'password123') {
@@ -104,9 +128,10 @@ async function insertFacultyRecord(db, { name, email, password, verified }) {
     }
     const id = `faculty_${crypto.randomUUID()}`;
     const ver = verified === false ? 0 : 1;
+    const hashedPassword = await hashPassword(password);
     await db.execute(
         `INSERT INTO users (id, name, email, password, role, verified, student_id, email_verified, email_verification_token, email_verification_otp, email_verification_expires) VALUES (?, ?, ?, ?, 'faculty', ?, NULL, 1, NULL, NULL, NULL)`,
-        [id, normalizedName, normalizedEmail, password, ver]
+        [id, normalizedName, normalizedEmail, hashedPassword, ver]
     );
     return { id, email: normalizedEmail, name: normalizedName };
 }
@@ -179,8 +204,8 @@ router.get('/tables', async (req, res) => {
 // Get table schema and data
 router.get('/tables/:tableName', async (req, res) => {
     const { tableName } = req.params;
-    const safeName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-    if (safeName !== tableName) return res.status(400).json({ error: 'Invalid table name' });
+    if (!isSafeIdentifier(tableName)) return res.status(400).json({ error: 'Invalid table name' });
+    const safeName = tableName;
     try {
         if (isMySQL) {
             const columns = await query('SELECT COLUMN_NAME as name, DATA_TYPE as type, IS_NULLABLE, COLUMN_KEY FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION', [safeName]);
@@ -714,16 +739,28 @@ router.delete('/users/:id', async (req, res) => {
 router.patch('/tables/:tableName', async (req, res) => {
     const { tableName } = req.params;
     const { pkFields, updates } = req.body;
-    const safeTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-    if (safeTable !== tableName) return res.status(400).json({ error: 'Invalid table name' });
+    if (!isSafeIdentifier(tableName)) return res.status(400).json({ error: 'Invalid table name' });
+    if (!pkFields || typeof pkFields !== 'object' || Array.isArray(pkFields) || Object.keys(pkFields).length === 0) {
+        return res.status(400).json({ error: 'pkFields is required' });
+    }
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates) || Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'updates is required' });
+    }
 
     try {
         const db = getDb();
-        const setClauses = Object.keys(updates).map(k => `\`${k}\` = ?`).join(', ');
-        const whereClauses = Object.keys(pkFields).map(k => `\`${k}\` = ?`).join(' AND ');
-        const params = [...Object.values(updates), ...Object.values(pkFields)];
+        const allowedColumns = await getTableColumnNameSet(db, tableName);
+        const updateKeys = Object.keys(updates).map((k) => String(k));
+        const pkKeys = Object.keys(pkFields).map((k) => String(k));
 
-        const sql = `UPDATE \`${safeTable}\` SET ${setClauses} WHERE ${whereClauses}`;
+        const invalid = [...updateKeys, ...pkKeys].find((k) => !isSafeIdentifier(k) || !allowedColumns.has(k));
+        if (invalid) return res.status(400).json({ error: `Invalid column: ${invalid}` });
+
+        const setClauses = updateKeys.map((k) => `${quoteIdentifier(k)} = ?`).join(', ');
+        const whereClauses = pkKeys.map((k) => `${quoteIdentifier(k)} = ?`).join(' AND ');
+        const params = [...updateKeys.map((k) => updates[k]), ...pkKeys.map((k) => pkFields[k])];
+
+        const sql = `UPDATE ${quoteIdentifier(tableName)} SET ${setClauses} WHERE ${whereClauses}`;
         await db.execute(sql, params);
         res.json({ message: 'Record updated successfully' });
     } catch (err) {
@@ -735,15 +772,22 @@ router.patch('/tables/:tableName', async (req, res) => {
 router.delete('/tables/:tableName', async (req, res) => {
     const { tableName } = req.params;
     const { pkFields } = req.body;
-    const safeTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-    if (safeTable !== tableName) return res.status(400).json({ error: 'Invalid table name' });
+    if (!isSafeIdentifier(tableName)) return res.status(400).json({ error: 'Invalid table name' });
+    if (!pkFields || typeof pkFields !== 'object' || Array.isArray(pkFields) || Object.keys(pkFields).length === 0) {
+        return res.status(400).json({ error: 'pkFields is required' });
+    }
 
     try {
         const db = getDb();
-        const whereClauses = Object.keys(pkFields).map(k => `\`${k}\` = ?`).join(' AND ');
-        const params = Object.values(pkFields);
+        const allowedColumns = await getTableColumnNameSet(db, tableName);
+        const pkKeys = Object.keys(pkFields).map((k) => String(k));
+        const invalid = pkKeys.find((k) => !isSafeIdentifier(k) || !allowedColumns.has(k));
+        if (invalid) return res.status(400).json({ error: `Invalid column: ${invalid}` });
 
-        const sql = `DELETE FROM \`${safeTable}\` WHERE ${whereClauses}`;
+        const whereClauses = pkKeys.map((k) => `${quoteIdentifier(k)} = ?`).join(' AND ');
+        const params = pkKeys.map((k) => pkFields[k]);
+
+        const sql = `DELETE FROM ${quoteIdentifier(tableName)} WHERE ${whereClauses}`;
         await db.execute(sql, params);
         res.json({ message: 'Record deleted successfully' });
     } catch (err) {
@@ -1123,9 +1167,10 @@ router.post('/courses/:courseId/enroll-csv', async (req, res) => {
             let userId = id;
 
             if (!existingRows.length) {
+                const tempPasswordHash = await hashPassword('password123');
                 await db.execute(
                     'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-                    [id, name, normalizedEmail, 'password123', 'student']
+                    [id, name, normalizedEmail, tempPasswordHash, 'student']
                 );
                 try {
                     if (isMySQL) {

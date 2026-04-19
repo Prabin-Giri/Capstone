@@ -35,6 +35,7 @@ docker-compose.yml
 
 # Server specific
 server/node_modules
+server/.env
 server/uploads/
 server/*.db
 server/*.sqlite

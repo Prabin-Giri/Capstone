@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { getAssignment, getFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
+import { API_BASE, getAssignment, getFileUrl, getSubmissions, getTestCases, runTests, runCustomCode, UPLOADS_BASE, getSubmissionFileUrl } from '../../lib/api';
 import { Code, Download, Eye, FolderOpen } from 'lucide-react';
 import JSZip from 'jszip';
 import type { Assignment, Submission, TestCase, TestResult } from '../../lib/api';
@@ -30,6 +30,18 @@ type StudentRubricSection = {
 const AssignmentDetails: React.FC = () => {
     const user = getUser();
     const studentId = user?.id || 'student-001';
+    const authToken = user?.authToken || localStorage.getItem('token') || '';
+    const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    const fetchWithAuth = (url: string, init?: RequestInit) => {
+        const normalized = String(url || '');
+        const isApiUrl = normalized.startsWith(API_BASE) || normalized.startsWith(UPLOADS_BASE) || normalized.startsWith('/api/');
+        if (!isApiUrl || !authToken) return fetch(url, init);
+        const mergedHeaders = new Headers(init?.headers || {});
+        if (!mergedHeaders.has('Authorization')) {
+            mergedHeaders.set('Authorization', `Bearer ${authToken}`);
+        }
+        return fetch(url, { ...init, headers: mergedHeaders });
+    };
     const { assignmentId } = useParams();
     const [assignment, setAssignment] = useState<Assignment | null>(null);
     const [submission, setSubmission] = useState<Submission | null>(null);
@@ -75,9 +87,11 @@ const AssignmentDetails: React.FC = () => {
                 try {
                     const loadedFiles = await Promise.all(
                         submission.files.map(async (file, index) => {
-                            const url = getSubmissionFileUrl(submission.id, file.name);
-                            const res = await fetch(url, {
-                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                            const fileRef = String(file.path || file.name || '').trim();
+                            const displayName = String(file.name || fileRef.split('/').pop() || `file-${index + 1}`);
+                            const url = getSubmissionFileUrl(submission.id, fileRef);
+                            const res = await fetchWithAuth(url, {
+                                headers: authHeaders
                             });
                             let content = '// Failed to load prior submission';
                             if (res.ok) {
@@ -86,9 +100,9 @@ const AssignmentDetails: React.FC = () => {
 
                             return {
                                 id: `submission-${index}`,
-                                name: file.name,
+                                name: displayName,
                                 content: content,
-                                language: getLanguageFromFilename(file.name, assignment?.language || ''),
+                                language: getLanguageFromFilename(displayName, assignment?.language || ''),
                                 isStarter: false
                             };
                         })
@@ -176,10 +190,67 @@ const AssignmentDetails: React.FC = () => {
                 .replace(/'/g, '&#039;');
             return escaped.replace(/\n/g, '<br />');
         }
-        return raw
-            .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-            .replace(/<\s*style[^>]*>[\s\S]*?<\s*\/\s*style\s*>/gi, '')
-            .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
+        if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+            return raw
+                .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+                .replace(/<\s*style[^>]*>[\s\S]*?<\s*\/\s*style\s*>/gi, '')
+                .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
+        }
+
+        const allowedTags = new Set(['P', 'BR', 'DIV', 'SPAN', 'B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'PRE', 'CODE', 'A']);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<div>${raw}</div>`, 'text/html');
+        const root = doc.body.firstElementChild as HTMLElement | null;
+        if (!root) return '';
+
+        const cleanNode = (node: Node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const el = node as HTMLElement;
+                const tag = el.tagName.toUpperCase();
+
+                if (!allowedTags.has(tag)) {
+                    const replacement = doc.createTextNode(el.textContent || '');
+                    el.replaceWith(replacement);
+                    return;
+                }
+
+                [...el.attributes].forEach((attr) => {
+                    const name = attr.name.toLowerCase();
+                    const value = String(attr.value || '').trim();
+                    if (name.startsWith('on') || name === 'style') {
+                        el.removeAttribute(attr.name);
+                        return;
+                    }
+                    if (tag === 'A') {
+                        if (!['href', 'target', 'rel', 'class'].includes(name)) {
+                            el.removeAttribute(attr.name);
+                            return;
+                        }
+                        if (name === 'href' && !/^(https?:|mailto:|\/)/i.test(value)) {
+                            el.removeAttribute(attr.name);
+                        }
+                        if (name === 'target' && value !== '_blank') {
+                            el.removeAttribute(attr.name);
+                        }
+                    } else {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+
+                if (tag === 'A') {
+                    el.setAttribute('rel', 'noreferrer noopener');
+                    if (!el.getAttribute('href')) {
+                        const replacement = doc.createTextNode(el.textContent || '');
+                        el.replaceWith(replacement);
+                        return;
+                    }
+                }
+            }
+            [...node.childNodes].forEach(cleanNode);
+        };
+
+        cleanNode(root);
+        return root.innerHTML;
     };
 
     // Extract attachment-bubble links from description before rendering
@@ -211,7 +282,7 @@ const AssignmentDetails: React.FC = () => {
 
     async function handleInstructionDownload(url: string, filename: string) {
         try {
-            const res = await fetch(url);
+            const res = await fetchWithAuth(url);
             const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -230,7 +301,7 @@ const AssignmentDetails: React.FC = () => {
         const url = getFileUrl(starterPath);
         const filename = cleanFilename(starterPath.split('/').pop() || starterPath);
         try {
-            const res = await fetch(url);
+            const res = await fetchWithAuth(url);
             const blob = await res.blob();
             let newFiles: EditorFile[] = [];
 
@@ -370,13 +441,11 @@ const AssignmentDetails: React.FC = () => {
                 formData.append('files', new File([blob], f.name));
             });
 
-            const token = localStorage.getItem('token');
             const url = `${UPLOADS_BASE}/api/submissions`;
             const method = 'POST';
 
-            const res = await fetch(url, {
+            const res = await fetchWithAuth(url, {
                 method: method,
-                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
 

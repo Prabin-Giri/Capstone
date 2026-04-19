@@ -1,8 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const { query, run, getDb, isMySQL } = require('../db');
+const { query, getDb, isMySQL } = require('../db');
+const { hasAnyRole } = require('../auth');
 
 // ---------- helpers ----------
+
+function actorUserId(req) {
+    return String(req.auth?.userId || '').trim();
+}
+
+function isStaff(req) {
+    return hasAnyRole(req, 'admin', 'faculty', 'ta');
+}
+
+async function assertConversationParticipant(conversationId, userId) {
+    const rows = await query(
+        'SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ? AND is_deleted = 0 LIMIT 1',
+        [conversationId, userId]
+    );
+    return rows.length > 0;
+}
 
 // Get all course IDs a user belongs to (as student, ta, or instructor)
 async function getUserCourseIds(userId) {
@@ -23,14 +40,15 @@ async function getUserCourseIds(userId) {
 // Get users the caller can message (same-course peers, instructors, TAs)
 router.get('/contacts', async (req, res) => {
     try {
-        const { userId, courseId } = req.query;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
+        const actorId = actorUserId(req);
+        const { courseId } = req.query;
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
 
         let courseIds;
         if (courseId) {
             courseIds = [courseId];
         } else {
-            courseIds = await getUserCourseIds(userId);
+            courseIds = await getUserCourseIds(actorId);
         }
         if (courseIds.length === 0) return res.json([]);
 
@@ -64,7 +82,7 @@ router.get('/contacts', async (req, res) => {
         const seen = new Set();
         const contacts = [];
         for (const u of [...students, ...tas, ...instructors]) {
-            if (u.id === userId || seen.has(u.id)) continue;
+            if (u.id === actorId || seen.has(u.id)) continue;
             seen.add(u.id);
             contacts.push(u);
         }
@@ -81,11 +99,12 @@ router.get('/contacts', async (req, res) => {
 // List conversations for a user (with latest message + unread count)
 router.get('/conversations', async (req, res) => {
     try {
-        const { userId, filter } = req.query;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
+        const actorId = actorUserId(req);
+        const { filter } = req.query;
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
 
         let where = 'cp.user_id = ? AND cp.is_deleted = 0';
-        const params = [userId];
+        const params = [actorId];
 
         if (filter === 'unread') {
             where += ' AND (cp.last_read_at IS NULL OR cp.last_read_at < c.updated_at)';
@@ -95,7 +114,7 @@ router.get('/conversations', async (req, res) => {
             where += ' AND cp.is_archived = 1';
         } else if (filter === 'sent') {
             where += ' AND c.created_by = ?';
-            params.push(userId);
+            params.push(actorId);
         } else {
             // inbox default: not archived
             where += ' AND cp.is_archived = 0';
@@ -175,32 +194,43 @@ router.get('/support-admin', async (req, res) => {
 // Create a new conversation (compose)
 router.post('/conversations', async (req, res) => {
     try {
-        const { courseId, subject, createdBy, recipientIds, body } = req.body;
-        if (!subject || !createdBy || !recipientIds || !body) {
-            return res.status(400).json({ error: 'subject, createdBy, recipientIds[], body are required' });
+        const actorId = actorUserId(req);
+        const { courseId, subject, recipientIds, body } = req.body;
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
+        if (!subject || !recipientIds || !body) {
+            return res.status(400).json({ error: 'subject, recipientIds[], body are required' });
+        }
+        if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+            return res.status(400).json({ error: 'recipientIds[] is required' });
+        }
+        if (courseId && !isStaff(req)) {
+            const actorCourses = await getUserCourseIds(actorId);
+            if (!actorCourses.includes(courseId)) {
+                return res.status(403).json({ error: 'You are not enrolled in this course' });
+            }
         }
 
         const pool = getDb();
 
         const [result] = await pool.execute(
             'INSERT INTO conversations (course_id, subject, created_by) VALUES (?, ?, ?)',
-            [courseId || null, subject, createdBy]
+            [courseId || null, subject, actorId]
         );
         const convId = result.insertId;
 
         // Add all participants (sender + recipients)
-        const allParticipants = new Set([createdBy, ...recipientIds]);
+        const allParticipants = new Set([actorId, ...recipientIds.map((id) => String(id).trim()).filter(Boolean)]);
         for (const uid of allParticipants) {
             await pool.execute(
                 'INSERT INTO conversation_participants (conversation_id, user_id, last_read_at) VALUES (?, ?, ?)',
-                [convId, uid, uid === createdBy ? new Date() : null]
+                [convId, uid, uid === actorId ? new Date() : null]
             );
         }
 
         // Insert the first message
         await pool.execute(
             'INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)',
-            [convId, createdBy, body]
+            [convId, actorId, body]
         );
 
         // Update conversation timestamp
@@ -222,7 +252,11 @@ router.post('/conversations', async (req, res) => {
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
         const { id } = req.params;
-        const { userId } = req.query;
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
+        if (!(await assertConversationParticipant(id, actorId)) && !isStaff(req)) {
+            return res.status(403).json({ error: 'You are not a participant in this conversation' });
+        }
 
         const timeFieldMsg = isMySQL ? "DATE_FORMAT(m.created_at, '%Y-%m-%dT%H:%i:%sZ')" : "m.created_at";
         const messages = await query(
@@ -236,13 +270,11 @@ router.get('/conversations/:id/messages', async (req, res) => {
         );
 
         // Mark as read
-        if (userId) {
-            const pool = getDb();
-            await pool.execute(
-                'UPDATE conversation_participants SET last_read_at = NOW() WHERE conversation_id = ? AND user_id = ?',
-                [id, userId]
-            );
-        }
+        const pool = getDb();
+        await pool.execute(
+            `UPDATE conversation_participants SET last_read_at = ${isMySQL ? 'NOW()' : 'CURRENT_TIMESTAMP'} WHERE conversation_id = ? AND user_id = ?`,
+            [id, actorId]
+        );
 
         res.json(messages);
     } catch (err) {
@@ -255,13 +287,17 @@ router.get('/conversations/:id/messages', async (req, res) => {
 router.post('/conversations/:id/messages', async (req, res) => {
     try {
         const { id } = req.params;
-        const { senderId, body } = req.body;
-        if (!senderId || !body) return res.status(400).json({ error: 'senderId and body required' });
+        const actorId = actorUserId(req);
+        const { body } = req.body;
+        if (!actorId || !body) return res.status(400).json({ error: 'body is required' });
+        if (!(await assertConversationParticipant(id, actorId)) && !isStaff(req)) {
+            return res.status(403).json({ error: 'You are not a participant in this conversation' });
+        }
 
         const pool = getDb();
         await pool.execute(
             'INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)',
-            [id, senderId, body]
+            [id, actorId, body]
         );
 
         // Touch conversation updated_at
@@ -272,8 +308,8 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
         // Mark read for sender
         await pool.execute(
-            'UPDATE conversation_participants SET last_read_at = NOW() WHERE conversation_id = ? AND user_id = ?',
-            [id, senderId]
+            `UPDATE conversation_participants SET last_read_at = ${isMySQL ? 'NOW()' : 'CURRENT_TIMESTAMP'} WHERE conversation_id = ? AND user_id = ?`,
+            [id, actorId]
         );
 
         res.status(201).json({ message: 'Reply sent' });
@@ -288,11 +324,13 @@ router.post('/conversations/:id/messages', async (req, res) => {
 // Star / unstar
 router.patch('/conversations/:id/star', async (req, res) => {
     try {
-        const { userId, starred } = req.body;
+        const actorId = actorUserId(req);
+        const { starred } = req.body;
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
         const pool = getDb();
         await pool.execute(
             'UPDATE conversation_participants SET is_starred = ? WHERE conversation_id = ? AND user_id = ?',
-            [starred ? 1 : 0, req.params.id, userId]
+            [starred ? 1 : 0, req.params.id, actorId]
         );
         res.json({ message: 'Updated' });
     } catch (err) {
@@ -303,11 +341,13 @@ router.patch('/conversations/:id/star', async (req, res) => {
 // Archive / unarchive
 router.patch('/conversations/:id/archive', async (req, res) => {
     try {
-        const { userId, archived } = req.body;
+        const actorId = actorUserId(req);
+        const { archived } = req.body;
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
         const pool = getDb();
         await pool.execute(
             'UPDATE conversation_participants SET is_archived = ? WHERE conversation_id = ? AND user_id = ?',
-            [archived ? 1 : 0, req.params.id, userId]
+            [archived ? 1 : 0, req.params.id, actorId]
         );
         res.json({ message: 'Updated' });
     } catch (err) {
@@ -318,11 +358,12 @@ router.patch('/conversations/:id/archive', async (req, res) => {
 // Soft-delete
 router.delete('/conversations/:id', async (req, res) => {
     try {
-        const { userId } = req.body;
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
         const pool = getDb();
         await pool.execute(
             'UPDATE conversation_participants SET is_deleted = 1 WHERE conversation_id = ? AND user_id = ?',
-            [req.params.id, userId]
+            [req.params.id, actorId]
         );
         res.json({ message: 'Deleted' });
     } catch (err) {
@@ -333,8 +374,8 @@ router.delete('/conversations/:id', async (req, res) => {
 // Unread count for badge
 router.get('/unread-count', async (req, res) => {
     try {
-        const { userId } = req.query;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
 
         const rows = await query(
             `SELECT COUNT(DISTINCT c.id) AS cnt
@@ -342,7 +383,7 @@ router.get('/unread-count', async (req, res) => {
              JOIN conversation_participants cp ON c.id = cp.conversation_id
              WHERE cp.user_id = ? AND cp.is_deleted = 0 AND cp.is_archived = 0
                AND (cp.last_read_at IS NULL OR cp.last_read_at < c.updated_at)`,
-            [userId]
+            [actorId]
         );
         res.json({ count: rows[0]?.cnt || 0 });
     } catch (err) {
@@ -354,8 +395,13 @@ router.get('/unread-count', async (req, res) => {
 router.post('/conversations/:id/participants', async (req, res) => {
     try {
         const { id } = req.params;
+        const actorId = actorUserId(req);
         const { userId } = req.body;
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
         if (!userId) return res.status(400).json({ error: 'userId required' });
+        if (!(await assertConversationParticipant(id, actorId)) && !isStaff(req)) {
+            return res.status(403).json({ error: 'You are not a participant in this conversation' });
+        }
 
         const pool = getDb();
         

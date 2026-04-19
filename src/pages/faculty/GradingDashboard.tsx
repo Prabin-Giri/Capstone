@@ -937,9 +937,9 @@ const GradingDashboard: React.FC = () => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {(sub.files || [{ name: sub.file_name, path: sub.file_path }]).map((f, i) => (
                                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-body)', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: '6px' }}>
-                                                    <span className="file-name" style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{f.name}</span>
+                                                    <span className="file-name" style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{f.name || f.path?.split('/').pop() || 'file'}</span>
                                                     <a
-                                                        href={getSubmissionFileUrl(sub.id, f.name)}
+                                                        href={getSubmissionFileUrl(sub.id, String(f.path || f.name || ''))}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn btn-sm btn-outline"

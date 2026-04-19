@@ -1,8 +1,34 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
-const { initDb, isMySQL } = require('./db');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+function loadEnv() {
+    const envFiles = [
+        path.join(__dirname, '../.env'),
+        path.join(__dirname, '.env'),
+    ];
+    for (const envPath of envFiles) {
+        if (fs.existsSync(envPath)) {
+            dotenv.config({ path: envPath, override: false });
+        }
+    }
+
+    // Backward-compatible aliases for older EC2 env names.
+    if (!process.env.MYSQL_HOST && process.env.DB_HOST) process.env.MYSQL_HOST = process.env.DB_HOST;
+    if (!process.env.MYSQL_PORT && process.env.DB_PORT) process.env.MYSQL_PORT = process.env.DB_PORT;
+    if (!process.env.MYSQL_USER && process.env.DB_USER) process.env.MYSQL_USER = process.env.DB_USER;
+    if (!process.env.MYSQL_PASSWORD && process.env.DB_PASSWORD) process.env.MYSQL_PASSWORD = process.env.DB_PASSWORD;
+    if (!process.env.MYSQL_PASSWORD && process.env.DB_PASS) process.env.MYSQL_PASSWORD = process.env.DB_PASS;
+    if (!process.env.MYSQL_DATABASE && process.env.DB_NAME) process.env.MYSQL_DATABASE = process.env.DB_NAME;
+    if (!process.env.AWS_S3_BUCKET && process.env.S3_BUCKET_NAME) process.env.AWS_S3_BUCKET = process.env.S3_BUCKET_NAME;
+}
+
+loadEnv();
+const { initDb, isMySQL, getDb } = require('./db');
+const { isPasswordHash, hashPassword } = require('./passwords');
+const { attachAuthContext, requireAuth, requireRoles } = require('./auth');
 
 const coursesRouter = require('./routes/courses');
 const assignmentsRouter = require('./routes/assignments');
@@ -27,6 +53,23 @@ function toClientErrorMessage(err) {
     return message || 'Internal server error';
 }
 
+async function migrateLegacyPlaintextPasswords() {
+    const db = getDb();
+    const [rows] = await db.execute('SELECT id, password FROM users WHERE password IS NOT NULL AND password <> ?', ['']);
+    const users = Array.isArray(rows) ? rows : [];
+    let migrated = 0;
+    for (const user of users) {
+        const current = typeof user.password === 'string' ? user.password : '';
+        if (!current || isPasswordHash(current)) continue;
+        const upgraded = await hashPassword(current);
+        await db.execute('UPDATE users SET password = ? WHERE id = ?', [upgraded, user.id]);
+        migrated += 1;
+    }
+    if (migrated > 0) {
+        console.log(`[auth] Migrated ${migrated} plaintext password(s) to bcrypt hashes.`);
+    }
+}
+
 // Middleware
 app.use(cors({
     origin: '*', // Allow all for initial link fix, we can restrict later
@@ -34,6 +77,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+app.use(attachAuthContext);
 
 // ── S3 / File Storage ──────────────────────────────────────────────────────
 // Files are served via GET /api/submissions/:id/file/:filename (proxy in submissions route)
@@ -47,17 +91,17 @@ if (s3Enabled) {
 }
 
 // Routes
-app.use('/api/courses', coursesRouter);
-app.use('/api/assignments', assignmentsRouter);
-app.use('/api/submissions', submissionsRouter);
-app.use('/api/calendar', calendarRouter);
-app.use('/api/uploads', uploadsRouter);
-app.use('/api/test-cases', testCasesRouter);
+app.use('/api/courses', requireAuth, coursesRouter);
+app.use('/api/assignments', requireAuth, assignmentsRouter);
+app.use('/api/submissions', requireAuth, submissionsRouter);
+app.use('/api/calendar', requireAuth, calendarRouter);
+app.use('/api/uploads', requireAuth, uploadsRouter);
+app.use('/api/test-cases', requireAuth, testCasesRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/grader', graderRouter);
-app.use('/api/ai-detector', aiDetectorRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/messages', messagesRouter);
+app.use('/api/grader', requireAuth, requireRoles('faculty', 'ta', 'admin'), graderRouter);
+app.use('/api/ai-detector', requireAuth, aiDetectorRouter);
+app.use('/api/admin', requireAuth, requireRoles('admin'), adminRouter);
+app.use('/api/messages', requireAuth, messagesRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -73,6 +117,7 @@ app.use((err, req, res, next) => {
 
 // Initialize database then start server
 initDb().then(async () => {
+    await migrateLegacyPlaintextPasswords();
     const { initGraderSchema } = require('./grader/initGraderSchema');
     await initGraderSchema();
     const server = app.listen(PORT, '0.0.0.0', () => {

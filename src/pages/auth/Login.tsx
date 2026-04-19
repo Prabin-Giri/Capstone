@@ -34,6 +34,7 @@ const Login: React.FC = () => {
                 name: user.name,
                 email: user.email,
                 role: user.role as any,
+                authToken: user.auth_token,
                 profilePicture: user.profile_picture,
                 verified,
                 emailVerified: user.email_verified !== false,

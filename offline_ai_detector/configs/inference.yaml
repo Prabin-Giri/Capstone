@@ -1,16 +1,9 @@
-# Inference config for a saved detector checkpoint (local transformers, no Inference API).
-#
-# model_dir: fine-tuned output from scripts/train_model.py (same as outputs.model_dir in train.yaml).
-#   After training, local_files_only can stay true if the checkpoint is fully on disk.
-# Optional quick smoke (prose-oriented, not the code baseline): point model_dir to
-#   artifacts/models/pretrained/hello-simpleai-chatgpt-detector-roberta
-#   after: python scripts/download_hf_models.py --models smoke-detector
-# calibration_path: null uses raw softmax; set after scripts/calibrate_model.py on your checkpoint.
-# local_files_only: true once weights exist under model_dir (no Hub access at inference).
+# Inference: local checkpoint + optional calibration (no Hugging Face Inference API).
+# model_dir / calibration_path are updated by run_full_capstone_pipeline.py --sync-inference after train+calibrate.
 
 runtime:
   model_dir: artifacts/models/m1_code_detector_smoke
-  calibration_path: null
+  calibration_path: artifacts/models/m1_code_detector_smoke/calibration.json
   language_allowlist:
     - python
     - java
@@ -18,8 +11,6 @@ runtime:
   max_length: 512
   local_files_only: true
 
-# Threshold band for the abstain / unclear zone.
-# These defaults are conservative — adjust after inspecting real scores.
 thresholds:
   lower: 0.35
   upper: 0.65

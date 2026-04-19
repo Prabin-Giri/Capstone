@@ -3,6 +3,7 @@
  * Set DATABASE_URL (e.g. mysql://user:pass@host:3306/dbname) or MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE.
  */
 const mysql = require('mysql2/promise');
+const crypto = require('crypto');
 
 let pool = null;
 let activePoolConfig = null;
@@ -10,7 +11,15 @@ let activePoolConfig = null;
 function shouldSeedSampleData() {
     const explicit = process.env.AUTO_SEED_SAMPLE_DATA;
     if (explicit != null) return /^(1|true|yes)$/i.test(String(explicit));
-    return true;
+    return process.env.NODE_ENV !== 'production';
+}
+
+function resolveSeedPassword() {
+    const configured = String(process.env.SEED_DEFAULT_PASSWORD || '').trim();
+    if (configured) return configured;
+    const generated = crypto.randomBytes(9).toString('base64url');
+    console.warn(`[db] SEED_DEFAULT_PASSWORD not set; generated one-time sample password: ${generated}`);
+    return generated;
 }
 
 function getConfig() {
@@ -20,14 +29,14 @@ function getConfig() {
         const rejectUnauthorized = process.env.DB_SSL_VERIFY !== 'false';
         return useSsl ? { uri: url, ssl: { rejectUnauthorized } } : url;
     }
-    const host = process.env.MYSQL_HOST || 'localhost';
+    const host = process.env.MYSQL_HOST || process.env.DB_HOST || 'localhost';
     const useSsl = process.env.MYSQL_SSL === '1' || (host && host.includes('rds.amazonaws.com'));
     const config = {
         host,
-        port: parseInt(process.env.MYSQL_PORT || '3306', 10),
-        user: process.env.MYSQL_USER || 'root',
-        password: process.env.MYSQL_PASSWORD || '',
-        database: process.env.MYSQL_DATABASE || 'autograde',
+        port: parseInt(process.env.MYSQL_PORT || process.env.DB_PORT || '3306', 10),
+        user: process.env.MYSQL_USER || process.env.DB_USER || 'root',
+        password: process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD || process.env.DB_PASS || '',
+        database: process.env.MYSQL_DATABASE || process.env.DB_NAME || 'autograde',
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
@@ -526,9 +535,25 @@ async function initDb() {
     const [rows] = await pool.execute('SELECT COUNT(*) AS count FROM users');
     const count = rows[0]?.count ?? 0;
     if (count === 0 && shouldSeedSampleData()) {
-        await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', 'password123', 'student')");
-        await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', 'password123', 'faculty')");
-        await pool.execute("INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', 'password123', 'admin')");
+        const { hashPassword } = require('./passwords');
+        const seedPasswordHash = await hashPassword(resolveSeedPassword());
+        await pool.execute(
+            "INSERT INTO users (id, name, email, password, role) VALUES ('student-001', 'Prabin Giri', 'prabin@example.edu', ?, 'student')",
+            [seedPasswordHash]
+        );
+        await pool.execute(
+            "INSERT INTO users (id, name, email, password, role) VALUES ('faculty-001', 'Dr. Smith', 'smith@example.edu', ?, 'faculty')",
+            [seedPasswordHash]
+        );
+        await pool.execute(
+            "INSERT INTO users (id, name, email, password, role) VALUES ('admin-001', 'Admin User', 'faculty1@gmail.com', ?, 'admin')",
+            [seedPasswordHash]
+        );
+        try {
+            await pool.execute("UPDATE users SET must_change_password = 1 WHERE id IN ('student-001','faculty-001','admin-001')");
+        } catch {
+            /* older schemas may not have must_change_password */
+        }
         const { courseOfferingStorageId: offeringId } = require('./courseOfferingKey');
         const termSeed = 'Spring 2026';
         const id4060 = offeringId('CSCI4060', termSeed);

@@ -6,6 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    proxy: {
+      // Keep frontend requests same-origin and forward API calls to the backend service.
+      '/api': {
+        target: process.env.VITE_DEV_API_PROXY_TARGET || 'http://127.0.0.1:3001',
+        changeOrigin: true,
+      },
+    },
     // Dev / nginx proxy: allow your public hostname(s). Leading `.` = apex + all subdomains (e.g. www).
     allowedHosts: ['.agnos.it.com', 'agnos.it.com', 'www.agnos.it.com'],
     watch: {

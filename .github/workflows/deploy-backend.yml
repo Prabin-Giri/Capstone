@@ -65,7 +65,7 @@ jobs:
                 git fetch origin main
                 git checkout main
                 git reset --hard origin/main
-                git clean -fd
+                git clean -fd -e .env -e server/.env
               fi
               SCRIPT_PATH="$APP_DIR/server/scripts/deploy-ec2.sh"
             fi
@@ -103,7 +103,7 @@ jobs:
             git fetch origin main
             git checkout main
             git reset --hard origin/main
-            git clean -fd
+            git clean -fd -e .env -e server/.env
             echo "[deploy] deploy script updated, now executing..."
             # ── End pull ──
 

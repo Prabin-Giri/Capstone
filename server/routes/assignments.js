@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 const { parseStoredFiles, readStoredUpload } = require('../uploadStorage');
+const { hasAnyRole } = require('../auth');
 
 function normalizeRunLang(language) {
     const l = (language == null || language === '') ? 'python' : String(language).trim().toLowerCase();
@@ -10,8 +11,50 @@ function normalizeRunLang(language) {
     return l;
 }
 
+function inferRunLangFromPayload({ requestedLang, code, files }) {
+    const normalized = normalizeRunLang(requestedLang);
+    const list = Array.isArray(files) ? files : [];
+    const names = list.map((f) => String(f?.name || '').toLowerCase());
+    const source = String(code || '');
+    const allText = `${source}\n${list.map((f) => String(f?.content || '')).join('\n')}`;
+
+    // Content-first detection for clipboard / mislabeled snippets (e.g. Java code in main.js).
+    const hasJavaSyntax = (
+        /\bimport\s+java\.[\w.*]+;/.test(allText) ||
+        /\bpublic\s+class\s+\w+/.test(allText) ||
+        /\bpublic\s+static\s+void\s+main\s*\(/.test(allText) ||
+        /\bSystem\.out\.println\s*\(/.test(allText)
+    );
+    if (hasJavaSyntax) return 'java';
+
+    const hasPhpSyntax = /<\?php/.test(allText);
+    if (hasPhpSyntax) return 'php';
+
+    const hasPythonSyntax = (
+        /\bdef\s+\w+\s*\(.*\)\s*:/.test(allText) ||
+        /\bif\s+__name__\s*==\s*['"]__main__['"]\s*:/.test(allText)
+    );
+    if (hasPythonSyntax) return 'python';
+
+    // Extension-based fallback when content is ambiguous.
+    if (names.some((n) => n.endsWith('.java'))) return 'java';
+    if (names.some((n) => n.endsWith('.py'))) return 'python';
+    if (names.some((n) => n.endsWith('.php'))) return 'php';
+    if (names.some((n) => n.endsWith('.js') || n.endsWith('.mjs') || n.endsWith('.cjs'))) return 'javascript';
+
+    return normalized;
+}
+
 const fs = require('fs');
 const os = require('os');
+
+function ensureStaff(req, res) {
+    if (!hasAnyRole(req, 'admin', 'faculty', 'ta')) {
+        res.status(403).json({ error: 'Faculty, TA, or admin access required' });
+        return false;
+    }
+    return true;
+}
 
 /**
  * Run one program (used by /test and /run). Supports multi-file Java via `files` + optional `javaMainClass`.
@@ -20,7 +63,8 @@ async function runStudentProgramOnce({ lang, code, stdin, timeoutMs, files, java
     const { runCode } = require('../grader/runCode');
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'student-snippet-'));
     try {
-        if (lang === 'java' && Array.isArray(files) && files.length > 0) {
+        const effectiveLang = inferRunLangFromPayload({ requestedLang: lang, code, files });
+        if (effectiveLang === 'java' && Array.isArray(files) && files.length > 0) {
             let written = 0;
             for (const item of files) {
                 const base = path.basename(String(item?.name || ''));
@@ -38,7 +82,7 @@ async function runStudentProgramOnce({ lang, code, stdin, timeoutMs, files, java
                 : null;
             return await runCode({
                 sourceFilePath: tmpRoot,
-                language: lang,
+                language: effectiveLang,
                 stdin: stdin || '',
                 timeoutMs,
                 ...(jc ? { javaMainClass: jc } : {}),
@@ -46,18 +90,18 @@ async function runStudentProgramOnce({ lang, code, stdin, timeoutMs, files, java
         }
 
         let fileName;
-        if (lang === 'java') {
+        if (effectiveLang === 'java') {
             const classMatch = String(code).match(/public\s+class\s+(\w+)/);
             const className = classMatch ? classMatch[1] : 'Main';
             fileName = className + '.java';
         } else {
-            fileName = lang === 'python' ? 'main.py' : (lang === 'javascript' ? 'main.js' : 'main.php');
+            fileName = effectiveLang === 'python' ? 'main.py' : (effectiveLang === 'javascript' ? 'main.js' : 'main.php');
         }
         const filePath = path.join(tmpRoot, fileName);
         fs.writeFileSync(filePath, String(code || ''));
         return await runCode({
             sourceFilePath: filePath,
-            language: lang,
+            language: effectiveLang,
             stdin: stdin || '',
             timeoutMs,
         });
@@ -100,6 +144,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/assignments - Create new assignment
 router.post('/', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const {
             course_id,
             title,
@@ -184,6 +229,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/assignments/:id - Update assignment
 router.put('/:id', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const {
             title,
             description,
@@ -265,6 +311,7 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/assignments/:id - Delete assignment
 router.delete('/:id', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const db = getDb();
         await db.execute('DELETE FROM assignments WHERE id = ?', [req.params.id]);
         res.json({ message: 'Assignment deleted successfully' });
@@ -705,6 +752,7 @@ async function runPlagiarismCheckInternal(assignmentId) {
 // POST /api/assignments/:id/plagiarism-check - Run plagiarism detection
 router.post('/:id/plagiarism-check', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const report = await runPlagiarismCheckInternal(req.params.id);
         res.json(report);
     } catch (err) {
@@ -715,6 +763,7 @@ router.post('/:id/plagiarism-check', async (req, res, next) => {
 // POST /api/assignments/:id/autograde - Batch auto-grade all submissions
 router.post('/:id/autograde', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const { latePenalty, timeout = 2000 } = req.body;
         void latePenalty;
         void timeout;
@@ -785,6 +834,7 @@ router.post('/:id/autograde', async (req, res, next) => {
 // POST /api/assignments/:id/grade-group/:groupId - Grade an entire group
 router.post('/:id/grade-group/:groupId', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const { grade, feedback, status = 'graded' } = req.body;
         const assignmentId = req.params.id;
         const groupId = req.params.groupId;

@@ -44,6 +44,10 @@ module.exports = {
     /** Default partial credit % when allow_partial and no exact match but program ran */
     defaultPartialCreditPercent: 0,
 
-    /** 'local' (default for Render/Vercel) or 'docker' */
-    runMode: process.env.GRADER_RUN_MODE || 'local',
+    /** Run untrusted code in docker by default in production. */
+    runMode: (() => {
+        const configured = String(process.env.GRADER_RUN_MODE || '').trim().toLowerCase();
+        if (configured === 'local' || configured === 'docker') return configured;
+        return process.env.NODE_ENV === 'production' ? 'docker' : 'local';
+    })(),
 };

@@ -3,26 +3,34 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const AWS_CONFIG = {
-    host: 'autograde-db.c7y2ewkoshjo.us-east-2.rds.amazonaws.com',
-    port: 3306,
-    user: 'admin',
-    password: 'LonSuddo-69',
-    database: 'autograde-db',
-    ssl: { rejectUnauthorized: false }
+    host: process.env.SYNC_SOURCE_HOST || process.env.MYSQL_HOST,
+    port: parseInt(process.env.SYNC_SOURCE_PORT || process.env.MYSQL_PORT || '3306', 10),
+    user: process.env.SYNC_SOURCE_USER || process.env.MYSQL_USER,
+    password: process.env.SYNC_SOURCE_PASSWORD || process.env.MYSQL_PASSWORD,
+    database: process.env.SYNC_SOURCE_DATABASE || process.env.MYSQL_DATABASE,
+    ssl: process.env.SYNC_SOURCE_SSL === 'false'
+        ? undefined
+        : { rejectUnauthorized: process.env.SYNC_SOURCE_SSL_VERIFY !== 'false' }
 };
 
 const LOCAL_CONFIG = {
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'admin',
-    password: 'LonSuddo-69',
-    database: 'autograde-db'
+    host: process.env.SYNC_DEST_HOST || '127.0.0.1',
+    port: parseInt(process.env.SYNC_DEST_PORT || '3306', 10),
+    user: process.env.SYNC_DEST_USER || process.env.MYSQL_USER,
+    password: process.env.SYNC_DEST_PASSWORD || process.env.MYSQL_PASSWORD,
+    database: process.env.SYNC_DEST_DATABASE || process.env.MYSQL_DATABASE
 };
 
 async function sync() {
     let sourceConn, destConn;
 
     try {
+        if (!AWS_CONFIG.host || !AWS_CONFIG.user || !AWS_CONFIG.database) {
+            throw new Error('Missing source DB config. Set SYNC_SOURCE_* or MYSQL_* env vars.');
+        }
+        if (!LOCAL_CONFIG.user || !LOCAL_CONFIG.database) {
+            throw new Error('Missing destination DB config. Set SYNC_DEST_* or MYSQL_* env vars.');
+        }
         console.log('Connecting to AWS RDS...');
         sourceConn = await mysql.createConnection(AWS_CONFIG);
         console.log('Connected to AWS RDS.');

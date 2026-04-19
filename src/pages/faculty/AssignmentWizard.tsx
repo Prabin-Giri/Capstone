@@ -19,7 +19,7 @@ import {
     UPLOADS_BASE,
 } from '../../lib/api';
 import type { TestCase, RubricConfig, User, SavedRubric } from '../../lib/api';
-import { getRole } from '../../lib/auth';
+import { getRole, getUser } from '../../lib/auth';
 
 import { Button } from '../../components/ui/Button';
 import { Bold, Italic, Underline, List, ListOrdered, Link2, Paperclip, RemoveFormatting, Trash2, Eye, EyeOff, Plus, X, Edit, BarChart2, Download, ChevronLeft, Save, House } from 'lucide-react';
@@ -232,7 +232,9 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
     const handleAttachFile = async (file: File) => {
         const form = new FormData();
         form.append('file', file);
-        const res = await fetch(`${API_BASE}/uploads/attachments`, { method: 'POST', body: form });
+        const token = getUser()?.authToken || localStorage.getItem('token') || '';
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const res = await fetch(`${API_BASE}/uploads/attachments`, { method: 'POST', headers, body: form });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         const fileUrl = getFileUrl(data.filePath);

@@ -1,6 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, queryToObjects, queryOne } = require('../db');
+const { getDb, queryToObjects } = require('../db');
+const { hasAnyRole } = require('../auth');
+
+function ensureStaff(req, res) {
+    if (!hasAnyRole(req, 'admin', 'faculty', 'ta')) {
+        res.status(403).json({ error: 'Faculty, TA, or admin access required' });
+        return false;
+    }
+    return true;
+}
 
 // GET /api/test-cases/:assignmentId - Get all test cases for an assignment
 router.get('/:assignmentId', async (req, res, next) => {
@@ -16,6 +25,7 @@ router.get('/:assignmentId', async (req, res, next) => {
 // POST /api/test-cases - Create new test case
 router.post('/', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const { assignment_id, input, expected_output, points = 0, is_public = 1 } = req.body;
 
         if (!assignment_id || expected_output === undefined) {
@@ -35,6 +45,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/test-cases/:id - Update test case
 router.put('/:id', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const { input, expected_output, points, is_public } = req.body;
         const id = req.params.id;
 
@@ -64,6 +75,7 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/test-cases/:id - Delete test case
 router.delete('/:id', async (req, res, next) => {
     try {
+        if (!ensureStaff(req, res)) return;
         const db = getDb();
         await db.execute('DELETE FROM test_cases WHERE id = ?', [req.params.id]);
         res.json({ message: 'Test case deleted successfully' });

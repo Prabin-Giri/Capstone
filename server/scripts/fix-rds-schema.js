@@ -12,9 +12,11 @@ async function fixRdsSchema() {
   const connection = await mysql.createConnection({
     host: host,
     user: process.env.MYSQL_USER || 'admin',
-    password: process.env.MYSQL_PASSWORD || 'LonSuddo-69',
+    password: process.env.MYSQL_PASSWORD || '',
     database: process.env.MYSQL_DATABASE || 'autograde-db',
-    ssl: { rejectUnauthorized: false } // Required for AWS RDS in most cases
+    ssl: process.env.MYSQL_SSL === 'false'
+      ? undefined
+      : { rejectUnauthorized: process.env.DB_SSL_VERIFY !== 'false' }
   });
 
   try {

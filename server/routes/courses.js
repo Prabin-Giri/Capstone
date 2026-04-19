@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb, queryToObjects, queryOne, isMySQL } = require('../db');
 const { courseOfferingStorageId } = require('../courseOfferingKey');
+const { hashPassword } = require('../passwords');
 
 function coursePathId(req) {
     try {
@@ -371,11 +372,16 @@ router.get('/:id/grades/export', async (req, res, next) => {
         const allRows = [headers, ...dataRows];
 
         if (format === 'excel') {
-            const XLSX = require('xlsx');
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(allRows);
-            XLSX.utils.book_append_sheet(wb, ws, type === 'student' ? 'Student' : type === 'final' ? 'Final Grades' : 'Grades');
-            const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+            const ExcelJS = require('exceljs');
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet(type === 'student' ? 'Student' : type === 'final' ? 'Final Grades' : 'Grades');
+            allRows.forEach((row, rowIndex) => {
+                const sheetRow = worksheet.addRow(row);
+                if (rowIndex === 0) {
+                    sheetRow.font = { bold: true };
+                }
+            });
+            const buf = await workbook.xlsx.writeBuffer();
             const ext = type === 'student' ? `_${studentId}` : '';
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename=grades_${courseId}${ext}.xlsx`);
@@ -425,10 +431,11 @@ router.post('/:id/enroll-csv', async (req, res, next) => {
             let userId = id;
 
             if (existingRows.length === 0) {
+                const tempPasswordHash = await hashPassword('password123');
                 // Auto-create the account with the specified id, name, email, role=student, password=password123
                 await db.execute(
                     'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-                    [id, name, normalizedEmail, 'password123', 'student']
+                    [id, name, normalizedEmail, tempPasswordHash, 'student']
                 );
                 try {
                     if (isMySQL) {

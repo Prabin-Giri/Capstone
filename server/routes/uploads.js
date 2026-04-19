@@ -5,12 +5,38 @@ const path = require('path');
 const fs = require('fs');
 const { getDb, queryOne } = require('../db');
 const { uploadToS3, getFromS3, deleteFromS3, s3Enabled } = require('../s3');
+const { hasAnyRole } = require('../auth');
 
 // ── Local disk fallback ─────────────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        files: 1,
+        fileSize: 25 * 1024 * 1024,
+    },
+});
+
+function sanitizeFileName(input) {
+    const base = path.basename(String(input || '').replace(/\\/g, '/'));
+    const sanitized = base.replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (!sanitized || sanitized === '.' || sanitized === '..') return 'upload.bin';
+    return sanitized.slice(0, 120);
+}
+
+function actorUserId(req) {
+    return String(req.auth?.userId || '').trim();
+}
+
+function ensureStaffRole(req, res) {
+    if (!hasAnyRole(req, 'admin', 'faculty', 'ta')) {
+        res.status(403).json({ error: 'Only faculty, TA, or admin can upload this file type' });
+        return false;
+    }
+    return true;
+}
 
 function uploadCourseId(req) {
     try {
@@ -22,12 +48,13 @@ function uploadCourseId(req) {
 
 /** Write to S3 or local disk, returning the stored path/key */
 async function persistFile(buffer, originalName, category) {
+    const safeName = sanitizeFileName(originalName);
     if (s3Enabled) {
-        const key = `uploads/${category}/${Date.now()}-${originalName}`;
+        const key = `uploads/${category}/${Date.now()}-${safeName}`;
         await uploadToS3(key, buffer);
         return key;
     }
-    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + originalName;
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + safeName;
     fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
     return uniqueName;
 }
@@ -60,6 +87,7 @@ const updateDocumentPath = async (courseId, column, filePath) => {
 // POST /api/uploads/syllabus/:courseId
 router.post('/syllabus/:courseId', upload.single('file'), async (req, res, next) => {
     try {
+        if (!ensureStaffRole(req, res)) return;
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const cid = uploadCourseId(req);
         const storedPath = await persistFile(req.file.buffer, req.file.originalname, `course-docs/${cid}/syllabus`);
@@ -71,6 +99,7 @@ router.post('/syllabus/:courseId', upload.single('file'), async (req, res, next)
 // POST /api/uploads/schedule/:courseId
 router.post('/schedule/:courseId', upload.single('file'), async (req, res, next) => {
     try {
+        if (!ensureStaffRole(req, res)) return;
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const cid = uploadCourseId(req);
         const storedPath = await persistFile(req.file.buffer, req.file.originalname, `course-docs/${cid}/schedule`);
@@ -82,6 +111,7 @@ router.post('/schedule/:courseId', upload.single('file'), async (req, res, next)
 // POST /api/uploads/starter-code
 router.post('/starter-code', upload.single('file'), async (req, res, next) => {
     try {
+        if (!ensureStaffRole(req, res)) return;
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const storedPath = await persistFile(req.file.buffer, req.file.originalname, 'starter-code');
         res.json({ message: 'Starter code uploaded successfully', filePath: storedPath });
@@ -91,6 +121,7 @@ router.post('/starter-code', upload.single('file'), async (req, res, next) => {
 // POST /api/uploads/attachments
 router.post('/attachments', upload.single('file'), async (req, res, next) => {
     try {
+        if (!ensureStaffRole(req, res)) return;
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const storedPath = await persistFile(req.file.buffer, req.file.originalname, 'attachments');
         res.json({ message: 'Attachment uploaded successfully', filePath: storedPath, originalName: req.file.originalname });
@@ -148,14 +179,19 @@ router.delete('/profile-picture/:userId', async (req, res, next) => {
     try {
         const db = getDb();
         const userId = profileUserId(req);
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
+        if (userId !== actorId && !hasAnyRole(req, 'admin')) {
+            return res.status(403).json({ error: 'You can only modify your own profile picture' });
+        }
         const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [userId]);
         if (rows.length > 0 && rows[0].profile_picture) {
             const pic = rows[0].profile_picture;
             if (s3Enabled) {
                 await deleteFromS3(pic).catch(() => {});
             } else {
-                const localPath = path.join(uploadsDir, pic);
-                if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+                const localPath = resolveLocalUploadPath(pic);
+                if (localPath && fs.existsSync(localPath)) fs.unlinkSync(localPath);
             }
         }
         const [delResult] = await db.execute('UPDATE users SET profile_picture = NULL WHERE id = ?', [userId]);
@@ -172,6 +208,11 @@ router.post('/profile-picture/:userId', upload.single('file'), async (req, res, 
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         const db = getDb();
         const userId = profileUserId(req);
+        const actorId = actorUserId(req);
+        if (!actorId) return res.status(401).json({ error: 'Authentication required' });
+        if (userId !== actorId && !hasAnyRole(req, 'admin')) {
+            return res.status(403).json({ error: 'You can only modify your own profile picture' });
+        }
 
         // Delete old profile pic
         const [rows] = await db.execute('SELECT profile_picture FROM users WHERE id = ?', [userId]);
@@ -180,8 +221,8 @@ router.post('/profile-picture/:userId', upload.single('file'), async (req, res, 
             if (s3Enabled) {
                 await deleteFromS3(old).catch(() => {});
             } else {
-                const localPath = path.join(uploadsDir, old);
-                if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+                const localPath = resolveLocalUploadPath(old);
+                if (localPath && fs.existsSync(localPath)) fs.unlinkSync(localPath);
             }
         }
 

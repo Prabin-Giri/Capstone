@@ -1,19 +1,91 @@
 import { getSession } from './auth';
 import type { AssignmentExecutionPayload } from './utils';
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const LOCAL_API_BASE = 'http://localhost:3001/api';
+
+function stripTrailingSlash(value: string): string {
+    return value.replace(/\/+$/, '');
+}
+
+function resolveApiBase(): string {
+    const configured = String(import.meta.env.VITE_API_URL || '').trim();
+    const hasWindow = typeof window !== 'undefined';
+
+    if (configured) {
+        if (!hasWindow) return stripTrailingSlash(configured);
+        try {
+            const parsed = new URL(configured, window.location.origin);
+            const pageIsHttps = window.location.protocol === 'https:';
+            const apiIsHttp = parsed.protocol === 'http:';
+
+            // Browsers block HTTPS -> HTTP API calls (mixed content), which appears as "Failed to fetch".
+            if (pageIsHttps && apiIsHttp) {
+                const sameHost = parsed.hostname === window.location.hostname;
+                if (sameHost) {
+                    parsed.protocol = 'https:';
+                    return stripTrailingSlash(parsed.toString());
+                }
+                console.warn(`[api] Insecure VITE_API_URL "${configured}" on HTTPS page. Falling back to same-origin /api.`);
+                return `${window.location.origin}/api`;
+            }
+
+            return stripTrailingSlash(parsed.toString());
+        } catch (_) {
+            return stripTrailingSlash(configured);
+        }
+    }
+
+    if (hasWindow) {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+            return LOCAL_API_BASE;
+        }
+        return `${window.location.origin}/api`;
+    }
+
+    return LOCAL_API_BASE;
+}
+
+export const API_BASE = resolveApiBase();
 export const UPLOADS_BASE = API_BASE.replace(/\/api$/, '');
 
 export type { AssignmentExecutionPayload } from './utils';
 
+function readAuthToken(): string {
+    try {
+        const session = getSession();
+        if (session?.authToken) return session.authToken;
+    } catch {
+        // ignored
+    }
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('token') || '';
+    }
+    return '';
+}
+
 // Generic fetch wrapper with error handling
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_BASE}${url}`, options);
+    const headers = new Headers(options?.headers || {});
+    const token = readAuthToken();
+    if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+    const response = await fetch(`${API_BASE}${url}`, { ...options, headers });
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Request failed' }));
         throw new Error(error.error || 'Request failed');
     }
     return response.json();
+}
+
+async function authFetch(url: string, options?: RequestInit): Promise<Response> {
+    const headers = new Headers(options?.headers || {});
+    const token = readAuthToken();
+    if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+    return fetch(url, { ...options, headers });
 }
 
 function getActorUserId(): string {
@@ -873,7 +945,7 @@ export async function createSubmission(
     formData.append('student_id', studentId);
     files.forEach(f => formData.append('files', f));
 
-    const response = await fetch(`${API_BASE}/submissions`, {
+    const response = await authFetch(`${API_BASE}/submissions`, {
         method: 'POST',
         body: formData,
     });
@@ -906,7 +978,7 @@ export async function updateSubmission(
     if (data.sync_group !== undefined) formData.append('sync_group', String(data.sync_group));
     if (data.rubric_scores !== undefined) formData.append('rubric_scores', JSON.stringify(data.rubric_scores));
 
-    const response = await fetch(`${API_BASE}/submissions/${id}`, {
+    const response = await authFetch(`${API_BASE}/submissions/${id}`, {
         method: 'PUT',
         body: formData,
     });
@@ -956,13 +1028,13 @@ export interface Todo {
 }
 
 export async function getTodos(params: { student_id: string }): Promise<Todo[]> {
-    const res = await fetch(`${API_BASE}/calendar/todos?student_id=${params.student_id}`);
+    const res = await authFetch(`${API_BASE}/calendar/todos?student_id=${params.student_id}`);
     if (!res.ok) throw new Error('Failed to fetch todos');
     return res.json();
 }
 
 export async function createTodo(data: { student_id: string; title: string; due_date?: string; course_id?: string }): Promise<Todo> {
-    const res = await fetch(`${API_BASE}/calendar/todos`, {
+    const res = await authFetch(`${API_BASE}/calendar/todos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -972,7 +1044,7 @@ export async function createTodo(data: { student_id: string; title: string; due_
 }
 
 export async function updateTodo(id: string, data: Partial<Todo>): Promise<Todo> {
-    const res = await fetch(`${API_BASE}/calendar/todos/${id}`, {
+    const res = await authFetch(`${API_BASE}/calendar/todos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -982,20 +1054,20 @@ export async function updateTodo(id: string, data: Partial<Todo>): Promise<Todo>
 }
 
 export async function deleteTodo(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/calendar/todos/${id}`, {
+    const res = await authFetch(`${API_BASE}/calendar/todos/${id}`, {
         method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to delete todo');
 }
 
 export async function getColors(studentId: string): Promise<Record<string, string>> {
-    const res = await fetch(`${API_BASE}/calendar/colors?student_id=${studentId}`);
+    const res = await authFetch(`${API_BASE}/calendar/colors?student_id=${studentId}`);
     if (!res.ok) throw new Error('Failed to fetch colors');
     return res.json();
 }
 
 export async function saveColor(data: { student_id: string; course_id: string; color: string }): Promise<void> {
-    const res = await fetch(`${API_BASE}/calendar/colors`, {
+    const res = await authFetch(`${API_BASE}/calendar/colors`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -1020,7 +1092,7 @@ async function uploadFile(endpoint: string, courseId: string, file: File): Promi
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE}/uploads/${endpoint}/${encPath(courseId)}`, {
+    const response = await authFetch(`${API_BASE}/uploads/${endpoint}/${encPath(courseId)}`, {
         method: 'POST',
         body: formData,
     });
@@ -1045,7 +1117,7 @@ export async function uploadStarterCode(file: File): Promise<{ message: string; 
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE}/uploads/starter-code`, {
+    const response = await authFetch(`${API_BASE}/uploads/starter-code`, {
         method: 'POST',
         body: formData,
     });
@@ -1150,6 +1222,8 @@ export interface User {
     student_id?: string;
     /** Server sets this when the user must set a new password (e.g. default password123 from bulk enroll). */
     must_change_password?: boolean;
+    /** Signed API session token */
+    auth_token?: string;
 }
 
 export async function loginRequest(email: string, password: string): Promise<User> {
@@ -1394,7 +1468,7 @@ export interface AiDetectorStatusResponse {
 }
 
 export async function getAiDetectorStatus(): Promise<AiDetectorStatusResponse> {
-    const response = await fetch(`${API_BASE}/ai-detector/status`);
+    const response = await authFetch(`${API_BASE}/ai-detector/status`);
     const payload = await response.json().catch(() => null);
 
     if (payload && typeof payload === 'object' && typeof payload.ready === 'boolean') {

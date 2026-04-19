@@ -358,9 +358,9 @@ export default function SubmissionResults() {
                             submission.files.map((file, index) => (
                                 <div key={index} className="file-item">
                                     <span className="file-icon">📄</span>
-                                    <span className="file-name">{file.name}</span>
+                                    <span className="file-name">{file.name || file.path?.split('/').pop() || 'file'}</span>
                                     <a
-                                        href={getSubmissionFileUrl(submission.id, file.name)}
+                                        href={getSubmissionFileUrl(submission.id, String(file.path || file.name || ''))}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="download-btn"
