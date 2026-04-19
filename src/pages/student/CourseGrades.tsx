@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getCourse, getCourseAssignments, getSubmissions } from '../../lib/api';
 import type { Course, Assignment, Submission } from '../../lib/api';
 import { getUser } from '../../lib/auth';
+import GradedAssignmentModal from '../../components/ui/GradedAssignmentModal';
 import './CourseGrades.css';
 
 const CourseGrades: React.FC = () => {
@@ -13,6 +14,9 @@ const CourseGrades: React.FC = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+    const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+    const [showReportModal, setShowReportModal] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -148,14 +152,20 @@ const CourseGrades: React.FC = () => {
                                             {submission?.feedback ? submission.feedback : <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>None</span>}
                                         </td>
                                         <td>
-                                            <Link
-                                                to={`/student/courses/${courseId}/assignments/${assignment.id}/submissions/${submission?.id || ''}`}
+                                            <button
                                                 className="view-button"
-                                                onClick={(e) => !submission && e.preventDefault()}
+                                                onClick={() => {
+                                                    if (submission) {
+                                                        setSelectedSubmission(submission);
+                                                        setSelectedAssignment(assignment);
+                                                        setShowReportModal(true);
+                                                    }
+                                                }}
+                                                disabled={!submission}
                                                 style={!submission ? { color: 'var(--text-tertiary)', cursor: 'not-allowed' } : {}}
                                             >
                                                 {submission ? 'View' : 'No Submission'}
-                                            </Link>
+                                            </button>
                                         </td>
                                     </tr>
                                 );
@@ -174,6 +184,13 @@ const CourseGrades: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+
+            <GradedAssignmentModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                submission={selectedSubmission}
+                assignment={selectedAssignment}
+            />
         </div>
     );
 };

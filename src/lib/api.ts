@@ -807,6 +807,8 @@ export interface Submission {
     feedback?: string;
     auto_feedback?: string;
     files?: { name: string, path: string }[];
+    /** Graded rubric criterion scores: { criterionId: score } */
+    rubric_scores?: Record<string, number> | string | null;
     /** Present on some DBs / autograder rows */
     correctness_score?: number | null;
     style_points?: number | null;
@@ -886,7 +888,7 @@ export async function createSubmission(
 
 export async function updateSubmission(
     id: number,
-    data: { files?: File[]; status?: string; grade?: number | null; feedback?: string; sync_group?: boolean }
+    data: { files?: File[]; status?: string; grade?: number | null; feedback?: string; sync_group?: boolean; rubric_scores?: Record<string, number> }
 ): Promise<Submission> {
     const formData = new FormData();
     if (data.files) {
@@ -896,6 +898,7 @@ export async function updateSubmission(
     if (data.grade !== undefined) formData.append('grade', data.grade === null ? '' : String(data.grade));
     if (data.feedback !== undefined) formData.append('feedback', data.feedback);
     if (data.sync_group !== undefined) formData.append('sync_group', String(data.sync_group));
+    if (data.rubric_scores !== undefined) formData.append('rubric_scores', JSON.stringify(data.rubric_scores));
 
     const response = await fetch(`${API_BASE}/submissions/${id}`, {
         method: 'PUT',

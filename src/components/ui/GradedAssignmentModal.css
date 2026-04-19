@@ -1,0 +1,259 @@
+.graded-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.graded-modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.graded-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.graded-modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.graded-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.graded-modal-close:hover {
+    background-color: #f3f4f6;
+    color: #1f2937;
+}
+
+.graded-modal-body {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.modal-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.modal-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.modal-section-title {
+    margin: 0 0 12px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.grade-display {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 16px;
+    background: #f0f9ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 4px;
+}
+
+.grade-score {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0369a1;
+}
+
+.grade-max {
+    font-size: 1.1rem;
+    color: #0284c7;
+    font-weight: 500;
+}
+
+.grade-not-graded {
+    font-size: 1rem;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.feedback-text {
+    padding: 12px;
+    background: #f9fafb;
+    border-left: 3px solid #8b5cf6;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #374151;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.modal-rubric-section {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #fafbfc;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.modal-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #d1d5db;
+}
+
+.section-title {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.section-score {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #10b981;
+    background: #ecfdf5;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.modal-rubric-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.modal-rubric-table thead {
+    background: #f0f0f0;
+    border-bottom: 2px solid #d1d5db;
+}
+
+.modal-rubric-table th {
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal-rubric-table th.col-criterion {
+    text-align: left;
+}
+
+.modal-rubric-table th.col-max-points {
+    text-align: center;
+    width: 120px;
+}
+
+.modal-rubric-table th.col-earned-points {
+    text-align: center;
+    width: 120px;
+}
+
+.modal-rubric-table tr {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-rubric-table tr:last-child {
+    border-bottom: none;
+}
+
+.modal-rubric-table tr.scored {
+    background: #f0fdf4;
+}
+
+.modal-rubric-table td {
+    padding: 8px 10px;
+    color: #374151;
+}
+
+.modal-rubric-table .criterion-name {
+    font-weight: 500;
+    flex: 1;
+}
+
+.modal-rubric-table .criterion-max {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.modal-rubric-table .criterion-score {
+    text-align: center;
+    font-weight: 600;
+    color: #059669;
+    min-width: 50px;
+}
+
+.auto-feedback-block {
+    background: #f3f4f6;
+    padding: 12px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.8rem;
+    overflow-x: auto;
+    line-height: 1.5;
+    margin: 0;
+    color: #1f2937;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Scrollbar styling */
+.graded-modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.graded-modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.graded-modal-content::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.graded-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}

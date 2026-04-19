@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { runPlagiarismCheck } from '../lib/api';
 import type { PlagiarismResponse, PlagiarismResult } from '../lib/api';
@@ -16,6 +16,10 @@ function SeverityChip({ score }: { score: number }) {
   if (sev === 'critical') return <span className="ps-chip ps-chip-critical">CRITICAL MATCH</span>;
   if (sev === 'warning') return <span className="ps-chip ps-chip-warning">MODERATE SIMILARITY</span>;
   return <span className="ps-chip ps-chip-safe">LOW MATCH</span>;
+}
+
+function getPairKey(pair: PlagiarismResult) {
+  return [pair.student1.id, pair.student2.id].sort().join('|');
 }
 
 // ─── Code Diff Pane ───────────────────────────────────────────────────────────
@@ -73,16 +77,42 @@ export default function PlagScanDashboard() {
   const assignmentId = searchParams.get('assignment') || '';
   const initialS1 = searchParams.get('s1') || '';
   const initialS2 = searchParams.get('s2') || '';
+  const initialStudentId = searchParams.get('student') || '';
+  const initialActiveOtherId = searchParams.get('active') || '';
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PlagiarismResponse | null>(null);
-  const [activePair, setActivePair] = useState<PlagiarismResult | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState(initialStudentId);
+  const [activePairKey, setActivePairKey] = useState('');
   const [syncScroll, setSyncScroll] = useState(true);
   const [logicHighlight, setLogicHighlight] = useState(true);
 
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSelectedStudentId(initialStudentId);
+    if (initialStudentId && initialActiveOtherId) {
+      setActivePairKey(getPairKey({
+        student1: { id: initialStudentId, name: '' },
+        student2: { id: initialActiveOtherId, name: '' },
+        similarity: 0,
+        matchedTokens: 0,
+        totalTokens: 0,
+      } as PlagiarismResult));
+    } else if (initialS1 && initialS2) {
+      setActivePairKey(getPairKey({
+        student1: { id: initialS1, name: '' },
+        student2: { id: initialS2, name: '' },
+        similarity: 0,
+        matchedTokens: 0,
+        totalTokens: 0,
+      } as PlagiarismResult));
+    } else {
+      setActivePairKey('');
+    }
+  }, [initialStudentId, initialActiveOtherId, initialS1, initialS2]);
 
   // Load results on mount if we have an assignment
   useEffect(() => {
@@ -91,11 +121,20 @@ export default function PlagScanDashboard() {
     runPlagiarismCheck(assignmentId)
       .then(res => {
         setData(res);
-        // Auto-select the pair from URL params or first result
-        const target = res.flaggedPairs.find(
-          p => p.student1.id === initialS1 && p.student2.id === initialS2
-        ) || res.flaggedPairs[0] || null;
-        setActivePair(target);
+        const target = res.flaggedPairs.find((pair) => {
+          if (initialStudentId && initialActiveOtherId) {
+            return (pair.student1.id === initialStudentId && pair.student2.id === initialActiveOtherId) ||
+              (pair.student2.id === initialStudentId && pair.student1.id === initialActiveOtherId);
+          }
+          if (initialS1 && initialS2) {
+            return (pair.student1.id === initialS1 && pair.student2.id === initialS2) ||
+              (pair.student2.id === initialS1 && pair.student1.id === initialS2);
+          }
+          return false;
+        }) || res.flaggedPairs[0] || null;
+        if (target) {
+          setActivePairKey(getPairKey(target));
+        }
       })
       .catch(() => setError('Failed to load plagiarism report.'))
       .finally(() => setLoading(false));
@@ -119,7 +158,32 @@ export default function PlagScanDashboard() {
     ? Math.round(flaggedPairs.reduce((sum, p) => sum + p.similarity, 0) / flaggedPairs.length)
     : 0;
 
+  const studentMatches = useMemo(() => {
+    if (!data) return [];
+    return selectedStudentId
+      ? data.flaggedPairs.filter(pair => pair.student1.id === selectedStudentId || pair.student2.id === selectedStudentId)
+      : data.flaggedPairs;
+  }, [data, selectedStudentId]);
+
+  const activePair = useMemo<PlagiarismResult | null>(() => {
+    if (!data) return null;
+    const exact = data.flaggedPairs.find(pair => getPairKey(pair) === activePairKey);
+    if (exact && (!selectedStudentId || exact.student1.id === selectedStudentId || exact.student2.id === selectedStudentId)) {
+      return exact;
+    }
+    if (selectedStudentId) {
+      return data.flaggedPairs.find(pair => pair.student1.id === selectedStudentId || pair.student2.id === selectedStudentId) || exact || data.flaggedPairs[0] || null;
+    }
+    return exact || data.flaggedPairs[0] || null;
+  }, [data, activePairKey, selectedStudentId]);
+
+  const sidebarPairs = selectedStudentId ? studentMatches : flaggedPairs;
   const activeMatchScore = activePair?.similarity ?? 0;
+  const selectedStudentName = activePair && selectedStudentId
+    ? activePair.student1.id === selectedStudentId
+      ? activePair.student1.name
+      : activePair.student2.name
+    : '';
 
   // If no assignment in URL, show a placeholder nudge
   if (!assignmentId) {
@@ -141,24 +205,21 @@ export default function PlagScanDashboard() {
     <div className="ps-root">
       {/* ── Sidebar ── */}
       <aside className="ps-sidebar">
-        <div className="ps-sidebar-section-label ps-sidebar-high">HIGH PRIORITY</div>
-        <div className="ps-sidebar-section-label ps-sidebar-sub">
-          <span className="ps-sidebar-sub-icon">!</span> PENDING REVIEW
-        </div>
+        <div className="ps-sidebar-header">Plagiarism Detected</div>
 
         <div className="ps-sidebar-queue">
           {loading && <div className="ps-sidebar-loading">Analyzing…</div>}
           {!loading && flaggedPairs.length === 0 && (
             <div className="ps-sidebar-none">No flagged pairs for this assignment.</div>
           )}
-          {flaggedPairs.map((pair, idx) => {
-            const isActive = activePair === pair;
+          {sidebarPairs.map((pair, idx) => {
+            const isActive = activePair && getPairKey(pair) === getPairKey(activePair);
             const sev = getSeverity(pair.similarity);
             return (
               <div
                 key={idx}
                 className={`ps-queue-item ${isActive ? 'ps-queue-item-active' : ''}`}
-                onClick={() => setActivePair(pair)}
+                onClick={() => setActivePairKey(getPairKey(pair))}
               >
                 <div className="ps-queue-header">
                   <span className={`ps-queue-names ${sev === 'critical' ? 'ps-queue-names-critical' : ''}`}>
@@ -175,11 +236,6 @@ export default function PlagScanDashboard() {
               </div>
             );
           })}
-        </div>
-
-        <div className="ps-sidebar-divider" />
-        <div className="ps-sidebar-section-label ps-sidebar-archived">
-          <span className="ps-sidebar-archived-icon">▣</span> ARCHIVED
         </div>
       </aside>
 
@@ -224,21 +280,23 @@ export default function PlagScanDashboard() {
             {/* ── Hero Header ── */}
             {activePair ? (
               <header className="ps-hero-header">
-                <nav className="ps-breadcrumb">
-                  <span>Investigations</span>
-                  <span className="ps-breadcrumb-sep">›</span>
-                  <span>{assignmentId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                </nav>
                 <h1 className="ps-hero-title">
-                  {activePair.student1.name} vs {activePair.student2.name}
+                  {selectedStudentId
+                    ? `Plagiarism report for ${selectedStudentName}`
+                    : `${activePair.student1.name} vs ${activePair.student2.name}`}
                   {activePair.sameGroup && <span className="ps-same-group-badge">{activePair.sameGroup} — Same Group</span>}
                 </h1>
                 <p className="ps-hero-desc">
-                  Academic review of cross-student source correlation. Token-based similarity analysis detected{' '}
-                  <strong>{activePair.matchedTokens} matched tokens</strong> out of {activePair.totalTokens} total.
-                  {activePair.sameGroup
-                    ? ' These students share the same group submission — this match is expected.'
-                    : ' Manual refactoring attempts identified — variable names differ but logic structure is identical.'}
+                  {selectedStudentId ? (
+                    <>Plagiarism report for <strong>{selectedStudentName}</strong>. Comparison with <strong>{activePair.student1.id === selectedStudentId ? activePair.student2.name : activePair.student1.name}</strong>, showing <strong>{studentMatches.length}</strong> similarity match{studentMatches.length === 1 ? '' : 'es'}.</>
+                  ) : (
+                    <>Academic review of cross-student source correlation. Token-based similarity analysis detected{' '}
+                      <strong>{activePair.matchedTokens} matched tokens</strong> out of {activePair.totalTokens} total.
+                      {activePair.sameGroup
+                        ? ' These students share the same group submission — this match is expected.'
+                        : ' Manual refactoring attempts identified — variable names differ but logic structure is identical.'}
+                    </>
+                  )}
                 </p>
               </header>
             ) : (

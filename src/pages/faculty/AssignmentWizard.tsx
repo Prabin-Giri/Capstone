@@ -97,6 +97,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
     const [rubricTemplateName, setRubricTemplateName] = useState('');
     const [savingNamedRubric, setSavingNamedRubric] = useState(false);
     const [savedRubricSelectKey, setSavedRubricSelectKey] = useState(0);
+    const [selectedSavedRubricId, setSelectedSavedRubricId] = useState<string | null>(null);
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [rubric, setRubric] = useState<RubricConfig>({
         title: '',
@@ -402,7 +403,48 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         if (!item) return;
         const normalized = normalizeRubricFromStored(item.rubric);
         if (normalized) setRubric(normalized);
+        setRubricTemplateName(item.name);
+        setSelectedSavedRubricId(item.id);
         setSavedRubricSelectKey((k) => k + 1);
+    };
+
+    const selectedSavedRubric = selectedSavedRubricId ? savedRubrics.find(r => r.id === selectedSavedRubricId) : null;
+
+    const handleUpdateSelectedTemplate = async () => {
+        if (!courseId || readOnly || !selectedSavedRubricId) return;
+        const selected = savedRubrics.find((r) => r.id === selectedSavedRubricId);
+        if (!selected) return;
+
+        const payloadStr = buildRubricConfigPayload(rubric);
+        if (!payloadStr) {
+            await showDialog({ title: 'Rubric is empty', message: 'Add at least one rubric title, section, or criterion before updating the saved template.', confirmText: 'OK' });
+            return;
+        }
+        let rubricObj: RubricConfig;
+        try {
+            rubricObj = JSON.parse(payloadStr) as RubricConfig;
+        } catch {
+            await showDialog({ title: 'Error', message: 'Could not prepare rubric data.', confirmText: 'OK' });
+            return;
+        }
+        setSavingNamedRubric(true);
+        try {
+            const res = await saveRubricTemplate(courseId, selected.name, rubricObj);
+            const list = await getSavedRubrics(courseId);
+            setSavedRubrics(list);
+            await showDialog({
+                type: 'success',
+                title: 'Template updated',
+                message: `"${selected.name}" has been updated with your latest rubric. Load it again from the saved rubric dropdown.`,
+                confirmText: 'OK',
+            });
+        } catch (err: unknown) {
+            console.error('Update named rubric failed', err);
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            await showDialog({ title: 'Update failed', message: `Could not update template: ${message}`, confirmText: 'OK' });
+        } finally {
+            setSavingNamedRubric(false);
+        }
     };
 
     const handleSaveNamedTemplate = async () => {
@@ -437,6 +479,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
             const res = await saveRubricTemplate(courseId, name, rubricObj);
             const list = await getSavedRubrics(courseId);
             setSavedRubrics(list);
+            setSelectedSavedRubricId(res.id);
             await showDialog({
                 type: 'success',
                 title: res.updated ? 'Template updated' : 'Template saved',
@@ -907,7 +950,12 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                                     aria-label="Load saved rubric template"
                                     onChange={(e) => {
                                         const v = e.target.value;
-                                        if (v) handleApplySavedRubric(v);
+                                        if (!v) {
+                                            setSelectedSavedRubricId(null);
+                                            setRubricTemplateName('');
+                                            return;
+                                        }
+                                        handleApplySavedRubric(v);
                                     }}
                                 >
                                     <option value="">{savedRubricsLoading ? 'Loading…' : 'Choose a saved rubric…'}</option>
@@ -932,8 +980,18 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                                 disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
                                 onClick={() => void handleSaveNamedTemplate()}
                             >
-                                {savingNamedRubric ? 'Saving…' : 'Save for reuse'}
+                                {savingNamedRubric ? 'Saving…' : 'Save template'}
                             </Button>
+                            {selectedSavedRubric && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
+                                    onClick={() => void handleUpdateSelectedTemplate()}
+                                >
+                                    {savingNamedRubric ? 'Updating…' : 'Update template'}
+                                </Button>
+                            )}
                         </div>
                         <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', marginTop: '0.65rem', marginBottom: 0 }}>
                             Reusing the same template name updates it. Templates are stored for this course only.

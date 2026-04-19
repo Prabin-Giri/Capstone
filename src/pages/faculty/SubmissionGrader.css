@@ -76,17 +76,17 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    background: none;
-    border: none;
+    background: var(--primary-color, #800000);
+    border: 1px solid var(--primary-color, #800000);
     cursor: pointer;
-    color: var(--primary-color);
+    color: #fff;
     padding: 6px 10px;
     border-radius: 8px;
     transition: background 0.15s, color 0.15s;
 }
 
 .sidebar-expand-btn:hover {
-    background: var(--light-grey);
+    background: color-mix(in srgb, var(--primary-color, #800000) 85%, #000);
 }
 
 .sidebar-expand-btn.left {
@@ -161,14 +161,43 @@
 }
 
 .sidebar-header-count {
-    background: var(--light-grey);
-    border: 1px solid var(--border-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary-color, #800000);
+    border: 1px solid var(--primary-color, #800000);
     border-radius: 10px;
-    padding: 1px 7px;
+    padding: 3px 8px;
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: #fff;
 }
+
+.sidebar-header-count svg {
+    flex: 0 0 auto;
+}
+
+/* Back to assignment grading list — above student list */
+.grader-sidebar-back-link {
+    padding: 8px 16px 10px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.grader-sidebar-back-link a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.grader-sidebar-back-link a:hover {
+    text-decoration: underline;
+}
+
 /* TA notice: names hidden by instructor */
 .anon-hidden-notice {
     display: flex;
@@ -505,6 +534,24 @@
 .grader-breadcrumb {
     padding: 0 28px;
     margin-bottom: 8px;
+}
+
+.grader-main-back-link {
+    padding: 0 28px 12px;
+}
+
+.grader-main-back-link a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.grader-main-back-link a:hover {
+    text-decoration: underline;
 }
 
 /* Student header strip */

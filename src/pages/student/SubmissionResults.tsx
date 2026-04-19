@@ -74,6 +74,17 @@ export default function SubmissionResults() {
     const [loading, setLoading] = useState(true);
 
     const rubric = useMemo(() => parseAssignmentRubric(assignment?.rubric_config ?? null), [assignment?.rubric_config]);
+    const rubricScores = useMemo(() => {
+        if (!submission?.rubric_scores) return null;
+        try {
+            if (typeof submission.rubric_scores === 'string') {
+                return JSON.parse(submission.rubric_scores);
+            }
+            return submission.rubric_scores;
+        } catch {
+            return null;
+        }
+    }, [submission?.rubric_scores]);
     const autoParts = useMemo(
         () => parseAutoFeedbackParts(submission?.auto_feedback),
         [submission?.auto_feedback]
@@ -281,32 +292,63 @@ export default function SubmissionResults() {
 
                 {rubric && rubric.sections && rubric.sections.length > 0 && (
                     <div className="report-card rubric-readonly-card">
-                        <h2>Assignment rubric{rubric.title?.trim() ? `: ${rubric.title}` : ''}</h2>
+                        <h2>Grading rubric{rubric.title?.trim() ? `: ${rubric.title}` : ''}</h2>
                         <p className="rubric-note">
-                            Criteria and maximum points for this assignment. Per-criterion scores from your grader
-                            appear in instructor feedback when provided.
+                            {rubricScores 
+                                ? 'Your scored points per criterion are shown below based on instructor grading.'
+                                : 'Criteria and maximum points for this assignment. Scores will appear here when graded.'}
                         </p>
-                        {rubric.sections.map((section) => (
-                            <div key={section.id} className="rubric-section-readonly">
-                                {section.title?.trim() ? <h3>{section.title}</h3> : null}
-                                <table className="rubric-readonly-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Criterion</th>
-                                            <th>Max</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {section.items.map((c) => (
-                                            <tr key={c.id}>
-                                                <td>{c.name || '—'}</td>
-                                                <td>{c.maxPoints ?? '—'}</td>
+                        {rubric.sections.map((section) => {
+                            const sectionTotal = section.items.reduce((sum, item) =>  {
+                                const score = item.id && rubricScores ? (rubricScores[item.id] ?? 0) : 0;
+                                const max = item.maxPoints ?? 0;
+                                return sum + (max || 0);
+                            }, 0);
+                            const sectionEarned = section.items.reduce((sum, item) => {
+                                const score = item.id && rubricScores ? (rubricScores[item.id] ?? 0) : 0;
+                                return sum + (Number(score) || 0);
+                            }, 0);
+                            return (
+                                <div key={section.id} className="rubric-section-readonly">
+                                    {section.title?.trim() && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <h3 style={{ margin: 0 }}>{section.title}</h3>
+                                            {rubricScores && (
+                                                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--primary-color)' }}>
+                                                    {sectionEarned.toFixed(0)} / {sectionTotal}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                    <table className="rubric-readonly-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Criterion</th>
+                                                <th style={{ textAlign: 'right', width: rubricScores ? '100px' : '80px' }}>Max Points</th>
+                                                {rubricScores && <th style={{ textAlign: 'right', width: '100px', color: 'var(--primary-color)', fontWeight: 700 }}>Your Score</th>}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ))}
+                                        </thead>
+                                        <tbody>
+                                            {section.items.map((c) => {
+                                                const score = c.id && rubricScores ? rubricScores[c.id] : null;
+                                                const isAfar = score !== null && score !== undefined && score !== '';
+                                                return (
+                                                    <tr key={c.id} style={isAfar ? { backgroundColor: 'var(--bg-body)' } : {}}>
+                                                        <td style={{ fontWeight: isAfar ? 600 : 'normal' }}>{c.name || '—'}</td>
+                                                        <td style={{ textAlign: 'right' }}>{c.maxPoints ?? '—'}</td>
+                                                        {rubricScores && (
+                                                            <td style={{ textAlign: 'right', fontWeight: 600, color: isAfar ? 'var(--primary-color)' : 'var(--text-tertiary)' }}>
+                                                                {isAfar ? `${score}` : '—'}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 

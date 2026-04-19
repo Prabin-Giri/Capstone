@@ -257,7 +257,7 @@ router.post('/', upload.array('files'), async (req, res, next) => {
 router.put('/:id', upload.array('files'), async (req, res, next) => {
     try {
         const db = getDb();
-        const { status, grade, feedback } = req.body;
+        const { status, grade, feedback, rubric_scores } = req.body;
         const updates = [];
         const params = [];
 
@@ -272,6 +272,7 @@ router.put('/:id', upload.array('files'), async (req, res, next) => {
         if (status)            { updates.push('status = ?');   params.push(status); }
         if (grade !== undefined) { updates.push('grade = ?');  params.push(grade === null || grade === '' ? null : parseFloat(grade)); }
         if (feedback !== undefined) { updates.push('feedback = ?'); params.push(feedback); }
+        if (rubric_scores !== undefined) { updates.push('rubric_scores = ?'); params.push(rubric_scores ? rubric_scores : null); }
 
         if (updates.length === 0) return res.status(400).json({ error: 'No updates provided' });
 

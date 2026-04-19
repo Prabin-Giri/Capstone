@@ -705,7 +705,9 @@ const GradingDashboard: React.FC = () => {
                                                                                     type="button"
                                                                                     className="plagiarism-popover-diff-btn"
                                                                                     onClick={() => {
-                                                                                        navigate(`${basePath}/plagscan?assignment=${assignmentId}&s1=${match.student1.id}&s2=${match.student2.id}`);
+                                                                                        const student = latestSubmission.student_id;
+                                                                                        const other = match.student1.id === student ? match.student2.id : match.student1.id;
+                                                                                        navigate(`${basePath}/plagscan?assignment=${assignmentId}&student=${student}&active=${other}`);
                                                                                         setPlagiarismPopoverStudentId(null);
                                                                                     }}
                                                                                 >

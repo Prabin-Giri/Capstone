@@ -137,8 +137,14 @@
     transition: background-color 0.2s;
 }
 
-.view-button:hover {
+.view-button:hover:not(:disabled) {
     background-color: var(--border-color);
+}
+
+.view-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: var(--text-tertiary) !important;
 }
 
 .state-card {
