@@ -10,6 +10,43 @@ function normalizeRunLang(language) {
     return l;
 }
 
+function parseTestCaseFileEntries(rawValue) {
+    if (!rawValue || typeof rawValue !== 'string') return [];
+
+    const toEntry = (pathValue, isPublic = 1) => ({
+        path: String(pathValue),
+        is_public: isPublic === 0 || isPublic === false ? 0 : 1,
+    });
+
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) {
+            return parsed
+                .map((item) => {
+                    if (typeof item === 'string') return toEntry(item, 1);
+                    if (item && typeof item === 'object' && typeof item.path === 'string') {
+                        return toEntry(item.path, item.is_public);
+                    }
+                    return null;
+                })
+                .filter(Boolean);
+        }
+        if (parsed && typeof parsed === 'object' && typeof parsed.path === 'string') {
+            return [toEntry(parsed.path, parsed.is_public)];
+        }
+    } catch {
+        return [toEntry(rawValue, 1)];
+    }
+
+    return [toEntry(rawValue, 1)];
+}
+
+function extractJsonTestCases(rawJson) {
+    if (Array.isArray(rawJson)) return rawJson;
+    if (rawJson && typeof rawJson === 'object' && Array.isArray(rawJson.testCases)) return rawJson.testCases;
+    return [];
+}
+
 const fs = require('fs');
 const os = require('os');
 
@@ -392,22 +429,25 @@ router.post('/:id/test', async (req, res, next) => {
 
         let testCases = [];
 
-        if (assignment.test_case_file_path && assignment.test_case_file_path.toLowerCase().endsWith('.json')) {
+        const tcFileEntries = parseTestCaseFileEntries(assignment.test_case_file_path);
+        for (const entry of tcFileEntries) {
+            if (!entry.path.toLowerCase().endsWith('.json')) continue;
             try {
-                const content = (await readStoredUpload(assignment.test_case_file_path)).toString('utf8');
-                const jsonCases = JSON.parse(content);
-                testCases = jsonCases.map((tc, idx) => ({
+                const content = (await readStoredUpload(entry.path)).toString('utf8');
+                const jsonCases = extractJsonTestCases(JSON.parse(content));
+                const mappedCases = jsonCases.map((tc, idx) => ({
                     id: tc.id || `file-${idx}`,
                     input: tc.input || '',
                     expected_output: tc.expectedOutput || tc.expected_output || '',
                     points: Number(tc.points) || 0,
-                    is_public: tc.isHidden === true ? 0 : 1,
+                    is_public: entry.is_public === 0 ? 0 : (tc.isHidden === true ? 0 : 1),
                     input_type: tc.inputType || tc.input_type || 'stdin',
                     input_filename: tc.inputFilename || tc.input_filename,
                     output_filename: tc.outputFilename || tc.output_filename,
                     run_args: tc.runArgs || tc.run_args,
                     compare_mode: tc.compareMode || tc.compare_mode || 'exact'
                 }));
+                testCases = [...testCases, ...mappedCases];
             } catch (e) {
                 console.error('Failed to parse JSON test cases in /test:', e);
             }
@@ -731,13 +771,29 @@ router.post('/:id/autograde', async (req, res, next) => {
         const [dbCases] = await db.execute('SELECT * FROM test_cases WHERE assignment_id = ?', [assignmentId]);
         testCases = dbCases;
 
-        if (testCases.length === 0 && assignment.test_case_file_path && assignment.test_case_file_path.toLowerCase().endsWith('.json')) {
-            try {
-                const content = (await readStoredUpload(assignment.test_case_file_path)).toString('utf8');
-                const jsonCases = JSON.parse(content);
-                testCases = jsonCases; // gradeSubmission handles the mapping
-            } catch (e) {
-                console.error('Failed to parse JSON test cases in /autograde:', e);
+        if (testCases.length === 0) {
+            const tcFileEntries = parseTestCaseFileEntries(assignment.test_case_file_path);
+            for (const entry of tcFileEntries) {
+                if (!entry.path.toLowerCase().endsWith('.json')) continue;
+                try {
+                    const content = (await readStoredUpload(entry.path)).toString('utf8');
+                    const jsonCases = extractJsonTestCases(JSON.parse(content));
+                    const mappedCases = jsonCases.map((tc, idx) => ({
+                        id: tc.id || `file-${idx}`,
+                        input: tc.input || '',
+                        expected_output: tc.expectedOutput || tc.expected_output || '',
+                        points: Number(tc.points) || 0,
+                        is_public: entry.is_public === 0 ? 0 : (tc.isHidden === true ? 0 : 1),
+                        input_type: tc.inputType || tc.input_type || 'stdin',
+                        input_filename: tc.inputFilename || tc.input_filename,
+                        output_filename: tc.outputFilename || tc.output_filename,
+                        run_args: tc.runArgs || tc.run_args,
+                        compare_mode: tc.compareMode || tc.compare_mode || 'exact'
+                    }));
+                    testCases = [...testCases, ...mappedCases];
+                } catch (e) {
+                    console.error('Failed to parse JSON test cases in /autograde:', e);
+                }
             }
         }
 
