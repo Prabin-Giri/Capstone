@@ -88,6 +88,15 @@ const SubmissionGrader: React.FC = () => {
         const saved = localStorage.getItem('grader_left_collapsed');
         return saved === null ? false : saved === 'true';
     });
+
+    const toNumericRubricScores = (scores: Record<string, number | ''>): Record<string, number> => {
+        return Object.entries(scores).reduce<Record<string, number>>((accumulator, [key, value]) => {
+            if (value !== '') {
+                accumulator[key] = value;
+            }
+            return accumulator;
+        }, {});
+    };
     const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(() => {
         return localStorage.getItem('grader_right_collapsed') === 'true';
     });
@@ -590,12 +599,12 @@ const SubmissionGrader: React.FC = () => {
                 }
 
                 savedIndividualCount++;
-                const numericRubricScores = toNumericRubricScores(data.rubricScores);
+                const rubricScorePayload = toNumericRubricScores(data.rubricScores);
                 return updateSubmission(subIdNum, {
                     grade: gradeValue,
                     feedback: data.feedback,
                     status: newStatus,
-                    rubric_scores: Object.keys(numericRubricScores).length > 0 ? numericRubricScores : undefined
+                    rubric_scores: Object.keys(rubricScorePayload).length > 0 ? rubricScorePayload : undefined
                 });
             });
 

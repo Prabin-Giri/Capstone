@@ -11,32 +11,12 @@
 .gradebook-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: center;
     margin-bottom: 2rem;
 }
 
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.breadcrumb a {
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.breadcrumb a:hover {
-    color: var(--primary-text);
-}
-
 .page-title {
-    font-size: 1.875rem;
+    font-size: 1.35rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
@@ -72,17 +52,25 @@
     gap: 0.5rem;
 }
 
+.gradebook-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
 .filter-icon {
     color: var(--text-tertiary);
     flex-shrink: 0;
 }
 
 .gradebook-filter-input {
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 1rem;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    font-size: 0.875rem;
-    min-width: 220px;
+    font-size: 0.95rem;
+    min-width: 280px;
 }
 
 .gradebook-filter-input:focus {
@@ -114,10 +102,52 @@
     background: var(--border-color);
 }
 
+.gradebook-filter-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--primary-light);
+    background: var(--bg-surface);
+    color: var(--primary-text);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.gradebook-filter-download:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+}
+
 /* Actions */
 .gradebook-actions {
     display: flex;
     gap: 1rem;
+}
+
+.btn-course-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border: none;
+    color: #fff;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+}
+
+.btn-course-home:hover {
+    background: linear-gradient(135deg, var(--primary-hover) 0%, #4a0017 100%);
+    color: #fff;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    transform: translateY(-1px);
 }
 
 .btn-report {
@@ -197,7 +227,24 @@
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
-    overflow: hidden;
+    overflow: auto;
+    max-height: 70vh;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
+
+.gradebook-table-container::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+.gradebook-table-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.gradebook-table-container::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .gradebook-table {
@@ -209,11 +256,14 @@
 .gradebook-table th {
     text-align: left;
     padding: 1rem;
-    background: var(--bg-body);
-    border-bottom: 1px solid var(--border-color);
+    background: var(--primary-color);
+    border-bottom: 1px solid var(--primary-hover);
     font-weight: 600;
-    color: var(--text-secondary);
+    color: #fff;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .gradebook-table td {
@@ -259,6 +309,48 @@
     color: var(--text-tertiary);
 }
 
+/* Summary columns: Total Grade, Percentile, Rank */
+.gradebook-table th.summary-col {
+    background: #7a0026;
+    border-left: 2px solid rgba(255,255,255,0.2);
+}
+
+.gradebook-table td.summary-cell {
+    text-align: center;
+    border-left: 1px solid var(--border-color);
+    background: var(--bg-body);
+}
+
+.total-badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.grade-letter-text {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.rank-badge {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.rank-A { background: #dcfce7; color: #166534; }
+.rank-B { background: #d1fae5; color: #065f46; }
+.rank-C { background: #fef9c3; color: #854d0e; }
+.rank-D { background: #ffedd5; color: #9a3412; }
+.rank-F { background: #fee2e2; color: #991b1b; }
+
 /* Modals */
 .modal-overlay {
     position: fixed;
@@ -299,9 +391,18 @@
     animation: zoomIn 0.2s ease-out;
 }
 
+.modal-content.export-modal-dialog {
+    max-width: 760px;
+    min-height: min(760px, 86vh);
+}
+
+.modal-content.table-export-modal-dialog {
+    max-width: 640px;
+}
+
 .modal-content.large {
-    max-width: 900px;
-    height: 80vh;
+    max-width: 1080px;
+    height: 88vh;
 }
 
 @keyframes zoomIn {
@@ -348,6 +449,42 @@
     flex: 1;
 }
 
+.modal-content.large .modal-body {
+    padding: 1.75rem;
+}
+
+.modal-content.large .report-view {
+    font-size: 1rem;
+    line-height: 1.55;
+}
+
+.modal-content.large .report-view h4 {
+    font-size: 1.08rem;
+    margin-bottom: 1rem;
+}
+
+.modal-content.large .missing-table {
+    table-layout: auto;
+}
+
+.modal-content.large .missing-table th,
+.modal-content.large .missing-table td {
+    padding: 0.85rem 0.95rem;
+    font-size: 0.94rem;
+}
+
+.modal-content.large .gradebook-report-table th,
+.modal-content.large .gradebook-report-table td {
+    white-space: normal;
+}
+
+.modal-content.large .status-badge-missing,
+.modal-content.large .status-badge-ungraded,
+.modal-content.large .status-badge-not-submitted {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.55rem;
+}
+
 .modal-footer {
     padding: 1.5rem;
     border-top: 1px solid var(--border-color);
@@ -356,6 +493,207 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
+}
+
+.export-modal-intro {
+    color: var(--text-secondary);
+    margin: 0 0 1.1rem;
+    font-size: 0.98rem;
+}
+
+.export-modal-section {
+    margin-bottom: 1.35rem;
+}
+
+.export-modal-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.7rem;
+}
+
+.export-modal-label {
+    display: block;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.export-modal-hint {
+    font-size: 0.83rem;
+    color: var(--text-secondary);
+}
+
+.export-choice-row {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.export-choice-row--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.export-choice-chip {
+    padding: 0.9rem 1rem;
+    min-width: 0;
+}
+
+.export-picker-panel,
+.export-format-panel {
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,249,252,0.95) 100%);
+}
+
+.export-modal-search {
+    width: 100%;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    font-size: 0.94rem;
+    margin-bottom: 0.75rem;
+}
+
+.export-modal-search:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(132, 0, 41, 0.08);
+}
+
+.export-quick-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.export-quick-btn {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.82rem;
+}
+
+.export-scroll-panel {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    padding: 0.55rem 0.7rem;
+}
+
+.export-scroll-panel--student {
+    padding: 0.35rem;
+}
+
+.export-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.2rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.export-checkbox-row:last-child {
+    border-bottom: none;
+}
+
+.export-checkbox-text {
+    color: var(--text-primary);
+    font-size: 0.94rem;
+}
+
+.export-empty-state {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 0.85rem 0.25rem;
+}
+
+.export-selection-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    background: var(--primary-light);
+    color: var(--primary-text);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.export-student-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    text-align: left;
+    padding: 0.8rem 0.9rem;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+
+.export-student-row:hover {
+    background: rgba(132, 0, 41, 0.05);
+}
+
+.export-student-row.selected {
+    background: var(--primary-light);
+    color: var(--primary-text);
+    font-weight: 700;
+}
+
+.export-student-id {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+}
+
+.export-student-row.selected .export-student-id {
+    color: var(--primary-text);
+}
+
+.export-format-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.export-format-card {
+    min-height: 120px;
+}
+
+.table-export-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.2rem;
+}
+
+.table-export-stat {
+    padding: 0.95rem 1rem;
+    border-radius: 12px;
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+}
+
+.table-export-stat strong {
+    display: block;
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.table-export-stat-label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
 }
 
 /* Report Selection Cards */
@@ -429,6 +767,29 @@
 }
 
 @media (max-width: 768px) {
+    .modal-content.export-modal-dialog {
+        max-width: 100%;
+        min-height: auto;
+    }
+
+    .table-export-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .export-choice-row--three,
+    .export-format-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .export-modal-section-head {
+        align-items: flex-start;
+    }
+
+    .gradebook-filter-actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
