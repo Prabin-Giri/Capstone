@@ -94,7 +94,7 @@ const LandingPage: React.FC = () => {
                     <a href="#how" className="landing-nav-link">How It Works</a>
                     <a href="#roles" className="landing-nav-link">Who It's For</a>
                     <Link to="/login" className="landing-nav-cta">
-                        Get Started <ArrowRight size={16} />
+                        Login <ArrowRight size={16} />
                     </Link>
                 </div>
             </nav>
@@ -113,8 +113,8 @@ const LandingPage: React.FC = () => {
                     and gives instructors their time back.
                 </p>
                 <div className="landing-hero-actions">
-                    <Link to="/signup" className="landing-btn-primary">
-                        Get Started Free <ArrowRight size={18} />
+                    <Link to="/login" className="landing-btn-primary">
+                        Login <ArrowRight size={18} />
                     </Link>
                     <a href="#features" className="landing-btn-secondary">
                         Learn More <ChevronRight size={18} />
@@ -239,8 +239,8 @@ const LandingPage: React.FC = () => {
                     <div className="landing-cta-box">
                         <h2>Ready to transform your grading workflow?</h2>
                         <p>Join instructors and students who are saving hours every week with automated grading and evaluation.</p>
-                        <Link to="/signup" className="landing-cta-btn">
-                            Get Started Now <ArrowRight size={18} />
+                        <Link to="/login" className="landing-cta-btn">
+                            Login <ArrowRight size={18} />
                         </Link>
                     </div>
                 </FadeSection>
