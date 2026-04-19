@@ -49,7 +49,8 @@ fi
 echo "[deploy] fetching latest main"
 git fetch origin main
 git checkout main
-git pull --ff-only origin main
+git reset --hard origin/main
+git clean -fd
 
 echo "[deploy] installing backend dependencies"
 cd server

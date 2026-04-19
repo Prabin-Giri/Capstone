@@ -64,7 +64,8 @@ jobs:
                 cd "$APP_DIR"
                 git fetch origin main
                 git checkout main
-                git pull --ff-only origin main
+                git reset --hard origin/main
+                git clean -fd
               fi
               SCRIPT_PATH="$APP_DIR/server/scripts/deploy-ec2.sh"
             fi
@@ -101,7 +102,8 @@ jobs:
             cd "$APP_DIR"
             git fetch origin main
             git checkout main
-            git pull --ff-only origin main
+            git reset --hard origin/main
+            git clean -fd
             echo "[deploy] deploy script updated, now executing..."
             # ── End pull ──
 
