@@ -5,9 +5,27 @@ import { getUser } from '../../lib/auth';
 import { ChevronLeft } from 'lucide-react';
 import './NewCourse.css';
 
-const TERM_OPTIONS = ['Spring', 'Summer', 'Fall', 'Winter'];
+function generateTermOptions(): string[] {
+    const seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-const DEFAULT_YEAR = String(new Date().getFullYear());
+    const terms: string[] = [];
+    for (let year = currentYear; year <= currentYear + 3; year++) {
+        for (const season of seasons) {
+            terms.push(`${season} ${year}`);
+        }
+    }
+
+    // Find the current/upcoming term and start from there
+    const seasonIndex = currentMonth < 5 ? 0 : currentMonth < 7 ? 1 : currentMonth < 11 ? 2 : 3;
+    const startTerm = `${seasons[seasonIndex]} ${currentYear}`;
+    const startIdx = terms.indexOf(startTerm);
+    return startIdx > 0 ? terms.slice(startIdx) : terms;
+}
+
+const TERM_OPTIONS = generateTermOptions();
 
 const NewCourse: React.FC = () => {
     const navigate = useNavigate();
@@ -16,8 +34,7 @@ const NewCourse: React.FC = () => {
     const [formData, setFormData] = useState({
         id: '',
         name: '',
-        term: TERM_OPTIONS[0],
-        year: DEFAULT_YEAR
+        term: TERM_OPTIONS[0]
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -27,13 +44,7 @@ const NewCourse: React.FC = () => {
 
         try {
             const user = getUser();
-            const payload = {
-                id: formData.id,
-                name: formData.name,
-                term: `${formData.term} ${formData.year}`,
-                instructor_id: user?.id,
-            };
-            await createCourse(payload);
+            await createCourse({ ...formData, instructor_id: user?.id });
             navigate('/faculty');
         } catch (err: any) {
             setError(err.message || 'Failed to create course');
@@ -93,21 +104,6 @@ const NewCourse: React.FC = () => {
                                 <option key={term} value={term}>{term}</option>
                             ))}
                         </select>
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label">Year</label>
-                        <input
-                            type="number"
-                            min="1900"
-                            max="2999"
-                            step="1"
-                            className="form-input"
-                            value={formData.year}
-                            onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                            placeholder="e.g., 2026"
-                            required
-                        />
                     </div>
 
                     <div className="form-actions">

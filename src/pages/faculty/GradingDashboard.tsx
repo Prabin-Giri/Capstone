@@ -670,7 +670,7 @@ const GradingDashboard: React.FC = () => {
                         Plagiarism check
                     </button>
                     <Link
-                        to={`${basePath}/courses/${courseId}/gradebook${assignmentId ? `?assignmentId=${encodeURIComponent(assignmentId)}` : ''}`}
+                        to={`${basePath}/courses/${courseId}/gradebook`}
                         className="btn-dashboard-action btn-gradebook"
                     >
                         <BarChart2 size={18} />

@@ -1,44 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { getCourseGrades, getCourseGradesExportUrl, getCourseCatalogId } from '../../lib/api';
 import type { GradebookData, CourseGradesExportType } from '../../lib/api';
-import { Download, FileSpreadsheet, FileText, BarChart2, Printer, X, PieChart, Search, Filter, FileDown } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, ChevronLeft, BarChart2, Printer, X, PieChart, Search, Filter, FileDown } from 'lucide-react';
 import './CourseGradebook.css';
-
-function triggerDownload(url: string) {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.rel = 'noopener';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-}
-
-function downloadBlob(filename: string, blob: Blob) {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-}
-
-function escapeCsvValue(value: string | number) {
-    const text = String(value ?? '');
-    if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-    return text;
-}
-
-function escapeHtml(value: string | number) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
 
 type CellStatus = 'graded' | 'ungraded' | 'missing' | 'not_submitted';
 
@@ -75,16 +40,8 @@ interface ReportStats {
 
 const CourseGradebook: React.FC = () => {
     const { courseId } = useParams();
-    const { pathname, search } = useLocation();
+    const { pathname } = useLocation();
     const basePath = pathname.startsWith('/ta') ? '/ta' : '/faculty';
-    const assignmentFilterFromQuery = useMemo(() => {
-        const value = new URLSearchParams(search).get('assignmentId');
-        return value ? value.trim() : '';
-    }, [search]);
-    const studentFilterFromQuery = useMemo(() => {
-        const value = new URLSearchParams(search).get('studentId');
-        return value ? value.trim() : '';
-    }, [search]);
     const [data, setData] = useState<GradebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [showExportModal, setShowExportModal] = useState(false);
@@ -95,7 +52,6 @@ const CourseGradebook: React.FC = () => {
     const [exportStudentSearch, setExportStudentSearch] = useState('');
     const [exportAssignmentIds, setExportAssignmentIds] = useState<string[]>([]);
     const [exportAssignmentSearch, setExportAssignmentSearch] = useState('');
-    const [showTableExportModal, setShowTableExportModal] = useState(false);
 
     // Report State
     const [reportStep, setReportStep] = useState<'select' | 'view'>('select');
@@ -106,22 +62,14 @@ const CourseGradebook: React.FC = () => {
     const [reportScopeAssignmentId, setReportScopeAssignmentId] = useState('');
 
     // Filters
-    const [filterStudent, setFilterStudent] = useState(studentFilterFromQuery);
-    const [filterAssignmentId, setFilterAssignmentId] = useState<string>(assignmentFilterFromQuery); // '' = all
+    const [filterStudent, setFilterStudent] = useState('');
+    const [filterAssignmentId, setFilterAssignmentId] = useState<string>(''); // '' = all
 
     useEffect(() => {
         if (courseId) {
             loadGradebook();
         }
     }, [courseId]);
-
-    useEffect(() => {
-        setFilterAssignmentId(assignmentFilterFromQuery);
-    }, [assignmentFilterFromQuery]);
-
-    useEffect(() => {
-        setFilterStudent(studentFilterFromQuery);
-    }, [studentFilterFromQuery]);
 
     async function loadGradebook() {
         if (!courseId) return;
@@ -144,7 +92,7 @@ const CourseGradebook: React.FC = () => {
             ...(exportType === 'student' && exportStudentId ? { studentId: exportStudentId } : {}),
             ...((exportType === 'assignments' || exportType === 'final') && exportAssignmentIds.length > 0 ? { assignmentIds: exportAssignmentIds } : {}),
         });
-        triggerDownload(url);
+        window.open(url, '_blank');
         setShowExportModal(false);
     };
 
@@ -478,87 +426,23 @@ ${stats.missingGrades.length > 0 ? `
     const filteredAssignments = filterAssignmentId
         ? assignments.filter(a => a.id === filterAssignmentId)
         : assignments;
-    const showSummaryColumns = filterAssignmentId === '';
 
     const showOverall = filterStudent !== '' || filterAssignmentId !== '';
-
-    const getStudentTotals = (student: typeof students[0]) => {
-        const possible = filteredAssignments.reduce((sum, a) => sum + (a.points || 100), 0);
-        const earned = filteredAssignments.reduce((sum, a) => {
-            const g = student.grades[a.id];
-            return sum + (g !== null && g !== undefined ? Number(g) : 0);
-        }, 0);
-        const percentage = possible > 0 ? (earned / possible) * 100 : null;
-        return { earned, possible, percentage };
-    };
-
-    const visibleExportAssignments = data?.assignments.filter(a => !exportAssignmentSearch.trim() || a.title.toLowerCase().includes(exportAssignmentSearch.trim().toLowerCase())) ?? [];
-    const visibleExportStudents = data?.students.filter(s => !exportStudentSearch.trim() || s.name.toLowerCase().includes(exportStudentSearch.trim().toLowerCase()) || (s.id && String(s.id).toLowerCase().includes(exportStudentSearch.trim().toLowerCase()))) ?? [];
-    const selectedExportStudent = data?.students.find(s => s.id === exportStudentId) ?? null;
-    const exportDisabled = (exportType === 'student' && !exportStudentId) || ((exportType === 'assignments' || exportType === 'final') && exportAssignmentIds.length === 0);
-    const selectedAssignment = filterAssignmentId ? assignments.find(a => a.id === filterAssignmentId) ?? null : null;
-    const currentTableColumns = [
-        'Student Name',
-        'Student ID',
-        ...filteredAssignments.map(a => `${a.title} (${a.points || 100} pts)`),
-        ...(showSummaryColumns ? ['Total', 'Percentage'] : []),
-    ];
-    const currentTableRows = filteredStudents.map(student => {
-        const assignmentCells = filteredAssignments.map(a => {
-            const grade = student.grades[a.id];
-            const isGraded = grade !== null && grade !== undefined;
-            const hasSubmission = student.submitted?.[a.id];
-            if (isGraded) return Number(grade).toFixed(2);
-            if (hasSubmission) return 'Ungraded';
-            return getCellStatus(student, a.id) === 'missing' ? 'Missing' : 'Not submitted';
-        });
-        const totals = getStudentTotals(student);
-        return [
-            student.name,
-            student.id,
-            ...assignmentCells,
-            ...(showSummaryColumns ? [
-                totals.possible > 0 ? `${totals.earned.toFixed(0)}/${totals.possible.toFixed(0)}` : '—',
-                totals.percentage !== null ? `${totals.percentage.toFixed(1)}%` : '—',
-            ] : []),
-        ];
-    });
-
-    const handleDownloadCurrentTable = (format: 'csv' | 'excel') => {
-        const safeCourseName = course.name.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
-        const safeScope = selectedAssignment?.title ? selectedAssignment.title.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') : 'all_assignments';
-        const fileBase = `${safeCourseName || 'course'}_${safeScope || 'gradebook'}_table`;
-
-        if (format === 'csv') {
-            const csv = [currentTableColumns, ...currentTableRows]
-                .map(row => row.map(escapeCsvValue).join(','))
-                .join('\n');
-            downloadBlob(`${fileBase}.csv`, new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-        } else {
-            const tableHtml = `
-                <table>
-                    <thead><tr>${currentTableColumns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr></thead>
-                    <tbody>
-                        ${currentTableRows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
-                    </tbody>
-                </table>`;
-            const html = `
-                <html>
-                    <head><meta charset="utf-8"></head>
-                    <body>${tableHtml}</body>
-                </html>`;
-            downloadBlob(`${fileBase}.xls`, new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' }));
-        }
-
-        setShowTableExportModal(false);
-    };
 
     return (
         <div className="course-gradebook">
             {/* Header */}
             <div className="gradebook-header">
                 <div>
-                    <h1 className="page-title">{course.name}</h1>
+                    <div className="breadcrumb">
+                        <Link to={`${basePath}/courses/${courseId}`}>
+                            <ChevronLeft size={14} />
+                            Back to Course
+                        </Link>
+                        <span>/</span>
+                        <span>Gradebook</span>
+                    </div>
+                    <h1 className="page-title">{course.name} Gradebook</h1>
                     <p className="page-subtitle">
                         {filteredAssignments.length} Assignment{filteredAssignments.length !== 1 ? 's' : ''} • {filteredStudents.length} Student{filteredStudents.length !== 1 ? 's' : ''}
                         {showOverall && <span className="filter-active-hint"> (filtered)</span>}
@@ -566,9 +450,6 @@ ${stats.missingGrades.length > 0 ? `
                 </div>
 
                 <div className="gradebook-actions">
-                    <Link to={`${basePath}/courses/${courseId}`} className="btn-course-home">
-                        Course Home
-                    </Link>
                     <button
                         onClick={() => {
                             setReportStep('select');
@@ -614,25 +495,15 @@ ${stats.missingGrades.length > 0 ? `
                         ))}
                     </select>
                 </div>
-                <div className="gradebook-filter-actions">
-                    {showOverall && (
-                        <button
-                            type="button"
-                            onClick={() => { setFilterStudent(''); setFilterAssignmentId(''); }}
-                            className="gradebook-filter-overall"
-                        >
-                            Overall
-                        </button>
-                    )}
+                {showOverall && (
                     <button
                         type="button"
-                        onClick={() => setShowTableExportModal(true)}
-                        className="gradebook-filter-download"
+                        onClick={() => { setFilterStudent(''); setFilterAssignmentId(''); }}
+                        className="gradebook-filter-overall"
                     >
-                        <FileDown size={16} />
-                        Download Table
+                        Overall
                     </button>
-                </div>
+                )}
             </div>
 
             {/* Gradebook Table */}
@@ -640,7 +511,7 @@ ${stats.missingGrades.length > 0 ? `
                 <table className="gradebook-table">
                     <thead>
                         <tr>
-                            <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 20, background: 'var(--primary-color)', color: '#fff' }}>Student Name</th>
+                            <th style={{ position: 'sticky', left: 0, zIndex: 10 }}>Student Name</th>
                             <th>Student ID</th>
                             {filteredAssignments.map(a => (
                                 <th key={a.id}>
@@ -654,8 +525,6 @@ ${stats.missingGrades.length > 0 ? `
                                     </div>
                                 </th>
                             ))}
-                            {showSummaryColumns && <th className="summary-col">Total</th>}
-                            {showSummaryColumns && <th className="summary-col">Percentage</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -687,23 +556,6 @@ ${stats.missingGrades.length > 0 ? `
                                         </td>
                                     );
                                 })}
-                                {showSummaryColumns && (() => {
-                                    const totals = getStudentTotals(student);
-                                    return (
-                                        <>
-                                            <td className="summary-cell">
-                                                {totals.possible > 0
-                                                    ? <span className="total-badge">{totals.earned.toFixed(0)}/{totals.possible.toFixed(0)}</span>
-                                                    : <span className="status-badge-not-submitted">—</span>}
-                                            </td>
-                                            <td className="summary-cell">
-                                                {totals.percentage !== null
-                                                    ? <span className={`grade-badge ${getGradeClass(totals.percentage, 100)}`}>{totals.percentage.toFixed(1)}%</span>
-                                                    : <span className="status-badge-not-submitted">—</span>}
-                                            </td>
-                                        </>
-                                    );
-                                })()}
                             </tr>
                         ))}
                     </tbody>
@@ -713,7 +565,7 @@ ${stats.missingGrades.length > 0 ? `
             {/* Export Modal */}
             {showExportModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content export-modal-dialog">
+                    <div className="modal-content">
                         <div className="modal-header">
                             <h3>Download Grades</h3>
                             <button onClick={() => setShowExportModal(false)} className="modal-close">
@@ -721,22 +573,20 @@ ${stats.missingGrades.length > 0 ? `
                             </button>
                         </div>
                         <div className="modal-body">
-                            <p className="export-modal-intro">
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
                                 Choose what to export and the file format.
                             </p>
 
-                            <section className="export-modal-section">
-                                <div className="export-modal-section-head">
-                                    <label className="export-modal-label">What to export</label>
-                                    <span className="export-modal-hint">Pick the grades set you want to download.</span>
-                                </div>
-                                <div className="export-choice-row export-choice-row--three">
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>What to export</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                     {(['assignments', 'final', 'student'] as const).map(t => (
                                         <button
                                             key={t}
                                             type="button"
                                             onClick={() => setExportType(t)}
-                                            className={`report-card-btn export-choice-chip ${exportType === t ? 'selected' : ''}`}
+                                            className={`report-card-btn ${exportType === t ? 'selected' : ''}`}
+                                            style={{ flex: '1 1 100px', padding: '0.6rem 0.75rem', minWidth: 0 }}
                                         >
                                             {t === 'assignments' && 'Assignment grades'}
                                             {t === 'final' && 'Final grades'}
@@ -744,28 +594,27 @@ ${stats.missingGrades.length > 0 ? `
                                         </button>
                                     ))}
                                 </div>
-                            </section>
+                            </div>
 
                             {(exportType === 'assignments' || exportType === 'final') && data && data.assignments.length > 0 && (
-                                <section className="export-modal-section export-picker-panel">
-                                    <div className="export-modal-section-head">
-                                        <label className="export-modal-label">Select assignments</label>
-                                        <span className="export-selection-pill">{exportAssignmentIds.length} of {data.assignments.length} selected</span>
-                                    </div>
+                                <div style={{ marginBottom: '1.25rem' }}>
+                                    <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Select assignments</label>
                                     <input
                                         type="text"
                                         placeholder="Search assignments..."
                                         value={exportAssignmentSearch}
                                         onChange={e => setExportAssignmentSearch(e.target.value)}
-                                        className="export-modal-search"
+                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border)', marginBottom: '0.5rem' }}
                                     />
-                                    <div className="export-quick-actions">
-                                        <button type="button" className="btn-report export-quick-btn" onClick={() => setExportAssignmentIds(data.assignments.map(a => a.id))}>Select all</button>
-                                        <button type="button" className="btn-report export-quick-btn" onClick={() => setExportAssignmentIds([])}>Deselect all</button>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                        <button type="button" className="btn-report" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setExportAssignmentIds(data.assignments.map(a => a.id))}>Select all</button>
+                                        <button type="button" className="btn-report" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setExportAssignmentIds([])}>Deselect all</button>
                                     </div>
-                                    <div className="export-scroll-panel">
-                                        {visibleExportAssignments.map(a => (
-                                                <label key={a.id} className="export-checkbox-row">
+                                    <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.5rem' }}>
+                                        {data.assignments
+                                            .filter(a => !exportAssignmentSearch.trim() || a.title.toLowerCase().includes(exportAssignmentSearch.trim().toLowerCase()))
+                                            .map(a => (
+                                                <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0', cursor: 'pointer' }}>
                                                     <input
                                                         type="checkbox"
                                                         checked={exportAssignmentIds.includes(a.id)}
@@ -774,55 +623,54 @@ ${stats.missingGrades.length > 0 ? `
                                                             else setExportAssignmentIds(prev => prev.filter(id => id !== a.id));
                                                         }}
                                                     />
-                                                    <span className="export-checkbox-text">{a.title}</span>
+                                                    <span>{a.title}</span>
                                                 </label>
                                             ))}
-                                        {visibleExportAssignments.length === 0 && (
-                                            <div className="export-empty-state">No assignments match.</div>
+                                        {data.assignments.filter(a => !exportAssignmentSearch.trim() || a.title.toLowerCase().includes(exportAssignmentSearch.trim().toLowerCase())).length === 0 && (
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No assignments match.</div>
                                         )}
                                     </div>
-                                </section>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{exportAssignmentIds.length} of {data.assignments.length} selected</div>
+                                </div>
                             )}
 
                             {exportType === 'student' && data && (
-                                <section className="export-modal-section export-picker-panel">
-                                    <div className="export-modal-section-head">
-                                        <label className="export-modal-label">Select student</label>
-                                        {selectedExportStudent && <span className="export-selection-pill">{selectedExportStudent.name}</span>}
-                                    </div>
+                                <div style={{ marginBottom: '1.25rem' }}>
+                                    <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Select student</label>
                                     <input
                                         type="text"
                                         placeholder="Search by name or ID..."
                                         value={exportStudentSearch}
                                         onChange={e => setExportStudentSearch(e.target.value)}
-                                        className="export-modal-search"
+                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border)', marginBottom: '0.5rem' }}
                                     />
-                                    <div className="export-scroll-panel export-scroll-panel--student">
-                                        {visibleExportStudents.map(s => (
+                                    <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                                        {data.students
+                                            .filter(s => !exportStudentSearch.trim() || s.name.toLowerCase().includes(exportStudentSearch.trim().toLowerCase()) || (s.id && String(s.id).toLowerCase().includes(exportStudentSearch.trim().toLowerCase())))
+                                            .map(s => (
                                                 <button
                                                     key={s.id}
                                                     type="button"
                                                     onClick={() => setExportStudentId(s.id)}
-                                                    className={`export-student-row ${exportStudentId === s.id ? 'selected' : ''}`}
+                                                    style={{
+                                                        width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', border: 'none', background: exportStudentId === s.id ? 'var(--primary-light, #e8d4d8)' : 'transparent', cursor: 'pointer', borderRadius: '4px', fontSize: '0.9rem'
+                                                    }}
                                                 >
-                                                    <span>{s.name}</span>
-                                                    <span className="export-student-id">{s.id}</span>
+                                                    {s.name} <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>({s.id})</span>
                                                 </button>
                                             ))}
-                                        {visibleExportStudents.length === 0 && (
-                                            <div className="export-empty-state">No students match.</div>
+                                        {data.students.filter(s => !exportStudentSearch.trim() || s.name.toLowerCase().includes(exportStudentSearch.trim().toLowerCase()) || (s.id && String(s.id).toLowerCase().includes(exportStudentSearch.trim().toLowerCase()))).length === 0 && (
+                                            <div style={{ padding: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No students match.</div>
                                         )}
                                     </div>
-                                </section>
+                                    {exportStudentId && <div style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: 'var(--text-secondary)' }}>Selected: {data.students.find(s => s.id === exportStudentId)?.name}</div>}
+                                </div>
                             )}
 
-                            <section className="export-modal-section export-format-panel">
-                                <div className="export-modal-section-head">
-                                    <label className="export-modal-label">Format</label>
-                                    <span className="export-modal-hint">Choose the file type you want to download.</span>
-                                </div>
-                                <div className="report-grid export-format-grid">
-                                    <label className={`report-card-btn export-format-card ${exportFormat === 'csv' ? 'selected' : ''}`}>
+                            <div style={{ marginBottom: '0.5rem' }}>
+                                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Format</label>
+                                <div className="report-grid">
+                                    <label className={`report-card-btn ${exportFormat === 'csv' ? 'selected' : ''}`}>
                                         <div className="report-card-header">
                                             <input
                                                 type="radio"
@@ -837,7 +685,7 @@ ${stats.missingGrades.length > 0 ? `
                                         </div>
                                         <div className="report-desc">Plain text, opens in Excel.</div>
                                     </label>
-                                    <label className={`report-card-btn export-format-card ${exportFormat === 'excel' ? 'selected' : ''}`}>
+                                    <label className={`report-card-btn ${exportFormat === 'excel' ? 'selected' : ''}`}>
                                         <div className="report-card-header">
                                             <input
                                                 type="radio"
@@ -853,7 +701,7 @@ ${stats.missingGrades.length > 0 ? `
                                         <div className="report-desc">.xlsx spreadsheet.</div>
                                     </label>
                                 </div>
-                            </section>
+                            </div>
                         </div>
                         <div className="modal-footer">
                             <button
@@ -865,68 +713,12 @@ ${stats.missingGrades.length > 0 ? `
                             <button
                                 onClick={handleDownload}
                                 className="btn-report-action"
-                                disabled={exportDisabled}
+                                disabled={
+                                    (exportType === 'student' && !exportStudentId) ||
+                                    ((exportType === 'assignments' || exportType === 'final') && exportAssignmentIds.length === 0)
+                                }
                             >
                                 <Download size={18} /> Download {exportFormat === 'excel' ? 'Excel' : 'CSV'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showTableExportModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content table-export-modal-dialog">
-                        <div className="modal-header">
-                            <h3>Download Current Table</h3>
-                            <button onClick={() => setShowTableExportModal(false)} className="modal-close">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="modal-body">
-                            <p className="export-modal-intro">
-                                Download exactly what is currently visible in the gradebook table.
-                            </p>
-                            <div className="table-export-summary">
-                                <div className="table-export-stat">
-                                    <span className="table-export-stat-label">Students</span>
-                                    <strong>{filteredStudents.length}</strong>
-                                </div>
-                                <div className="table-export-stat">
-                                    <span className="table-export-stat-label">Assignments</span>
-                                    <strong>{filteredAssignments.length}</strong>
-                                </div>
-                                <div className="table-export-stat">
-                                    <span className="table-export-stat-label">View</span>
-                                    <strong>{selectedAssignment ? selectedAssignment.title : 'Overall'}</strong>
-                                </div>
-                            </div>
-                            <section className="export-modal-section export-format-panel">
-                                <div className="export-modal-section-head">
-                                    <label className="export-modal-label">Choose format</label>
-                                    <span className="export-modal-hint">Both downloads include the rows and columns shown below.</span>
-                                </div>
-                                <div className="report-grid export-format-grid">
-                                    <button type="button" className="report-card-btn export-format-card" onClick={() => handleDownloadCurrentTable('csv')}>
-                                        <div className="report-card-header">
-                                            <div className="icon-box"><FileText size={24} /></div>
-                                            <div className="report-title">CSV</div>
-                                        </div>
-                                        <div className="report-desc">Best for spreadsheet filtering and import.</div>
-                                    </button>
-                                    <button type="button" className="report-card-btn export-format-card" onClick={() => handleDownloadCurrentTable('excel')}>
-                                        <div className="report-card-header">
-                                            <div className="icon-box"><FileSpreadsheet size={24} /></div>
-                                            <div className="report-title">Excel</div>
-                                        </div>
-                                        <div className="report-desc">Opens directly as an Excel-compatible worksheet.</div>
-                                    </button>
-                                </div>
-                            </section>
-                        </div>
-                        <div className="modal-footer">
-                            <button onClick={() => setShowTableExportModal(false)} className="btn-report">
-                                Cancel
                             </button>
                         </div>
                     </div>
