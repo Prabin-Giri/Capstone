@@ -1,20 +1,87 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
 import {
     getCourseGrades,
     getSubmissions,
     getFileUrl,
     enrollStudent,
+    enrollStudentsByCSV,
     searchStudents,
     unenrollStudent,
     type GradebookData,
     type User,
+    type CsvEnrollResult,
 } from '../../lib/api';
-import { ChevronLeft, BarChart2, X, ExternalLink, Plus, Search, UserPlus, Trash, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, BarChart2, X, ExternalLink, Plus, Search, UserPlus, Trash, ShieldAlert, Upload } from 'lucide-react';
 import UserAvatar from '../../components/ui/UserAvatar';
 import { showDialog } from '../../components/ui/Dialog';
 import './FacultyCourseView.css';
 import './FacultyStudentListView.css';
+
+function parseCsvRow(row: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < row.length; i++) {
+        const ch = row[i];
+        if (ch === '"') {
+            if (inQuotes && row[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    result.push(current.trim());
+    return result;
+}
+
+function parseEnrollmentCsv(text: string): { id: string; name: string; email: string }[] {
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+
+    const rows = lines.map(parseCsvRow);
+    const normalizedHeader = rows[0].map((cell) => cell.toLowerCase());
+    const hasHeader = normalizedHeader.some((h) =>
+        ['id', 'student_id', 'student id', 'name', 'student', 'email', 'sis login id'].includes(h)
+    );
+
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const header = hasHeader ? normalizedHeader : [];
+
+    const indexFor = (...keys: string[]) => {
+        if (!hasHeader) return -1;
+        for (const key of keys) {
+            const idx = header.indexOf(key);
+            if (idx >= 0) return idx;
+        }
+        return -1;
+    };
+
+    const idIndex = hasHeader ? indexFor('student_id', 'student id', 'id') : 0;
+    const nameIndex = hasHeader ? indexFor('name', 'student') : 1;
+    const emailIndex = hasHeader ? indexFor('email') : 2;
+    const sisLoginIndex = hasHeader ? indexFor('sis login id') : -1;
+
+    return dataRows
+        .map((cols) => {
+            const id = (cols[idIndex] || '').trim();
+            const name = (cols[nameIndex] || '').trim();
+            const emailRaw = emailIndex >= 0 ? (cols[emailIndex] || '').trim() : '';
+            const sisLogin = sisLoginIndex >= 0 ? (cols[sisLoginIndex] || '').trim() : '';
+            const email = emailRaw || (sisLogin ? `${sisLogin}@example.edu` : '');
+
+            if (!id || !name || !email) return null;
+            return { id, name, email };
+        })
+        .filter((row): row is { id: string; name: string; email: string } => Boolean(row));
+}
 
 const FacultyStudentListView: React.FC = () => {
     const { courseId } = useParams();
@@ -25,9 +92,16 @@ const FacultyStudentListView: React.FC = () => {
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
     const [studentToUnenroll, setStudentToUnenroll] = useState<{ id: string, name: string } | null>(null);
     const [showEnrollModal, setShowEnrollModal] = useState(false);
+    const [enrollTab, setEnrollTab] = useState<'manual' | 'upload' | 'paste'>('manual');
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<User[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [csvText, setCsvText] = useState('');
+    const [csvData, setCsvData] = useState<{ id: string; name: string; email: string }[]>([]);
+    const [csvFileName, setCsvFileName] = useState('');
+    const [csvLoading, setCsvLoading] = useState(false);
+    const [csvResult, setCsvResult] = useState<CsvEnrollResult | null>(null);
+    const csvInputRef = useRef<HTMLInputElement>(null);
 
     const basePath = useMemo(() => {
         return pathname.startsWith('/ta') ? `/ta/courses/${courseId}` : `/faculty/courses/${courseId}`;
@@ -60,8 +134,53 @@ const FacultyStudentListView: React.FC = () => {
 
     const resetEnrollModal = () => {
         setShowEnrollModal(false);
+        setEnrollTab('manual');
         setStudentSearchQuery('');
         setSearchResults([]);
+        setCsvText('');
+        setCsvData([]);
+        setCsvFileName('');
+        setCsvLoading(false);
+        setCsvResult(null);
+    };
+
+    const handleCsvFile = (file: File) => {
+        setCsvFileName(file.name);
+        setCsvResult(null);
+        const reader = new FileReader();
+        reader.onload = () => {
+            const text = String(reader.result || '');
+            setCsvText(text);
+            setCsvData(parseEnrollmentCsv(text));
+        };
+        reader.readAsText(file);
+    };
+
+    const handleCsvEnroll = async () => {
+        if (!courseId) return;
+        const parsed = csvData.length > 0 ? csvData : parseEnrollmentCsv(csvText);
+        if (parsed.length === 0) {
+            await showDialog({
+                title: 'Invalid CSV',
+                message: 'Please provide CSV rows with student_id (or id), name, and email. Canvas format with SIS Login ID is also supported.',
+                confirmText: 'OK',
+            });
+            return;
+        }
+
+        setCsvLoading(true);
+        setCsvResult(null);
+        try {
+            const result = await enrollStudentsByCSV(courseId, parsed);
+            setCsvData(parsed);
+            setCsvResult(result);
+            await loadData();
+        } catch (err) {
+            console.error('CSV enrollment failed', err);
+            await showDialog({ title: 'Error', message: 'Failed to enroll students from CSV', confirmText: 'OK' });
+        } finally {
+            setCsvLoading(false);
+        }
     };
 
     const handleSearchStudents = async (query: string) => {
@@ -96,6 +215,7 @@ const FacultyStudentListView: React.FC = () => {
     };
 
     const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null;
+    const csvStudentLabel = `${csvData.length || ''} Student${csvData.length === 1 ? '' : 's'}`.trim();
 
     // Report generation logic similar to gradebook for selected student
     const generateStudentReport = () => {
@@ -237,7 +357,7 @@ const FacultyStudentListView: React.FC = () => {
                                     <div className="student-actions-cell">
                                             <button 
                                                 className="view-grades-btn"
-                                                onClick={() => setSelectedStudentId(student.id)}
+                                                onClick={() => navigate(`${basePath}/gradebook?studentId=${encodeURIComponent(student.id)}`)}
                                                 title="View student grades"
                                             >
                                                 <BarChart2 size={16} />
@@ -299,74 +419,221 @@ const FacultyStudentListView: React.FC = () => {
             {showEnrollModal && (
                 <div className="modal-overlay" onClick={resetEnrollModal}>
                     <div className="modal-content" style={{ maxWidth: '480px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+                        <input
+                            type="file"
+                            ref={csvInputRef}
+                            style={{ display: 'none' }}
+                            accept=".csv,text/csv,text/plain"
+                            onChange={(e) => e.target.files?.[0] && handleCsvFile(e.target.files[0])}
+                        />
                         <div className="enroll-modal-header">
-                            <h3 className="enroll-modal-title">Enroll student</h3>
+                            <h3 className="enroll-modal-title">Enroll Students</h3>
                             <button type="button" className="enroll-modal-close" onClick={resetEnrollModal} aria-label="Close">
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="search-input-wrapper">
-                            <Search className="search-icon-inside" size={18} aria-hidden />
-                            <input
-                                type="text"
-                                value={studentSearchQuery}
-                                onChange={(e) => void handleSearchStudents(e.target.value)}
-                                placeholder="Search by name or email…"
-                                className="student-search-input"
-                                autoFocus
-                            />
+                        <div className="enroll-modal-tabs">
+                            <button
+                                type="button"
+                                onClick={() => setEnrollTab('manual')}
+                                className={`enroll-modal-tab ${enrollTab === 'manual' ? 'active' : ''}`}
+                            >
+                                Manual Search
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setEnrollTab('upload')}
+                                className={`enroll-modal-tab ${enrollTab === 'upload' ? 'active' : ''}`}
+                            >
+                                Upload CSV
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setEnrollTab('paste')}
+                                className={`enroll-modal-tab ${enrollTab === 'paste' ? 'active' : ''}`}
+                            >
+                                Paste CSV
+                            </button>
                         </div>
-                        <div className="search-results-container custom-scrollbar">
-                            {isSearching ? (
-                                <p className="text-center py-4 text-gray-400 font-medium">Searching…</p>
-                            ) : searchResults.length > 0 ? (
-                                searchResults.map((studentRow) => (
-                                    <div key={studentRow.id} className="search-result-item">
-                                        <div className="search-result-info">
-                                            <div
-                                                className="search-result-avatar"
-                                                style={{ padding: studentRow.profile_picture ? 0 : undefined, overflow: 'hidden' }}
-                                            >
-                                                {studentRow.profile_picture ? (
-                                                    <img
-                                                        src={getFileUrl(studentRow.profile_picture)}
-                                                        alt=""
-                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                        onError={(e) => {
-                                                            const target = e.target as HTMLImageElement;
-                                                            target.style.display = 'none';
-                                                            const parent = target.parentElement;
-                                                            if (parent) {
-                                                                parent.style.padding = '';
-                                                                parent.textContent = studentRow.name.charAt(0);
-                                                            }
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    studentRow.name.charAt(0)
-                                                )}
+
+                        {enrollTab === 'manual' && (
+                            <>
+                                <div className="search-input-wrapper">
+                                    <Search className="search-icon-inside" size={18} aria-hidden />
+                                    <input
+                                        type="text"
+                                        value={studentSearchQuery}
+                                        onChange={(e) => void handleSearchStudents(e.target.value)}
+                                        placeholder="Search by name or email..."
+                                        className="student-search-input"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="search-results-container custom-scrollbar">
+                                    {isSearching ? (
+                                        <p className="text-center py-4 text-gray-400 font-medium">Searching database...</p>
+                                    ) : searchResults.length > 0 ? (
+                                        searchResults.map((studentRow) => (
+                                            <div key={studentRow.id} className="search-result-item">
+                                                <div className="search-result-info">
+                                                    <div
+                                                        className="search-result-avatar"
+                                                        style={{ padding: studentRow.profile_picture ? 0 : undefined, overflow: 'hidden' }}
+                                                    >
+                                                        {studentRow.profile_picture ? (
+                                                            <img
+                                                                src={getFileUrl(studentRow.profile_picture)}
+                                                                alt=""
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onError={(e) => {
+                                                                    const target = e.target as HTMLImageElement;
+                                                                    target.style.display = 'none';
+                                                                    const parent = target.parentElement;
+                                                                    if (parent) {
+                                                                        parent.style.padding = '';
+                                                                        parent.textContent = studentRow.name.charAt(0);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            studentRow.name.charAt(0)
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="search-result-name">{studentRow.name}</p>
+                                                        <p className="search-result-email">{studentRow.email}</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleEnroll(studentRow.id)}
+                                                    className="btn-enroll-icon"
+                                                    title="Enroll student"
+                                                >
+                                                    <UserPlus size={18} aria-hidden />
+                                                </button>
                                             </div>
-                                            <div>
-                                                <p className="search-result-name">{studentRow.name}</p>
-                                                <p className="search-result-email">{studentRow.email}</p>
+                                        ))
+                                    ) : studentSearchQuery.trim().length > 0 ? (
+                                        <p className="text-center py-4 text-gray-500">No students found matching your search.</p>
+                                    ) : (
+                                        <p className="text-center py-4 text-xs text-gray-400 font-medium">Start typing to find students...</p>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {enrollTab === 'upload' && (
+                            <div>
+                                <div
+                                    onClick={() => csvInputRef.current?.click()}
+                                    className={`csv-upload-box ${csvData.length > 0 ? 'has-file' : ''}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            csvInputRef.current?.click();
+                                        }
+                                    }}
+                                >
+                                    <Upload size={28} style={{ margin: '0 auto 12px', color: csvData.length > 0 ? 'var(--success-color)' : 'var(--text-tertiary)' }} />
+                                    {csvFileName ? (
+                                        <>
+                                            <p className="enroll-csv-file-name">{csvFileName}</p>
+                                            <p className="enroll-csv-file-meta">{csvData.length} student{csvData.length !== 1 ? 's' : ''} detected - click to change</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="enroll-csv-file-name">Click to upload CSV</p>
+                                            <p className="enroll-csv-file-meta">Drop in a roster export or a simple student list CSV</p>
+                                        </>
+                                    )}
+                                </div>
+
+                                {csvData.length > 0 && (
+                                    <div className="enroll-csv-preview" role="status" aria-live="polite">
+                                        {csvData.slice(0, 6).map((studentRow) => (
+                                            <div key={`${studentRow.id}-${studentRow.email}`} className="enroll-csv-preview-row">
+                                                <span>{studentRow.name}</span>
+                                                <span>{studentRow.email}</span>
                                             </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleEnroll(studentRow.id)}
-                                            className="btn-enroll-icon"
-                                            title="Enroll student"
-                                        >
-                                            <UserPlus size={18} aria-hidden />
-                                        </button>
+                                        ))}
+                                        {csvData.length > 6 && (
+                                            <div className="enroll-csv-preview-more">+{csvData.length - 6} more students</div>
+                                        )}
                                     </div>
-                                ))
-                            ) : studentSearchQuery.trim().length > 0 ? (
-                                <p className="text-center py-4 text-gray-500">No students found matching your search.</p>
-                            ) : (
-                                <p className="text-center py-4 text-xs text-gray-400 font-medium">Start typing to find students…</p>
-                            )}
-                        </div>
+                                )}
+
+                                {csvResult && (
+                                    <div className="enroll-csv-result">
+                                        <div className="enroll-csv-result-success">Enrolled: {csvResult.enrolled.length}</div>
+                                        <div>Already enrolled: {csvResult.alreadyEnrolled.length}</div>
+                                        <div className="enroll-csv-result-warning">Not found: {csvResult.notFound.length}</div>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => void handleCsvEnroll()}
+                                    disabled={csvLoading}
+                                    className="enroll-csv-submit"
+                                >
+                                    {csvLoading ? 'Enrolling...' : `Enroll ${csvStudentLabel}`}
+                                </button>
+                            </div>
+                        )}
+
+                        {enrollTab === 'paste' && (
+                            <div>
+                                <div className="enroll-csv-paste-panel">
+                                    <div className="enroll-csv-paste-title">Paste CSV here</div>
+                                    <div className="enroll-csv-paste-subtitle">Click in the box below, then paste your roster.</div>
+                                    <textarea
+                                        className="enroll-csv-textarea"
+                                        value={csvText}
+                                        onChange={(e) => {
+                                            setCsvText(e.target.value);
+                                            setCsvResult(null);
+                                            setCsvData(parseEnrollmentCsv(e.target.value));
+                                        }}
+                                        rows={8}
+                                        placeholder={"student_id,name,email\nS001,John Doe,john@example.edu"}
+                                    />
+                                </div>
+
+                                {csvData.length > 0 && (
+                                    <div className="enroll-csv-preview" role="status" aria-live="polite">
+                                        {csvData.slice(0, 6).map((studentRow) => (
+                                            <div key={`${studentRow.id}-${studentRow.email}`} className="enroll-csv-preview-row">
+                                                <span>{studentRow.name}</span>
+                                                <span>{studentRow.email}</span>
+                                            </div>
+                                        ))}
+                                        {csvData.length > 6 && (
+                                            <div className="enroll-csv-preview-more">+{csvData.length - 6} more students</div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {csvResult && (
+                                    <div className="enroll-csv-result">
+                                        <div className="enroll-csv-result-success">Enrolled: {csvResult.enrolled.length}</div>
+                                        <div>Already enrolled: {csvResult.alreadyEnrolled.length}</div>
+                                        <div className="enroll-csv-result-warning">Not found: {csvResult.notFound.length}</div>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => void handleCsvEnroll()}
+                                    disabled={csvLoading}
+                                    className="enroll-csv-submit"
+                                >
+                                    {csvLoading ? 'Enrolling...' : `Enroll ${csvStudentLabel}`}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

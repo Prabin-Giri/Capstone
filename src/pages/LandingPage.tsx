@@ -94,7 +94,7 @@ const LandingPage: React.FC = () => {
                     <a href="#how" className="landing-nav-link">How It Works</a>
                     <a href="#roles" className="landing-nav-link">Who It's For</a>
                     <Link to="/login" className="landing-nav-cta">
-                        Get Started <ArrowRight size={16} />
+                        Log In <ArrowRight size={16} />
                     </Link>
                 </div>
             </nav>

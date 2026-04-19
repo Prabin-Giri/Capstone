@@ -52,6 +52,45 @@ function normalizeRubricFromStored(parsed: unknown): RubricConfig | null {
     return null;
 }
 
+type TestCaseFileEntry = {
+    id: string;
+    name: string;
+    is_public: 0 | 1;
+    file?: File;
+    path?: string;
+};
+
+function parseStoredTestCaseFileEntries(raw: string | null | undefined): TestCaseFileEntry[] {
+    if (!raw) return [];
+    const toEntry = (path: string, isPublic: number | boolean = 1, index = 0): TestCaseFileEntry => ({
+        id: `stored-${index}-${path}`,
+        name: path.split('/').pop() || path,
+        is_public: isPublic === 0 || isPublic === false ? 0 : 1,
+        path,
+    });
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed
+                .map((item, index) => {
+                    if (typeof item === 'string') return toEntry(item, 1, index);
+                    if (item && typeof item === 'object' && typeof item.path === 'string') {
+                        return toEntry(item.path, (item as { is_public?: number | boolean }).is_public ?? 1, index);
+                    }
+                    return null;
+                })
+                .filter((item): item is TestCaseFileEntry => Boolean(item));
+        }
+        if (parsed && typeof parsed === 'object' && typeof parsed.path === 'string') {
+            return [toEntry(parsed.path, (parsed as { is_public?: number | boolean }).is_public ?? 1, 0)];
+        }
+    } catch {
+        return [toEntry(raw, 1, 0)];
+    }
+    return [toEntry(raw, 1, 0)];
+}
+
 export interface AssignmentWizardProps {
     /** Read-only view of an existing assignment (same layout as edit; use Edit to open the editor). */
     viewOnly?: boolean;
@@ -85,7 +124,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
     // existingStarterPaths: already-uploaded paths (from DB); starterCodeFiles: new local files pending upload
     const [existingStarterPaths, setExistingStarterPaths] = useState<string[]>([]);
     const [starterCodeFiles, setStarterCodeFiles] = useState<File[]>([]);
-    const [testCaseFile, setTestCaseFile] = useState<File | null>(null);
+    const [testCaseFiles, setTestCaseFiles] = useState<TestCaseFileEntry[]>([]);
     const [testCases, setTestCases] = useState<(Omit<Partial<TestCase>, 'points'> & { points?: number | string })[]>([]);
     const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
     const [assignmentGroups, setAssignmentGroups] = useState<{ id: string; name: string; students: string[] }[]>([]);
@@ -98,6 +137,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
     const [savingNamedRubric, setSavingNamedRubric] = useState(false);
     const [savedRubricSelectKey, setSavedRubricSelectKey] = useState(0);
     const [selectedSavedRubricId, setSelectedSavedRubricId] = useState<string | null>(null);
+    const [rubricWorkspace, setRubricWorkspace] = useState<'create' | 'saved'>('create');
     const [submissionCount, setSubmissionCount] = useState<number | null>(null);
     const [rubric, setRubric] = useState<RubricConfig>({
         title: '',
@@ -184,6 +224,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                         setExistingStarterPaths([data.starter_code_path]);
                     }
                 }
+                setTestCaseFiles(parseStoredTestCaseFileEntries(data.test_case_file_path || ''));
                 setTestCases(cases.map(tc => ({ ...tc, points: tc.points })));
                 if (groups && groups.length > 0) {
                     setAssignmentGroups(groups.map(g => ({
@@ -229,6 +270,13 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         setFormData((prev) => ({ ...prev, description: html }));
     };
 
+    const escapeHtml = (value: string) => value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
     const handleAttachFile = async (file: File) => {
         const form = new FormData();
         form.append('file', file);
@@ -236,11 +284,24 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         const fileUrl = getFileUrl(data.filePath);
-        const safeName = String(data.originalName || file.name).replace(/[<>]/g, '');
+        const safeName = escapeHtml(String(data.originalName || file.name));
+        const safeUrl = escapeHtml(fileUrl);
         exec(
             'insertHTML',
-            `<a class="attachment-bubble" href="${fileUrl}" target="_blank" rel="noreferrer">${safeName}</a>&nbsp;`
+            `<span class="attachment-chip" contenteditable="false" data-attachment-chip="true"><span class="attachment-chip-icon" aria-hidden="true">&#128206;</span><a class="attachment-chip-link" href="${safeUrl}" target="_blank" rel="noreferrer">${safeName}</a><span class="attachment-chip-remove" data-attachment-remove="true" role="button" aria-label="Remove attachment" title="Remove attachment">&times;</span></span>&nbsp;`
         );
+    };
+
+    const handleDescriptionClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        const target = event.target as HTMLElement;
+        const removeButton = target.closest('[data-attachment-remove="true"]');
+        if (!removeButton || readOnly) return;
+
+        event.preventDefault();
+        const attachmentChip = removeButton.closest('[data-attachment-chip="true"]');
+        attachmentChip?.remove();
+        const html = descriptionRef.current?.innerHTML ?? '';
+        setFormData((prev) => ({ ...prev, description: html }));
     };
 
     const handleAddTestCase = () => {
@@ -279,6 +340,27 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         setTestCases(newCases);
     };
 
+    const addTestCaseFiles = (incoming: FileList | null) => {
+        if (!incoming || incoming.length === 0) return;
+        const entries = Array.from(incoming).map((file, index) => ({
+            id: `new-${Date.now()}-${index}-${file.name}`,
+            name: file.name,
+            is_public: 0 as 0 | 1,
+            file,
+        }));
+        setTestCaseFiles((prev) => [...prev, ...entries]);
+    };
+
+    const toggleTestCaseFileVisibility = (entryId: string) => {
+        setTestCaseFiles((prev) =>
+            prev.map((entry) => entry.id === entryId ? { ...entry, is_public: entry.is_public ? 0 : 1 } : entry)
+        );
+    };
+
+    const removeTestCaseFileEntry = (entryId: string) => {
+        setTestCaseFiles((prev) => prev.filter((entry) => entry.id !== entryId));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
@@ -298,7 +380,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
             }
 
             let starterCodePath = formData.starter_code_path;
-            let testCaseFilePath = formData.test_case_file_path;
+            let testCaseFilePath = '';
 
             // Upload any new files and merge with remaining existing paths
             const newPaths = await Promise.all(
@@ -313,9 +395,22 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                 starterCodePath = JSON.stringify(allPaths);
             }
 
-            if (testCaseFile) {
-                const uploadResult = await uploadStarterCode(testCaseFile); // Reusing uploadStarterCode for general uploads
-                testCaseFilePath = uploadResult.filePath;
+            if (testCaseFiles.length > 0) {
+                const resolvedEntries: { path: string; is_public: 0 | 1 }[] = [];
+                for (const entry of testCaseFiles) {
+                    if (entry.file) {
+                        const uploadResult = await uploadStarterCode(entry.file);
+                        resolvedEntries.push({ path: uploadResult.filePath, is_public: entry.is_public });
+                    } else if (entry.path) {
+                        resolvedEntries.push({ path: entry.path, is_public: entry.is_public });
+                    }
+                }
+
+                if (resolvedEntries.length === 1 && resolvedEntries[0].is_public === 1) {
+                    testCaseFilePath = resolvedEntries[0].path;
+                } else if (resolvedEntries.length > 0) {
+                    testCaseFilePath = JSON.stringify(resolvedEntries);
+                }
             }
 
             const combinedDateTime = new Date(`${formData.due_date}T${formData.due_time}:00`).toISOString();
@@ -406,6 +501,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         setRubricTemplateName(item.name);
         setSelectedSavedRubricId(item.id);
         setSavedRubricSelectKey((k) => k + 1);
+        setRubricWorkspace('create');
     };
 
     const selectedSavedRubric = selectedSavedRubricId ? savedRubrics.find(r => r.id === selectedSavedRubricId) : null;
@@ -429,7 +525,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         }
         setSavingNamedRubric(true);
         try {
-            const res = await saveRubricTemplate(courseId, selected.name, rubricObj);
+            await saveRubricTemplate(courseId, selected.name, rubricObj);
             const list = await getSavedRubrics(courseId);
             setSavedRubrics(list);
             await showDialog({
@@ -520,6 +616,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
 
     const editHref = assignmentId ? `${basePath}/courses/${courseId}/assignments/${assignmentId}/edit` : '';
     const gradingHref = assignmentId ? `${basePath}/courses/${courseId}/assignments/${assignmentId}/grading` : '';
+    const gradebookHref = assignmentId ? `${basePath}/courses/${courseId}/gradebook?assignmentId=${encodeURIComponent(assignmentId)}` : `${basePath}/courses/${courseId}/gradebook`;
 
     return (
         <div className={`assignment-wizard-container${readOnly ? ' view-only' : ''}`}>
@@ -545,9 +642,14 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                                 >
                                     Rubrics
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => courseId && navigate(`${basePath}/courses/${courseId}/gradebook`)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate(gradebookHref)}
+                                >
                                     <Download size={16} />
-                                    Grades
+                                    Gradebook
                                 </Button>
                                 <Button type="button" variant="primary" size="sm" onClick={() => gradingHref && navigate(gradingHref)}>
                                     <BarChart2 size={16} />
@@ -650,6 +752,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                             contentEditable={!readOnly}
                             role="textbox"
                             aria-multiline="true"
+                            onClick={handleDescriptionClick}
                             onInput={() => setFormData((prev) => ({ ...prev, description: descriptionRef.current?.innerHTML ?? '' }))}
                             onBlur={() => setFormData((prev) => ({ ...prev, description: descriptionRef.current?.innerHTML ?? '' }))}
                             data-placeholder="Enter assignment instructions…"
@@ -916,88 +1019,126 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                             </Button>
                         )}
                     </div>
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Rubric title (e.g. Project 1 Rubric)"
-                        value={rubric.title}
-                        onChange={e => setRubric({ ...rubric, title: e.target.value })}
-                    />
-                </div>
-
-                {courseId && !readOnly && (
-                    <div
-                        className="saved-rubric-panel"
-                        style={{
-                            marginBottom: '1.25rem',
-                            padding: '1rem 1.25rem',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-color)',
-                            background: 'var(--bg-body)',
-                        }}
-                    >
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
-                            Saved rubrics (this course)
-                        </div>
-                        <div className="form-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
-                            <div className="form-group" style={{ flex: '1 1 220px', marginBottom: 0 }}>
-                                <label className="form-label">Load template</label>
-                                <select
-                                    key={savedRubricSelectKey}
-                                    className="form-select"
-                                    defaultValue=""
-                                    disabled={savedRubricsLoading}
-                                    aria-label="Load saved rubric template"
-                                    onChange={(e) => {
-                                        const v = e.target.value;
-                                        if (!v) {
-                                            setSelectedSavedRubricId(null);
-                                            setRubricTemplateName('');
-                                            return;
-                                        }
-                                        handleApplySavedRubric(v);
-                                    }}
-                                >
-                                    <option value="">{savedRubricsLoading ? 'Loading…' : 'Choose a saved rubric…'}</option>
-                                    {savedRubrics.map((s) => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group" style={{ flex: '1 1 220px', marginBottom: 0 }}>
-                                <label className="form-label">Save current rubric as</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="Template name for reuse"
-                                    value={rubricTemplateName}
-                                    onChange={(e) => setRubricTemplateName(e.target.value)}
-                                />
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
-                                onClick={() => void handleSaveNamedTemplate()}
-                            >
-                                {savingNamedRubric ? 'Saving…' : 'Save template'}
-                            </Button>
-                            {selectedSavedRubric && (
-                                <Button
+                    {!readOnly && courseId ? (
+                        <div className="rubric-workspace-card">
+                            <div className="rubric-workspace-tabs" role="tablist" aria-label="Rubric workspace options">
+                                <button
                                     type="button"
-                                    variant="outline"
-                                    disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
-                                    onClick={() => void handleUpdateSelectedTemplate()}
+                                    role="tab"
+                                    aria-selected={rubricWorkspace === 'create'}
+                                    className={`rubric-workspace-tab ${rubricWorkspace === 'create' ? 'active' : ''}`}
+                                    onClick={() => setRubricWorkspace('create')}
                                 >
-                                    {savingNamedRubric ? 'Updating…' : 'Update template'}
-                                </Button>
+                                    Create rubric
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={rubricWorkspace === 'saved'}
+                                    className={`rubric-workspace-tab ${rubricWorkspace === 'saved' ? 'active' : ''}`}
+                                    onClick={() => setRubricWorkspace('saved')}
+                                >
+                                    Saved templates
+                                </button>
+                            </div>
+
+                            {rubricWorkspace === 'create' ? (
+                                <div className="rubric-workspace-panel">
+                                    <div className="rubric-workspace-heading">Build the rubric for this assignment</div>
+                                    <p className="rubric-workspace-copy">Set the rubric title here, then define sections and criteria below.</p>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="Rubric title (e.g. Project 1 Rubric)"
+                                        value={rubric.title}
+                                        onChange={e => setRubric({ ...rubric, title: e.target.value })}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="rubric-workspace-panel">
+                                    <div className="rubric-workspace-heading">Reuse or store templates</div>
+                                    <p className="rubric-workspace-copy">Load a template from this course, or save the rubric you are building for reuse later.</p>
+
+                                    <div className="rubric-template-grid">
+                                        <div className="form-group rubric-template-field">
+                                            <label className="form-label">Load template</label>
+                                            <select
+                                                key={savedRubricSelectKey}
+                                                className="form-select"
+                                                defaultValue=""
+                                                disabled={savedRubricsLoading}
+                                                aria-label="Load saved rubric template"
+                                                onChange={(e) => {
+                                                    const v = e.target.value;
+                                                    if (!v) {
+                                                        setSelectedSavedRubricId(null);
+                                                        setRubricTemplateName('');
+                                                        return;
+                                                    }
+                                                    handleApplySavedRubric(v);
+                                                }}
+                                            >
+                                                <option value="">{savedRubricsLoading ? 'Loading…' : 'Choose a saved rubric…'}</option>
+                                                {savedRubrics.map((s) => (
+                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-group rubric-template-field">
+                                            <label className="form-label">Save current rubric as</label>
+                                            <div className="rubric-template-save-row">
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    placeholder="Template name for reuse"
+                                                    value={rubricTemplateName}
+                                                    onChange={(e) => setRubricTemplateName(e.target.value)}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
+                                                    onClick={() => void handleSaveNamedTemplate()}
+                                                >
+                                                    {savingNamedRubric ? 'Saving…' : 'Save template'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {selectedSavedRubric && (
+                                        <div className="rubric-template-status-row">
+                                            <div>
+                                                Editing template: <strong>{selectedSavedRubric.name}</strong>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={saving || savingRubric || savingNamedRubric || savedRubricsLoading}
+                                                onClick={() => void handleUpdateSelectedTemplate()}
+                                            >
+                                                {savingNamedRubric ? 'Updating…' : 'Update template'}
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    <p className="rubric-template-note">
+                                        Templates are stored for this course only. Saving with the same name updates the existing template.
+                                    </p>
+                                </div>
                             )}
                         </div>
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', marginTop: '0.65rem', marginBottom: 0 }}>
-                            Reusing the same template name updates it. Templates are stored for this course only.
-                        </p>
-                    </div>
-                )}
+                    ) : (
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Rubric title (e.g. Project 1 Rubric)"
+                            value={rubric.title}
+                            onChange={e => setRubric({ ...rubric, title: e.target.value })}
+                        />
+                    )}
+                </div>
 
                 <div className="form-row">
                     <div className="form-group">
@@ -1371,32 +1512,59 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
 
                 <div className="test-case-file-container glass-card" style={{ marginBottom: '2rem' }}>
                     <p className="tc-description-wizard">
-                        Upload a Python grader file (or zip) used for autograding submissions. This will override the manual test cases above.
+                        Upload one or more test case files. Mark each file as Public or Hidden. Hidden files are for grading only.
                     </p>
 
                     <div className="upload-box-wizard">
                         <input
                             type="file"
                             id="test-case-file-input"
-                            onChange={e => e.target.files?.[0] && setTestCaseFile(e.target.files[0])}
+                            multiple
+                            onChange={e => {
+                                addTestCaseFiles(e.target.files);
+                                e.currentTarget.value = '';
+                            }}
                             className="form-input-file"
                             style={{ display: 'none' }}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="tc-file-upload-layout">
                             <div className="file-display">
-                                {(testCaseFile || formData.test_case_file_path) ? (
-                                    <div className="file-info-active">
-                                        <span className="active-filename">
-                                            {testCaseFile ? testCaseFile.name : formData.test_case_file_path?.split('/').pop()}
-                                        </span>
-                                        {testCaseFile && <span className="active-filesize">({(testCaseFile.size / 1024).toFixed(1)} KB)</span>}
+                                {testCaseFiles.length > 0 ? (
+                                    <div className="tc-file-list">
+                                        {testCaseFiles.map((entry) => (
+                                            <div key={entry.id} className="tc-file-item">
+                                                <div className="file-info-active">
+                                                    <span className="active-filename">{entry.name}</span>
+                                                    {entry.file && <span className="active-filesize">({(entry.file.size / 1024).toFixed(1)} KB)</span>}
+                                                </div>
+                                                <div className="tc-file-item-actions">
+                                                    <button
+                                                        type="button"
+                                                        className={`tc-toggle-btn ${entry.is_public ? 'public' : 'hidden'}`}
+                                                        onClick={() => toggleTestCaseFileVisibility(entry.id)}
+                                                        title={entry.is_public ? 'Public file' : 'Hidden file'}
+                                                    >
+                                                        {entry.is_public ? <Eye size={14} /> : <EyeOff size={14} />}
+                                                        <span>{entry.is_public ? 'Public' : 'Hidden'}</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="tc-delete-btn"
+                                                        onClick={() => removeTestCaseFileEntry(entry.id)}
+                                                        title="Remove file"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 ) : (
-                                    <span className="empty-state-text-small">No test case file uploaded.</span>
+                                    <span className="empty-state-text-small">No test case files uploaded.</span>
                                 )}
                             </div>
                             <div className="file-actions-wizard">
-                                {(testCaseFile || formData.test_case_file_path) ? (
+                                {testCaseFiles.length > 0 ? (
                                     <>
                                         <Button
                                             type="button"
@@ -1404,7 +1572,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                                             size="sm"
                                             onClick={() => document.getElementById('test-case-file-input')?.click()}
                                         >
-                                            Replace
+                                            Add more
                                         </Button>
                                         <Button
                                             type="button"
@@ -1413,11 +1581,11 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                                             className="tc-remove-btn"
                                             style={{ color: '#ef4444' }}
                                             onClick={() => {
-                                                setTestCaseFile(null);
+                                                setTestCaseFiles([]);
                                                 setFormData({ ...formData, test_case_file_path: '' });
                                             }}
                                         >
-                                            <Trash2 size={14} /> Remove
+                                            <Trash2 size={14} /> Remove all
                                         </Button>
                                     </>
                                 ) : (
@@ -1428,7 +1596,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
                                         style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)' }}
                                         onClick={() => document.getElementById('test-case-file-input')?.click()}
                                     >
-                                        <Plus size={16} /> Upload Grader
+                                        <Plus size={16} /> Upload Files
                                     </Button>
                                 )}
                             </div>
