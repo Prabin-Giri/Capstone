@@ -652,6 +652,63 @@
     box-shadow: 0 2px 8px rgba(185, 28, 28, 0.15);
 }
 
+/* AI report badge */
+.ai-report-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: filter 0.15s;
+}
+.ai-report-badge:hover { filter: brightness(0.93); }
+
+.ai-report-ai {
+    color: #b91c1c;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+.ai-report-human {
+    color: #15803d;
+    background: #ecfdf5;
+    border-color: #bbf7d0;
+}
+.ai-report-unclear {
+    color: #475569;
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+/* AI popover rows */
+.ai-report-popover-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+.ai-report-popover-row:last-child { border-bottom: none; }
+.ai-report-popover-file {
+    flex: 1;
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ai-report-popover-score {
+    font-size: 0.75rem;
+    color: var(--text-tertiary, #6b7280);
+    min-width: 38px;
+    text-align: right;
+}
+
 .grader-title-row .plagiarism-popover {
     position: absolute;
     top: calc(100% + 8px);

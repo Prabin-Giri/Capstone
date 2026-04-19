@@ -11,6 +11,7 @@ import {
     runTests,
     getAssignmentGroups,
     gradeAssignmentGroup,
+    getSubmissionAiDetections,
 } from '../../lib/api';
 import type {
     Submission,
@@ -18,12 +19,13 @@ import type {
     RubricConfig,
     TestResult,
     AssignmentGroup,
+    SubmissionAiDetectionResult,
 } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import AlertModal from '../../components/ui/AlertModal';
 import { AssignmentEditor, type EditorFile } from '../../components/ui/AssignmentEditor';
 import UserAvatar from '../../components/ui/UserAvatar';
-import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, ChevronLeft, CalendarDays, Layers, ShieldAlert, FileText } from 'lucide-react';
+import { CheckCircle, Clock, Search, Users, ClipboardList, X, PanelLeftClose, PanelRightClose, ChevronLeft, CalendarDays, Layers, ShieldAlert, FileText, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import './SubmissionGrader.css';
@@ -164,6 +166,15 @@ const SubmissionGrader: React.FC = () => {
     useEffect(() => {
         loadData();
     }, [submissionId]);
+
+    // Fetch AI detection results for the current submission
+    useEffect(() => {
+        if (!submission?.id) return;
+        setAiResults([]);
+        getSubmissionAiDetections(submission.id, { limit: 100 })
+            .then(data => setAiResults(data.results || []))
+            .catch(() => setAiResults([]));
+    }, [submission?.id]);
 
     // Fetch all students for the assignment (once per assignmentId)
     useEffect(() => {
@@ -540,16 +551,6 @@ const SubmissionGrader: React.FC = () => {
         return null;
     }
 
-    function toNumericRubricScores(scores: Record<string, number | ''>): Record<string, number> {
-        const numeric: Record<string, number> = {};
-        Object.entries(scores).forEach(([criterionId, raw]) => {
-            if (raw === '' || raw == null) return;
-            const parsed = typeof raw === 'number' ? raw : Number(raw);
-            if (Number.isFinite(parsed)) numeric[criterionId] = parsed;
-        });
-        return numeric;
-    }
-
     async function handleSave() {
         // Capture current student into ref first
         saveDraftForCurrent();
@@ -715,6 +716,9 @@ const SubmissionGrader: React.FC = () => {
 
     const [showPlagPopover, setShowPlagPopover] = useState(false);
     const plagPopoverRef = useRef<HTMLDivElement>(null);
+    const [aiResults, setAiResults] = useState<SubmissionAiDetectionResult[]>([]);
+    const [showAiPopover, setShowAiPopover] = useState(false);
+    const aiPopoverRef = useRef<HTMLDivElement>(null);
 
     const studentPlagiarismMatches = useMemo(() => {
         if (!assignmentId || !submission) return [];
@@ -738,8 +742,34 @@ const SubmissionGrader: React.FC = () => {
         document.addEventListener('mousedown', handleClick);
         return () => document.removeEventListener('mousedown', handleClick);
     }, [showPlagPopover]);
-    
-    // (AI analysis removed from grading page)
+
+    useEffect(() => {
+        if (!showAiPopover) return;
+        function handleClick(e: MouseEvent) {
+            if (aiPopoverRef.current && !aiPopoverRef.current.contains(e.target as Node)) {
+                setShowAiPopover(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [showAiPopover]);
+
+    // Derive consensus AI label across files
+    const aiLabel: string | null = (() => {
+        if (aiResults.length === 0) return null;
+        const labels = aiResults.map(r => String(r.label || '').toLowerCase());
+        if (labels.some(l => l.includes('likely ai'))) return 'Likely AI';
+        if (labels.some(l => l.includes('unclear') || l.includes('mixed'))) return 'Unclear';
+        if (labels.every(l => l.includes('likely human'))) return 'Likely Human';
+        return aiResults[0]?.label || null;
+    })();
+
+    const aiBadgeClass = (label: string | null) => {
+        const n = String(label || '').toLowerCase();
+        if (n.includes('likely ai')) return 'ai-report-badge ai-report-ai';
+        if (n.includes('likely human')) return 'ai-report-badge ai-report-human';
+        return 'ai-report-badge ai-report-unclear';
+    };
 
     if (loading) return <div className="grader-container"><div className="grader-loading">Loading...</div></div>;
     if (!submission || !assignment || !activeAttempt) return <div className="grader-container"><div className="grader-loading">Submission not found</div></div>;
@@ -970,8 +1000,7 @@ const SubmissionGrader: React.FC = () => {
                             <h2 className="grader-title">{studentDisplayName}</h2>
                             {isSubmissionGraded && <span className="graded-by-pill">Graded</span>}
                             {studentPlagiarismMatches.length > 0 && (
-                                <div className="plagiarism-flag-wrapper">
-                                    <button
+                                <div className="plagiarism-flag-wrapper">                                    <button
                                         type="button"
                                         className="plagiarism-flag"
                                         onClick={() => setShowPlagPopover(prev => !prev)}
@@ -1022,6 +1051,48 @@ const SubmissionGrader: React.FC = () => {
                                                         </div>
                                                     );
                                                 })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {aiLabel && (
+                                <div className="plagiarism-flag-wrapper" ref={aiPopoverRef}>
+                                    <button
+                                        type="button"
+                                        className={aiBadgeClass(aiLabel)}
+                                        onClick={() => setShowAiPopover(prev => !prev)}
+                                        title="Click to view AI detection details"
+                                    >
+                                        <Brain size={14} />
+                                        {aiLabel}
+                                    </button>
+                                    {showAiPopover && (
+                                        <div className="plagiarism-popover ai-report-popover">
+                                            <div className="plagiarism-popover-header">
+                                                <h4>AI Detection Report</h4>
+                                                <button
+                                                    type="button"
+                                                    className="plagiarism-popover-close"
+                                                    onClick={() => setShowAiPopover(false)}
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="plagiarism-popover-body">
+                                                {aiResults.map((r, i) => (
+                                                    <div key={i} className="ai-report-popover-row">
+                                                        <span className="ai-report-popover-file">{r.file_name || `File ${i + 1}`}</span>
+                                                        <span className={aiBadgeClass(r.label)} style={{ fontSize: '0.68rem', padding: '2px 7px' }}>
+                                                            {r.label}
+                                                        </span>
+                                                        <span className="ai-report-popover-score">
+                                                            {typeof (r.calibrated_score ?? r.raw_score) === 'number'
+                                                                ? `${((r.calibrated_score ?? r.raw_score)! * 100).toFixed(1)}%`
+                                                                : ''}
+                                                        </span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     )}

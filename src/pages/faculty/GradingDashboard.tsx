@@ -9,6 +9,7 @@ import {
     runSubmissionAiDetection,
     getSubmissionAiDetections,
     getAiDetectorStatus,
+    getTestCases,
 } from '../../lib/api';
 import type { Assignment, Submission, SubmissionAiDetectionResult, AiDetectorStatusResponse } from '../../lib/api';
 import { BarChart2, Search, FlaskConical, Brain, PenLine, ChevronLeft, ShieldAlert, FileText, X } from 'lucide-react';
@@ -108,12 +109,17 @@ const GradingDashboard: React.FC = () => {
     const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
     const [showAiDetectionModal, setShowAiDetectionModal] = useState(false);
     const [runningTestsForAll, setRunningTestsForAll] = useState(false);
+    const [showAllTestsReport, setShowAllTestsReport] = useState(false);
+    type AllTestsReportRow = { studentName: string; auto_feedback: string | null };
+    const [allTestsReportData, setAllTestsReportData] = useState<AllTestsReportRow[]>([]);
+    const [expandedReportRow, setExpandedReportRow] = useState<string | null>(null);
     const [studentSearchInput, setStudentSearchInput] = useState('');
     const [studentSearchFilter, setStudentSearchFilter] = useState('');
     const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ show: false, type: 'info', title: '', message: '' });
     const [plagiarismMatches, setPlagiarismMatches] = useState<PlagiarismMatch[]>([]);
     const [plagiarismPopoverStudentId, setPlagiarismPopoverStudentId] = useState<string | null>(null);
     const popoverRef = useRef<HTMLDivElement>(null);
+    const loadAiRowsForModalRef = useRef<(() => Promise<void>) | null>(null);
     const [runningAiForAll, setRunningAiForAll] = useState(false);
     const [hydratingAiRows, setHydratingAiRows] = useState(false);
     const [aiRows, setAiRows] = useState<Record<number, AiDetectionRowState>>({});
@@ -465,11 +471,15 @@ const GradingDashboard: React.FC = () => {
     }, [latestSubmissions, runAiForSubmission]);
 
     useEffect(() => {
+        loadAiRowsForModalRef.current = loadAiRowsForModal;
+    }, [loadAiRowsForModal]);
+
+    useEffect(() => {
         if (showAiDetectionModal) {
             void loadAiDetectorStatus();
-            void loadAiRowsForModal();
+            void loadAiRowsForModalRef.current?.();
         }
-    }, [showAiDetectionModal, loadAiRowsForModal]);
+    }, [showAiDetectionModal]);
 
     async function handleToggleHideNames() {
         if (!assignment || !assignmentId) return;
@@ -497,29 +507,40 @@ const GradingDashboard: React.FC = () => {
             });
             return;
         }
+        // Pre-flight: check test cases exist
+        try {
+            const testCases = await getTestCases(assignmentId);
+            if (testCases.length === 0) {
+                setAlertConfig({
+                    show: true,
+                    type: 'info',
+                    title: 'No test cases configured',
+                    message: 'This assignment has no test cases. Add test cases in the assignment editor before running tests.',
+                });
+                return;
+            }
+        } catch { /* proceed anyway if check fails */ }
         setRunningTestsForAll(true);
+        const reportRows: AllTestsReportRow[] = [];
         let ok = 0;
         let failed = 0;
         try {
             for (const sub of latest) {
+                const name = sub.student_name || String(sub.student_id);
                 try {
-                    await runAutograde(sub.id, { testResultsOnly: true });
+                    const result = await runAutograde(sub.id, { testResultsOnly: true });
                     ok++;
+                    reportRows.push({ studentName: name, auto_feedback: result.auto_feedback ?? null });
                 } catch (e) {
                     console.error(e);
                     failed++;
+                    reportRows.push({ studentName: name, auto_feedback: null });
                 }
             }
             await loadData();
-            setAlertConfig({
-                show: true,
-                type: failed > 0 ? 'info' : 'success',
-                title: 'Test runs finished',
-                message:
-                    failed > 0
-                        ? `Completed with ${ok} success(es) and ${failed} failure(s). Check logs or grade each submission for details.`
-                        : `Test results saved for all ${ok} latest submission(s). Final grades stay pending until you grade each student.`,
-            });
+            setAllTestsReportData(reportRows);
+            setExpandedReportRow(null);
+            setShowAllTestsReport(true);
         } catch (err) {
             console.error(err);
             setAlertConfig({
@@ -608,6 +629,17 @@ const GradingDashboard: React.FC = () => {
         if (normalized === 'failed') return 'ai-state-failed';
         if (normalized === 'skipped') return 'ai-state-skipped';
         return 'ai-state-pending';
+    };
+    // Parse auto_feedback JSON results block to get pass/fail counts
+    const parseTestResults = (autoFeedback?: string | null): { passed: number; total: number } | null => {
+        if (!autoFeedback) return null;
+        try {
+            const jsonStart = autoFeedback.indexOf('[');
+            if (jsonStart === -1) return null;
+            const arr = JSON.parse(autoFeedback.slice(jsonStart)) as { passed: boolean }[];
+            if (!Array.isArray(arr) || arr.length === 0) return null;
+            return { passed: arr.filter(r => r.passed).length, total: arr.length };
+        } catch { return null; }
     };
     const aiAnalysisStateLabel = (value?: string | null) => {
         const normalized = normalizeAiAnalysisState(value);
@@ -734,8 +766,9 @@ const GradingDashboard: React.FC = () => {
                         <tr>
                             <th>Student Name</th>
                             <th>Latest Submission</th>
-                            <th>Submitted Assignments</th>
                             <th>Status</th>
+                            <th>Plagiarism</th>
+                            <th>AI</th>
                             <th>Grade</th>
                             <th>Action</th>
                         </tr>
@@ -743,13 +776,13 @@ const GradingDashboard: React.FC = () => {
                     <tbody>
                         {Object.keys(groupedSubmissions).length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="empty-state">
+                                <td colSpan={7} className="empty-state">
                                     No submissions found for this assignment yet.
                                 </td>
                             </tr>
                         ) : filteredSubmissionGroups.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="empty-state">
+                                <td colSpan={7} className="empty-state">
                                     No students match your search. Try a different name or ID.
                                 </td>
                             </tr>
@@ -764,6 +797,18 @@ const GradingDashboard: React.FC = () => {
                                     ? latestSubmission.status
                                     : 'pending';
                                 const submissionMeta = getSubmissionMeta(latestSubmission);
+                                const testResult = parseTestResults(latestSubmission.auto_feedback);
+                                const aiRow = aiRows[latestSubmission.id];
+                                // Derive a consensus label: pick the worst-case (most AI) label across files
+                                const aiLabel: string | null = (() => {
+                                    const byFile = aiRow?.byFile;
+                                    if (!byFile || byFile.length === 0) return null;
+                                    const labels = byFile.map(r => String(r.label || '').toLowerCase());
+                                    if (labels.some(l => l.includes('likely ai'))) return 'Likely AI';
+                                    if (labels.some(l => l.includes('unclear') || l.includes('mixed'))) return 'Unclear';
+                                    if (labels.every(l => l.includes('likely human'))) return 'Likely Human';
+                                    return byFile[0]?.label || null;
+                                })();
                                 return (
                                     <tr key={latestSubmission.student_id}>
                                         <td className="text-medium">
@@ -782,95 +827,97 @@ const GradingDashboard: React.FC = () => {
                                                             ? `${latestSubmission.student_name} (${latestSubmission.student_id})`
                                                             : latestSubmission.student_id)}
                                                 </span>
-                                                {flaggedStudentIds.has(latestSubmission.student_id) && (
-                                                    <div className="plagiarism-flag-wrapper">
-                                                        <button
-                                                            type="button"
-                                                            className="plagiarism-flag"
-                                                            onClick={() => setPlagiarismPopoverStudentId(
-                                                                prev => prev === latestSubmission.student_id ? null : latestSubmission.student_id
-                                                            )}
-                                                            title="Click to view plagiarism details"
-                                                        >
-                                                            <ShieldAlert size={14} />
-                                                            Plagiarism
-                                                        </button>
-                                                        {plagiarismPopoverStudentId === latestSubmission.student_id && (
-                                                            <div className="plagiarism-popover" ref={popoverRef}>
-                                                                <div className="plagiarism-popover-header">
-                                                                    <h4>Plagiarism Matches</h4>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="plagiarism-popover-close"
-                                                                        onClick={() => setPlagiarismPopoverStudentId(null)}
-                                                                    >
-                                                                        <X size={16} />
-                                                                    </button>
-                                                                </div>
-                                                                <div className="plagiarism-popover-body">
-                                                                    {getMatchesForStudent(latestSubmission.student_id).map((match, i) => {
-                                                                        const other = match.student1.id === latestSubmission.student_id
-                                                                            ? match.student2 : match.student1;
-                                                                        return (
-                                                                            <div key={i} className="plagiarism-popover-match">
-                                                                                <div className="plagiarism-popover-match-info">
-                                                                                    <UserAvatar user={other} size={24} />
-                                                                                    <span className="plagiarism-popover-name">{other.name}</span>
-                                                                                    <span className={`plagiarism-popover-score ${
-                                                                                        match.similarity > 80 ? 'score-high' :
-                                                                                        match.similarity > 60 ? 'score-med' : 'score-low'
-                                                                                    }`}>
-                                                                                        {match.similarity}%
-                                                                                    </span>
-                                                                                </div>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="plagiarism-popover-diff-btn"
-                                                                                    onClick={() => {
-                                                                                        const student = latestSubmission.student_id;
-                                                                                        const other = match.student1.id === student ? match.student2.id : match.student1.id;
-                                                                                        navigate(`${basePath}/plagscan?assignment=${assignmentId}&student=${student}&active=${other}`);
-                                                                                        setPlagiarismPopoverStudentId(null);
-                                                                                    }}
-                                                                                >
-                                                                                    <FileText size={14} />
-                                                                                    Diff
-                                                                                </button>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="text-secondary">
                                             {new Date(latestSubmission.submitted_at).toLocaleString()}
                                         </td>
                                         <td>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setSelectedStudentSubmissions(group)}
-                                                style={{ boxShadow: 'none', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}
-                                            >
-                                                View Submissions ({group.length})
-                                            </Button>
+                                            <StatusBadge status={effectiveStatus} />
                                         </td>
                                         <td>
-                                            <StatusBadge status={effectiveStatus} />
-                                            <div className="ai-state-inline">
+                                            {flaggedStudentIds.has(latestSubmission.student_id) ? (
+                                                <div className="plagiarism-flag-wrapper">
+                                                    <button
+                                                        type="button"
+                                                        className="plagiarism-flag"
+                                                        onClick={() => setPlagiarismPopoverStudentId(
+                                                            prev => prev === latestSubmission.student_id ? null : latestSubmission.student_id
+                                                        )}
+                                                        title="Click to view plagiarism details"
+                                                    >
+                                                        <ShieldAlert size={14} />
+                                                        Flagged
+                                                    </button>
+                                                    {plagiarismPopoverStudentId === latestSubmission.student_id && (
+                                                        <div className="plagiarism-popover" ref={popoverRef}>
+                                                            <div className="plagiarism-popover-header">
+                                                                <h4>Plagiarism Matches</h4>
+                                                                <button
+                                                                    type="button"
+                                                                    className="plagiarism-popover-close"
+                                                                    onClick={() => setPlagiarismPopoverStudentId(null)}
+                                                                >
+                                                                    <X size={16} />
+                                                                </button>
+                                                            </div>
+                                                            <div className="plagiarism-popover-body">
+                                                                {getMatchesForStudent(latestSubmission.student_id).map((match, i) => {
+                                                                    const other = match.student1.id === latestSubmission.student_id
+                                                                        ? match.student2 : match.student1;
+                                                                    return (
+                                                                        <div key={i} className="plagiarism-popover-match">
+                                                                            <div className="plagiarism-popover-match-info">
+                                                                                <UserAvatar user={other} size={24} />
+                                                                                <span className="plagiarism-popover-name">{other.name}</span>
+                                                                                <span className={`plagiarism-popover-score ${
+                                                                                    match.similarity > 80 ? 'score-high' :
+                                                                                    match.similarity > 60 ? 'score-med' : 'score-low'
+                                                                                }`}>
+                                                                                    {match.similarity}%
+                                                                                </span>
+                                                                            </div>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="plagiarism-popover-diff-btn"
+                                                                                onClick={() => {
+                                                                                    const student = latestSubmission.student_id;
+                                                                                    const other = match.student1.id === student ? match.student2.id : match.student1.id;
+                                                                                    navigate(`${basePath}/plagscan?assignment=${assignmentId}&student=${student}&active=${other}`);
+                                                                                    setPlagiarismPopoverStudentId(null);
+                                                                                }}
+                                                                            >
+                                                                                <FileText size={14} />
+                                                                                Diff
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="grading-col-none">—</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {aiLabel ? (
+                                                <span className={`ai-state-pill ${aiRowBadgeClass(aiLabel)}`}>
+                                                    {aiLabel}
+                                                </span>
+                                            ) : submissionMeta.analysis_state === 'analyzed' || submissionMeta.analysis_state === 'reused' ? (
+                                                <span className="grading-col-none">—</span>
+                                            ) : (
                                                 <span className={`ai-state-pill ${aiAnalysisStateClass(submissionMeta.analysis_state)}`}>
                                                     {aiAnalysisStateLabel(submissionMeta.analysis_state)}
                                                 </span>
-                                                {submissionMeta.analysis_state === 'reused' && submissionMeta.reused_from_submission_id != null && (
-                                                    <div className="ai-reuse-note">
-                                                        Reused from submission #{submissionMeta.reused_from_submission_id}
-                                                    </div>
-                                                )}
-                                            </div>
+                                            )}
+                                            {submissionMeta.analysis_state === 'reused' && submissionMeta.reused_from_submission_id != null && (
+                                                <div className="ai-reuse-note">
+                                                    #{submissionMeta.reused_from_submission_id}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="text-medium">
                                             {latestSubmission.grade !== undefined && latestSubmission.grade !== null
@@ -1140,6 +1187,66 @@ const GradingDashboard: React.FC = () => {
                     message={alertConfig.message}
                     onClose={() => setAlertConfig({ ...alertConfig, show: false })}
                 />
+            )}
+
+            {/* All Tests Report Modal */}
+            {showAllTestsReport && (
+                <div className="modal-overlay" onClick={() => setShowAllTestsReport(false)}>
+                    <div className="modal-content feedback-modal" style={{ maxWidth: '660px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Test Case Report Details</h3>
+                            <button className="modal-close" onClick={() => setShowAllTestsReport(false)}>✕</button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+                            {allTestsReportData.map((row) => {
+                                const tr = parseTestResults(row.auto_feedback);
+                                const allPass = tr !== null && tr.passed === tr.total;
+                                const isExpanded = expandedReportRow === row.studentName;
+                                return (
+                                    <div key={row.studentName} style={{ marginBottom: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <div
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f9fafb', cursor: 'pointer', gap: '10px' }}
+                                            onClick={() => setExpandedReportRow(isExpanded ? null : row.studentName)}
+                                        >
+                                            <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>{row.studentName}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                {tr ? (
+                                                    <>
+                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary-text)' }}>
+                                                            {tr.passed}/{tr.total} passed
+                                                        </span>
+                                                        <span style={{
+                                                            fontSize: '12px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', border: '1px solid',
+                                                            borderColor: allPass ? 'rgba(22,163,74,0.35)' : 'rgba(220,38,38,0.35)',
+                                                            background: allPass ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)',
+                                                            color: allPass ? '#15803d' : '#b91c1c'
+                                                        }}>
+                                                            Status: {allPass ? 'Passed' : 'Failed'}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <span style={{ fontSize: '12px', color: '#6b7280' }}>No results</span>
+                                                )}
+                                                <span style={{ fontSize: '12px', color: '#9ca3af' }}>{isExpanded ? '▲' : '▼'}</span>
+                                            </div>
+                                        </div>
+                                        {isExpanded && (
+                                            <div style={{ padding: '12px 14px', borderTop: '1px solid #e5e7eb' }}>
+                                                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '6px' }}>Full Test Case Report</div>
+                                                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '12px', maxHeight: '260px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.45 }}>
+                                                    {row.auto_feedback || 'No test case report available.'}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e5e7eb', paddingTop: '14px', marginTop: '8px' }}>
+                                <button className="btn btn-ghost" onClick={() => setShowAllTestsReport(false)}>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
