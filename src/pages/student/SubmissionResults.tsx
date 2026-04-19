@@ -300,6 +300,7 @@ export default function SubmissionResults() {
                         </p>
                         {rubric.sections.map((section) => {
                             const sectionTotal = section.items.reduce((sum, item) =>  {
+                                const score = item.id && rubricScores ? (rubricScores[item.id] ?? 0) : 0;
                                 const max = item.maxPoints ?? 0;
                                 return sum + (max || 0);
                             }, 0);

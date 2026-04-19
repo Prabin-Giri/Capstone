@@ -429,7 +429,7 @@ const AssignmentWizard: React.FC<AssignmentWizardProps> = ({ viewOnly = false })
         }
         setSavingNamedRubric(true);
         try {
-            await saveRubricTemplate(courseId, selected.name, rubricObj);
+            const res = await saveRubricTemplate(courseId, selected.name, rubricObj);
             const list = await getSavedRubrics(courseId);
             setSavedRubrics(list);
             await showDialog({
