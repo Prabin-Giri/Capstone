@@ -424,6 +424,18 @@ async function initDb() {
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
+    // Ensure users.email_verified exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verified TINYINT DEFAULT 0');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure users.email_verification_token exists
+    try {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(255) DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
     // Ensure submissions.auto_grade exists
     try {
         await pool.execute('ALTER TABLE submissions ADD COLUMN auto_grade DOUBLE DEFAULT NULL');
@@ -444,9 +456,18 @@ async function initDb() {
     }
     // Ensure users.email_verification_otp exists
     try {
-        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_otp VARCHAR(6) DEFAULT NULL');
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verification_otp VARCHAR(255) DEFAULT NULL');
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
+    // Ensure OTP/token columns can store hashed values
+    try {
+        await pool.execute('ALTER TABLE users MODIFY COLUMN email_verification_otp VARCHAR(255) DEFAULT NULL');
+    } catch (e) {
+        // Ignore when current type/charset doesn't allow direct alter on managed providers.
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && e.code !== 'ER_BAD_FIELD_ERROR' && !String(e.message || '').includes('Duplicate column'))) {
+            throw e;
+        }
     }
     // Ensure users.email_verification_expires exists
     try {

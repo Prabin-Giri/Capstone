@@ -28,6 +28,7 @@ function loadEnv() {
 loadEnv();
 const { initDb, isMySQL, getDb } = require('./db');
 const { isPasswordHash, hashPassword } = require('./passwords');
+const { SECRET_PURPOSES, isStoredSecretHash, hashStoredSecret } = require('./secrets');
 const { attachAuthContext, requireAuth, requireRoles } = require('./auth');
 
 const coursesRouter = require('./routes/courses');
@@ -67,6 +68,66 @@ async function migrateLegacyPlaintextPasswords() {
     }
     if (migrated > 0) {
         console.log(`[auth] Migrated ${migrated} plaintext password(s) to bcrypt hashes.`);
+    }
+}
+
+async function migrateLegacyPlaintextAuthSecrets() {
+    const db = getDb();
+    let rows;
+    try {
+        [rows] = await db.execute(
+            `SELECT id, email_verification_token, email_verification_otp, password_reset_token
+             FROM users
+             WHERE email_verification_token IS NOT NULL
+                OR email_verification_otp IS NOT NULL
+                OR password_reset_token IS NOT NULL`
+        );
+    } catch (err) {
+        console.warn('[security] Skipped legacy auth-secret migration (columns unavailable):', err.message);
+        return;
+    }
+    const users = Array.isArray(rows) ? rows : [];
+    let migratedRows = 0;
+
+    for (const user of users) {
+        const updates = [];
+        const params = [];
+
+        if (
+            typeof user.email_verification_token === 'string'
+            && user.email_verification_token.length > 0
+            && !isStoredSecretHash(user.email_verification_token)
+        ) {
+            updates.push('email_verification_token = ?');
+            params.push(hashStoredSecret(user.email_verification_token, SECRET_PURPOSES.EMAIL_VERIFICATION_TOKEN));
+        }
+
+        if (
+            typeof user.email_verification_otp === 'string'
+            && user.email_verification_otp.length > 0
+            && !isStoredSecretHash(user.email_verification_otp)
+        ) {
+            updates.push('email_verification_otp = ?');
+            params.push(hashStoredSecret(user.email_verification_otp, SECRET_PURPOSES.EMAIL_VERIFICATION_OTP));
+        }
+
+        if (
+            typeof user.password_reset_token === 'string'
+            && user.password_reset_token.length > 0
+            && !isStoredSecretHash(user.password_reset_token)
+        ) {
+            updates.push('password_reset_token = ?');
+            params.push(hashStoredSecret(user.password_reset_token, SECRET_PURPOSES.PASSWORD_RESET_TOKEN));
+        }
+
+        if (updates.length === 0) continue;
+        params.push(user.id);
+        await db.execute(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+        migratedRows += 1;
+    }
+
+    if (migratedRows > 0) {
+        console.log(`[security] Migrated sensitive auth secrets to hashed storage for ${migratedRows} user row(s).`);
     }
 }
 
@@ -118,6 +179,7 @@ app.use((err, req, res, next) => {
 // Initialize database then start server
 initDb().then(async () => {
     await migrateLegacyPlaintextPasswords();
+    await migrateLegacyPlaintextAuthSecrets();
     const { initGraderSchema } = require('./grader/initGraderSchema');
     await initGraderSchema();
     const server = app.listen(PORT, '0.0.0.0', () => {

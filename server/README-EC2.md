@@ -142,6 +142,7 @@ GRADER_RUN_TIMEOUT_MS=30000
 DOCKER_JAVA_IMAGE=eclipse-temurin:17-jdk-jammy
 PORT=3001
 FRONTEND_ORIGIN=https://main.<your-amplify-app-id>.amplifyapp.com
+SECRET_HASH_KEY=replace-with-long-random-secret
 
 # Optional AI detector integration
 AI_DETECTOR_ENABLED=false

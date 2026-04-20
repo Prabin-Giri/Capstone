@@ -4,6 +4,7 @@ const { getDb, queryToObjects } = require('../db');
 const { getClientIp, getUserAgent, recordLoginAttempt, recordActivity, touchUserLastSeen } = require('../audit');
 const { generateToken, generateOTP, sendVerificationEmail, sendPasswordResetEmail } = require('../email');
 const { hashPassword, verifyPassword, isPasswordHash } = require('../passwords');
+const { SECRET_PURPOSES, hashStoredSecret, verifyStoredSecret } = require('../secrets');
 const { createAuthToken, requireAuth, requireRoles, requireSelfOrRoles, hasAnyRole } = require('../auth');
 
 const authAttemptBuckets = new Map();
@@ -112,13 +113,15 @@ router.post('/signup', async (req, res, next) => {
         // Generate email verification token + OTP
         const verificationToken = generateToken();
         const otp = generateOTP();
+        const verificationTokenHash = hashStoredSecret(verificationToken, SECRET_PURPOSES.EMAIL_VERIFICATION_TOKEN);
+        const otpHash = hashStoredSecret(otp, SECRET_PURPOSES.EMAIL_VERIFICATION_OTP);
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         const hashedPassword = await hashPassword(password);
 
         await db.execute(
             'INSERT INTO users (id, name, email, password, role, verified, student_id, email_verified, email_verification_token, email_verification_otp, email_verification_expires) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)',
-            [id, normalizedName, normalizedEmail, hashedPassword, role, verified, role === 'student' ? normalizedStudentId : null, verificationToken, otp, expires]
+            [id, normalizedName, normalizedEmail, hashedPassword, role, verified, role === 'student' ? normalizedStudentId : null, verificationTokenHash, otpHash, expires]
         );
 
         // Send verification email (don't fail signup if email fails, but log it)
@@ -275,7 +278,7 @@ router.post('/verify-email', async (req, res, next) => {
         if (new Date(user.email_verification_expires) < new Date()) {
             return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' });
         }
-        if (user.email_verification_otp !== otp) {
+        if (!verifyStoredSecret(otp, user.email_verification_otp, SECRET_PURPOSES.EMAIL_VERIFICATION_OTP)) {
             return res.status(400).json({ error: 'Invalid verification code' });
         }
 
@@ -299,15 +302,19 @@ router.get('/verify-email-token', async (req, res, next) => {
         }
 
         const db = getDb();
+        const tokenHash = hashStoredSecret(token, SECRET_PURPOSES.EMAIL_VERIFICATION_TOKEN);
         const [rows] = await db.execute(
-            'SELECT id, name, email, role, profile_picture, verified, email_verification_expires FROM users WHERE email_verification_token = ?',
-            [token]
+            'SELECT id, name, email, role, profile_picture, verified, email_verification_token, email_verification_expires FROM users WHERE email_verification_token IN (?, ?)',
+            [tokenHash, token]
         );
         if (rows.length === 0) {
             return res.status(400).json({ error: 'Invalid or expired verification link' });
         }
 
         const user = rows[0];
+        if (!verifyStoredSecret(token, user.email_verification_token, SECRET_PURPOSES.EMAIL_VERIFICATION_TOKEN)) {
+            return res.status(400).json({ error: 'Invalid or expired verification link' });
+        }
         if (new Date(user.email_verification_expires) < new Date()) {
             await db.execute(
                 'UPDATE users SET email_verification_token = NULL, email_verification_otp = NULL, email_verification_expires = NULL WHERE id = ?',
@@ -452,11 +459,13 @@ router.post('/resend-verification', async (req, res, next) => {
 
         const verificationToken = generateToken();
         const otp = generateOTP();
+        const verificationTokenHash = hashStoredSecret(verificationToken, SECRET_PURPOSES.EMAIL_VERIFICATION_TOKEN);
+        const otpHash = hashStoredSecret(otp, SECRET_PURPOSES.EMAIL_VERIFICATION_OTP);
         const expires = new Date(Date.now() + 10 * 60 * 1000);
 
         await db.execute(
             'UPDATE users SET email_verification_token = ?, email_verification_otp = ?, email_verification_expires = ? WHERE id = ?',
-            [verificationToken, otp, expires, user.id]
+            [verificationTokenHash, otpHash, expires, user.id]
         );
 
         try {
@@ -506,11 +515,12 @@ router.post('/forgot-password', async (req, res, next) => {
 
         const user = rows[0];
         const token = generateToken();
+        const tokenHash = hashStoredSecret(token, SECRET_PURPOSES.PASSWORD_RESET_TOKEN);
         const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
         await db.execute(
             'UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?',
-            [token, expires, user.id]
+            [tokenHash, expires, user.id]
         );
 
         try {
@@ -549,9 +559,10 @@ router.post('/reset-password', async (req, res, next) => {
         }
 
         const db = getDb();
+        const tokenHash = hashStoredSecret(token, SECRET_PURPOSES.PASSWORD_RESET_TOKEN);
         const [rows] = await db.execute(
-            'SELECT id, password_reset_expires FROM users WHERE password_reset_token = ?',
-            [token]
+            'SELECT id, password_reset_token, password_reset_expires FROM users WHERE password_reset_token IN (?, ?)',
+            [tokenHash, token]
         );
 
         if (rows.length === 0) {
@@ -559,6 +570,9 @@ router.post('/reset-password', async (req, res, next) => {
         }
 
         const user = rows[0];
+        if (!verifyStoredSecret(token, user.password_reset_token, SECRET_PURPOSES.PASSWORD_RESET_TOKEN)) {
+            return res.status(400).json({ error: 'Invalid or expired reset link' });
+        }
         if (new Date(user.password_reset_expires) < new Date()) {
             await db.execute('UPDATE users SET password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?', [user.id]);
             return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
