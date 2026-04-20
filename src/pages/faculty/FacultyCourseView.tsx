@@ -6,6 +6,7 @@ import {
     getCourseGrades,
     deleteAssignment,
     getFileUrl,
+    downloadAuthenticatedFile,
     getAssignmentGradesExportUrl,
     updateCourse,
     deleteCourse,
@@ -324,6 +325,16 @@ const FacultyCourseView: React.FC = () => {
         }
     };
 
+    const handleDownloadAssignmentGrades = async (assignment: Assignment) => {
+        try {
+            const fallback = `${(assignment.title || 'assignment').replace(/[^a-z0-9]+/gi, '_')}_grades.csv`;
+            await downloadAuthenticatedFile(getAssignmentGradesExportUrl(assignment.id), fallback);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to download grades.';
+            await showDialog({ title: 'Download unavailable', message, confirmText: 'OK' });
+        }
+    };
+
     const resetEnrollModal = () => {
         setShowEnrollModal(false);
         setEnrollTab('manual');
@@ -442,15 +453,15 @@ const FacultyCourseView: React.FC = () => {
                                             </div>
 
                                             <div className="assignment-card-actions" role="toolbar" aria-label="Assignment actions">
-                                                <a
-                                                    href={getAssignmentGradesExportUrl(assignment.id)}
-                                                    download
+                                                <button
+                                                    type="button"
                                                     className="assignment-tool-btn"
                                                     title="Download grades CSV"
+                                                    onClick={() => handleDownloadAssignmentGrades(assignment)}
                                                 >
                                                     <Download size={15} aria-hidden />
                                                     <span>Grades</span>
-                                                </a>
+                                                </button>
                                                 <button
                                                     type="button"
                                                     className="assignment-tool-btn assignment-tool-btn--primary"

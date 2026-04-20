@@ -605,7 +605,60 @@ export async function getCourseGrades(courseId: string): Promise<GradebookData> 
 }
 
 export function getAssignmentGradesExportUrl(id: string): string {
-    return `${API_BASE}/assignments/${id}/grades/export`;
+    return `${API_BASE}/assignments/${encPath(id)}/grades/export`;
+}
+
+function extractFilenameFromDisposition(contentDisposition: string | null): string | null {
+    const raw = String(contentDisposition || '').trim();
+    if (!raw) return null;
+
+    // RFC 5987 form: filename*=UTF-8''my%20file.csv
+    const star = raw.match(/filename\*\s*=\s*(?:UTF-8'')?([^;]+)/i);
+    if (star?.[1]) {
+        const value = star[1].trim().replace(/^["']|["']$/g, '');
+        try {
+            return decodeURIComponent(value);
+        } catch {
+            return value;
+        }
+    }
+
+    const basic = raw.match(/filename\s*=\s*([^;]+)/i);
+    if (basic?.[1]) {
+        return basic[1].trim().replace(/^["']|["']$/g, '');
+    }
+
+    return null;
+}
+
+export async function downloadAuthenticatedFile(url: string, fallbackFileName = 'download'): Promise<void> {
+    const response = await authFetch(url);
+    if (!response.ok) {
+        let message = `Download failed (${response.status})`;
+        try {
+            const payload = await response.json();
+            if (payload?.error) message = String(payload.error);
+        } catch {
+            // ignore parse failures
+        }
+        throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const fromHeader = extractFilenameFromDisposition(response.headers.get('content-disposition'));
+    const filename = fromHeader || fallbackFileName;
+
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
 }
 
 export async function updateCourse(id: string, updates: Partial<Course>): Promise<{ message: string }> {

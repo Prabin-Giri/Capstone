@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+    downloadAuthenticatedFile,
     getAdminCoursesPage,
     getAdminCourseDetail,
     getCourseGradesExportUrl,
@@ -517,14 +518,23 @@ const CourseManagement: React.FC = () => {
                                     <p className="cm-meta">
                                         Export aggregate grades (CSV) for reporting. Opens in a new tab.
                                     </p>
-                                    <a
+                                    <button
+                                        type="button"
                                         className="cm-btn cm-btn--primary"
-                                        href={getCourseGradesExportUrl(detail.course.id, 'csv', { type: 'assignments' })}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        onClick={async () => {
+                                            try {
+                                                await downloadAuthenticatedFile(
+                                                    getCourseGradesExportUrl(detail.course.id, 'csv', { type: 'assignments' }),
+                                                    `grades_${detail.course.id}.csv`
+                                                );
+                                            } catch (err) {
+                                                const message = err instanceof Error ? err.message : 'Download failed.';
+                                                window.alert(message);
+                                            }
+                                        }}
                                     >
                                         Download grades CSV
-                                    </a>
+                                    </button>
                                 </>
                             ) : (
                                 <div className="cm-empty">Could not load course details.</div>

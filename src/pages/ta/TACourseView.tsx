@@ -5,6 +5,7 @@ import {
     getCourseAssignments,
     getCourseDocuments,
     getFileUrl,
+    downloadAuthenticatedFile,
     getAssignmentGradesExportUrl,
     getCourseCatalogId,
 } from '../../lib/api';
@@ -42,6 +43,16 @@ const TACourseView: React.FC = () => {
             setLoading(false);
         }
     }
+
+    const handleDownloadAssignmentGrades = async (assignment: Assignment) => {
+        try {
+            const fallback = `${(assignment.title || 'assignment').replace(/[^a-z0-9]+/gi, '_')}_grades.csv`;
+            await downloadAuthenticatedFile(getAssignmentGradesExportUrl(assignment.id), fallback);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to download grades.';
+            window.alert(message);
+        }
+    };
 
     if (loading && !course) return <div className="ta-course-container">Loading...</div>;
     if (!course) return <div className="ta-course-container">Course not found</div>;
@@ -130,15 +141,15 @@ const TACourseView: React.FC = () => {
                                             <StatusBadge status={assignment.status} />
                                         </div>
                                         <div className="action-group">
-                                            <a
-                                                href={getAssignmentGradesExportUrl(assignment.id)}
-                                                download
+                                            <button
+                                                type="button"
                                                 className="action-btn"
                                                 title="Download Grades"
+                                                onClick={() => handleDownloadAssignmentGrades(assignment)}
                                             >
                                                 <Download size={14} />
                                                 Grades
-                                            </a>
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={() => navigate(`assignments/${assignment.id}/grading`)}

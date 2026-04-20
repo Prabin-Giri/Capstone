@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { getCourseGrades, getCourseGradesExportUrl, getCourseCatalogId } from '../../lib/api';
+import { downloadAuthenticatedFile, getCourseGrades, getCourseGradesExportUrl, getCourseCatalogId } from '../../lib/api';
 import type { GradebookData, CourseGradesExportType } from '../../lib/api';
 import { Download, FileSpreadsheet, FileText, ChevronLeft, BarChart2, Printer, X, PieChart, Search, Filter, FileDown } from 'lucide-react';
 import './CourseGradebook.css';
@@ -83,7 +83,7 @@ const CourseGradebook: React.FC = () => {
         }
     }
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (!courseId) return;
         if (exportType === 'student' && !exportStudentId) return;
         if ((exportType === 'assignments' || exportType === 'final') && exportAssignmentIds.length === 0) return;
@@ -92,8 +92,13 @@ const CourseGradebook: React.FC = () => {
             ...(exportType === 'student' && exportStudentId ? { studentId: exportStudentId } : {}),
             ...((exportType === 'assignments' || exportType === 'final') && exportAssignmentIds.length > 0 ? { assignmentIds: exportAssignmentIds } : {}),
         });
-        window.open(url, '_blank');
-        setShowExportModal(false);
+        try {
+            await downloadAuthenticatedFile(url, `grades_${courseId}.${exportFormat === 'excel' ? 'xlsx' : 'csv'}`);
+            setShowExportModal(false);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Download failed.';
+            window.alert(message);
+        }
     };
 
     // When opening export modal, default to all assignments selected
