@@ -274,12 +274,12 @@ const GradingDashboard: React.FC = () => {
         });
     }, []);
 
-    const loadAiRowsForModal = useCallback(async () => {
-        if (latestSubmissions.length === 0) return;
+    const loadAiRowsForModal = useCallback(async (submissions: Submission[]) => {
+        if (submissions.length === 0) return;
         setHydratingAiRows(true);
         setAiRows((prev) => {
             const next = { ...prev };
-            for (const sub of latestSubmissions) {
+            for (const sub of submissions) {
                 const fallbackMeta = getSubmissionMeta(sub);
                 next[sub.id] = {
                     loading: true,
@@ -294,7 +294,7 @@ const GradingDashboard: React.FC = () => {
         });
 
         try {
-            await Promise.all(latestSubmissions.map(async (sub) => {
+            await Promise.all(submissions.map(async (sub) => {
                 try {
                     const history = await getSubmissionAiDetections(sub.id, { limit: 100 });
                     const byFile = pickLatestDetectionsByFile(history.results || []);
@@ -329,7 +329,7 @@ const GradingDashboard: React.FC = () => {
         } finally {
             setHydratingAiRows(false);
         }
-    }, [applySubmissionMetaToGroups, latestSubmissions]);
+    }, [applySubmissionMetaToGroups]);
 
     const runAiForSubmission = useCallback(async (
         submission: Submission,
@@ -466,10 +466,11 @@ const GradingDashboard: React.FC = () => {
 
     useEffect(() => {
         if (showAiDetectionModal) {
+            const modalSubmissions = [...latestSubmissions];
             void loadAiDetectorStatus();
-            void loadAiRowsForModal();
+            void loadAiRowsForModal(modalSubmissions);
         }
-    }, [showAiDetectionModal, loadAiRowsForModal]);
+    }, [showAiDetectionModal]);
 
     useEffect(() => {
         if (!showAiDetectionModal) return;
@@ -1020,7 +1021,7 @@ const GradingDashboard: React.FC = () => {
                                     size="sm"
                                     onClick={() => {
                                         void loadAiDetectorStatus();
-                                        void loadAiRowsForModal();
+                                        void loadAiRowsForModal([...latestSubmissions]);
                                     }}
                                     disabled={hydratingAiRows || runningAiForAll}
                                 >

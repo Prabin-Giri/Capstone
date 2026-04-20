@@ -3,6 +3,7 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 32px;
+    overflow-anchor: none;
 }
 
 /* Top: back link + title, then action buttons */
