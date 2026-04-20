@@ -138,6 +138,8 @@ AWS_ACCESS_KEY_ID=AKIAxxxxx
 AWS_SECRET_ACCESS_KEY=xxxxxx
 
 GRADER_RUN_MODE=docker   # Docker available on EC2
+GRADER_RUN_TIMEOUT_MS=30000
+DOCKER_JAVA_IMAGE=eclipse-temurin:17-jdk-jammy
 PORT=3001
 FRONTEND_ORIGIN=https://main.<your-amplify-app-id>.amplifyapp.com
 

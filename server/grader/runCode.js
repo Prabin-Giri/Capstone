@@ -124,7 +124,7 @@ function getRunCommand(language, entryFileName, { runArgs = [], javaMainClass = 
             const mainClass = (javaMainClass && String(javaMainClass).trim()) || entryFileName.replace(/\.java$/i, '') || 'Main';
             const safeClass = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(mainClass) ? mainClass : 'Main';
             const tail = args.length ? ' ' + args.map(quoteShellArg).join(' ') : '';
-            // Single container: avoids two Docker cold-starts (often exceeded short timeouts on Windows).
+            // Compile into writable /tmp, then run from /tmp classpath. /work stays read-only.
             return {
                 image,
                 // Compile to an in-memory writable location (/tmp) and run from there
