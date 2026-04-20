@@ -570,6 +570,19 @@
     max-width: 980px;
 }
 
+.ai-modal-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+.ai-modal-overlay .ai-detection-modal {
+    margin: 0 auto;
+    max-height: calc(100vh - 4rem);
+}
+
 .ai-modal-note {
     margin: 0 0 12px 0;
     color: var(--text-secondary);

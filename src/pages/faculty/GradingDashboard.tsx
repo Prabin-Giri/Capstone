@@ -471,6 +471,23 @@ const GradingDashboard: React.FC = () => {
         }
     }, [showAiDetectionModal, loadAiRowsForModal]);
 
+    useEffect(() => {
+        if (!showAiDetectionModal) return;
+        const previousOverflow = document.body.style.overflow;
+        const previousPaddingRight = document.body.style.paddingRight;
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+        document.body.style.overflow = 'hidden';
+        if (scrollbarWidth > 0) {
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.body.style.paddingRight = previousPaddingRight;
+        };
+    }, [showAiDetectionModal]);
+
     async function handleToggleHideNames() {
         if (!assignment || !assignmentId) return;
         setTogglingHide(true);
@@ -969,7 +986,7 @@ const GradingDashboard: React.FC = () => {
             )}
 
             {showAiDetectionModal && (
-                <div className="modal-overlay" onClick={() => setShowAiDetectionModal(false)}>
+                <div className="modal-overlay ai-modal-overlay" onClick={() => setShowAiDetectionModal(false)}>
                     <div className="modal-content ai-detection-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3 className="modal-title" style={{ margin: 0 }}>
