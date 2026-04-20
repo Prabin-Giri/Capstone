@@ -139,6 +139,7 @@ AWS_SECRET_ACCESS_KEY=xxxxxx
 
 GRADER_RUN_MODE=docker   # Docker available on EC2
 GRADER_RUN_TIMEOUT_MS=30000
+DOCKER_PYTHON_IMAGE=python:3.11-slim   # set to a custom image with numpy/scipy if assignments require them
 DOCKER_JAVA_IMAGE=eclipse-temurin:17-jdk-jammy
 PORT=3001
 FRONTEND_ORIGIN=https://main.<your-amplify-app-id>.amplifyapp.com

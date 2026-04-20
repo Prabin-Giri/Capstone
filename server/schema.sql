@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     status ENUM('pending', 'graded', 'returned') DEFAULT 'pending',
     grade DECIMAL(5,2) DEFAULT NULL,
     feedback TEXT DEFAULT NULL,
+    rubric_scores JSON DEFAULT NULL,
     FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
     UNIQUE KEY unique_submission (assignment_id, student_id)
 );

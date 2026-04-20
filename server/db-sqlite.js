@@ -215,6 +215,7 @@ async function initDb() {
         'ALTER TABLE submissions ADD COLUMN feedback TEXT DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN auto_grade REAL DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN auto_feedback TEXT DEFAULT NULL',
+        'ALTER TABLE submissions ADD COLUMN rubric_scores TEXT DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN content_hash TEXT DEFAULT NULL',
         'ALTER TABLE submissions ADD COLUMN ai_analysis_state TEXT DEFAULT "pending"',
         'ALTER TABLE submissions ADD COLUMN ai_analyzed_at TEXT DEFAULT NULL',

@@ -448,6 +448,12 @@ async function initDb() {
     } catch (e) {
         if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
     }
+    // Ensure submissions.rubric_scores exists (rubric grading payload storage)
+    try {
+        await pool.execute('ALTER TABLE submissions ADD COLUMN rubric_scores JSON DEFAULT NULL');
+    } catch (e) {
+        if (!e || (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column'))) throw e;
+    }
     // Ensure assignments.hide_student_names exists (blind grading for GAs)
     try {
         await pool.execute('ALTER TABLE assignments ADD COLUMN hide_student_names TINYINT DEFAULT 0');

@@ -8,7 +8,8 @@ module.exports = {
 
     /** Docker image per language (must have the runtime installed) */
     images: {
-        python: 'python:3.11-slim',
+        // Optional override lets deployments use a prebuilt Python image with extra libs (e.g. numpy).
+        python: process.env.DOCKER_PYTHON_IMAGE || 'python:3.11-slim',
         // Official openjdk:* tags were removed from Docker Hub; Temurin is the usual replacement (includes javac).
         java: process.env.DOCKER_JAVA_IMAGE || 'eclipse-temurin:17-jdk-jammy',
         javascript: 'node:20-slim',

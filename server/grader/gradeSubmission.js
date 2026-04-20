@@ -78,6 +78,108 @@ function computeLatePenaltyPercent(assignment, submittedAt) {
     return percent;
 }
 
+function stripJavaExt(fileName) {
+    return String(fileName || '').replace(/\.java$/i, '');
+}
+
+function extractJavaClassName(source) {
+    if (!source) return null;
+    const publicMatch = source.match(/\bpublic\s+class\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/);
+    if (publicMatch) return publicMatch[1];
+    const fallback = source.match(/\bclass\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/);
+    return fallback ? fallback[1] : null;
+}
+
+function hasJavaMainMethod(source) {
+    if (!source) return false;
+    return /\bpublic\s+static\s+void\s+main\s*\(/.test(source);
+}
+
+/**
+ * Pick a safe Java execution target from submitted sources.
+ * - Honors assignment-configured main class when it exists in the submission and has a main method.
+ * - Falls back to inferred main class when configured class is missing/invalid.
+ */
+function resolveJavaExecutionTarget(sourcePath, configuredMainClass) {
+    const configured = configuredMainClass && String(configuredMainClass).trim()
+        ? String(configuredMainClass).trim()
+        : null;
+
+    const out = {
+        javaMainClass: configured,
+        overrideFileName: null,
+    };
+
+    if (!sourcePath || !fs.existsSync(sourcePath)) return out;
+
+    const stat = fs.statSync(sourcePath);
+
+    if (stat.isFile()) {
+        try {
+            const content = fs.readFileSync(sourcePath, 'utf8');
+            const declaredClass = extractJavaClassName(content);
+            if (declaredClass) {
+                out.overrideFileName = `${declaredClass}.java`;
+                if (!out.javaMainClass || out.javaMainClass !== declaredClass) {
+                    out.javaMainClass = declaredClass;
+                }
+            }
+        } catch (e) {
+            console.warn('[gradeSubmission] Could not inspect Java file for class inference:', e.message);
+        }
+        return out;
+    }
+
+    const javaFiles = fs.readdirSync(sourcePath)
+        .filter(name => /\.java$/i.test(name))
+        .sort((a, b) => a.localeCompare(b));
+    if (javaFiles.length === 0) return out;
+
+    const metas = javaFiles.map((name) => {
+        const abs = path.join(sourcePath, name);
+        let content = '';
+        try {
+            content = fs.readFileSync(abs, 'utf8');
+        } catch (_) {}
+        const declaredClass = extractJavaClassName(content);
+        return {
+            fileName: name,
+            baseName: stripJavaExt(name),
+            declaredClass,
+            hasMain: hasJavaMainMethod(content),
+        };
+    });
+
+    // Keep assignment config only when it points to a submitted source with a main method.
+    if (out.javaMainClass) {
+        const configuredMeta = metas.find((m) => m.baseName === out.javaMainClass || m.declaredClass === out.javaMainClass);
+        if (configuredMeta && configuredMeta.hasMain) {
+            out.javaMainClass = configuredMeta.declaredClass || configuredMeta.baseName;
+            return out;
+        }
+        console.warn(`[gradeSubmission] Ignoring java_main_class="${out.javaMainClass}" because it was not found with a runnable main() in submission files.`);
+        out.javaMainClass = null;
+    }
+
+    const runnable = metas.filter((m) => m.hasMain);
+    if (runnable.length === 1) {
+        out.javaMainClass = runnable[0].declaredClass || runnable[0].baseName;
+        return out;
+    }
+    if (runnable.length > 1) {
+        const preferred = runnable.find((m) => /^main$/i.test(m.baseName) || /^main$/i.test(m.declaredClass || ''));
+        const chosen = preferred || runnable[0];
+        out.javaMainClass = chosen.declaredClass || chosen.baseName;
+        return out;
+    }
+
+    // No detectable main() method. Keep behavior stable by choosing a deterministic fallback.
+    const mainByName = metas.find((m) => /^main$/i.test(m.baseName));
+    const fallback = mainByName || metas[0];
+    out.javaMainClass = fallback.declaredClass || fallback.baseName;
+    return out;
+}
+
 /**
  * Run auto-grader for a submission: load submission + assignment + test cases,
  * run code in Docker per test, sum points, apply late penalty, write grade/feedback.
@@ -226,20 +328,20 @@ async function gradeSubmission(submissionId, opts = {}) {
     let earned = 0;
     const maxPossible = testCases.reduce((s, tc) => s + (Number(tc.points) || 0), 0);
 
-    const javaMainClass = assignment.java_main_class && String(assignment.java_main_class).trim() ? String(assignment.java_main_class).trim() : null;
-
-    // --- Java Class Name Extraction: Extract main class name to ensure filename matches for javac ---
+    const configuredJavaMainClass = assignment.java_main_class && String(assignment.java_main_class).trim()
+        ? String(assignment.java_main_class).trim()
+        : null;
+    let javaMainClass = configuredJavaMainClass;
     let javaOverrideFileName = null;
     if (language === 'java') {
-        try {
-            const content = fs.readFileSync(sourcePath, 'utf8');
-            const classMatch = content.match(/public\s+class\s+(\w+)/);
-            if (classMatch) {
-                javaOverrideFileName = classMatch[1] + '.java';
-                console.log(`[gradeSubmission] Extracted Java class name: ${classMatch[1]}, using file name: ${javaOverrideFileName}`);
-            }
-        } catch (e) {
-            console.error('[gradeSubmission] Failed to read submission for Java class extraction:', e);
+        const resolved = resolveJavaExecutionTarget(sourcePath, configuredJavaMainClass);
+        javaMainClass = resolved.javaMainClass;
+        javaOverrideFileName = resolved.overrideFileName;
+        if (javaMainClass) {
+            console.log(`[gradeSubmission] Using Java main class: ${javaMainClass}`);
+        }
+        if (javaOverrideFileName) {
+            console.log(`[gradeSubmission] Using Java source filename override: ${javaOverrideFileName}`);
         }
     }
 
