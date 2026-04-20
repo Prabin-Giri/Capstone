@@ -493,7 +493,7 @@ async function gradeWithCustomFile(submission, assignment, graderPath, opts = {}
         // Command to run the grader. Pass the student path (internal to container) as arg.
         const studentArg = stat.isDirectory() ? 'submission' : studentBase;
         const cmd = lang === 'java'
-            ? ['sh', '-c', `javac *.java && java ${graderBase.replace('.java', '')} ${studentArg}`]
+            ? ['sh', '-c', `javac -d /tmp *.java && java -cp /tmp ${graderBase.replace('.java', '')} ${studentArg}`]
             : [lang === 'python' ? 'python3' : 'node', graderBase, studentArg];
 
         let runResult;
