@@ -362,10 +362,11 @@ const AssignmentDetails: React.FC = () => {
         try {
             const payload = buildAssignmentExecutionPayload(editorFiles, activeFileId, assignment.language || '');
             const data = await runTests(assignment.id, payload);
+            const displayedLanguage = data.effectiveLanguage || payload.language;
             setIsRunningTests(false);
             return {
                 results: data.results,
-                log: `Running active tab.\nLanguage: ${payload.language}\nPayload: ${payload.code.length} bytes${payload.files?.length ? ` + ${payload.files.length} Java files` : ''}.`
+                log: `Running active tab.\nLanguage: ${displayedLanguage}\nPayload: ${payload.code.length} bytes${payload.files?.length ? ` + ${payload.files.length} Java files` : ''}.`
             };
         } catch (err) {
             setIsRunningTests(false);

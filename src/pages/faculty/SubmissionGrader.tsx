@@ -528,6 +528,7 @@ const SubmissionGrader: React.FC = () => {
         try {
             const payload = buildAssignmentExecutionPayload(files, activeFileId, assignment.language || '');
             const data = await runTests(assignment.id, payload);
+            const displayedLanguage = data.effectiveLanguage || payload.language;
             const results = data.results || [];
             const passedCount = results.filter((r: TestResult) => !!r.passed).length;
             const totalCount = results.length;
@@ -543,7 +544,7 @@ const SubmissionGrader: React.FC = () => {
             });
             const report = `Execution Summary\nPassed: ${passedCount}/${totalCount}\nStatus: ${totalCount > 0 && passedCount === totalCount ? 'Passed' : 'Failed'}\n\n${reportLines.join('\n\n')}`;
             setSubmission(prev => prev ? { ...prev, auto_feedback: report } : prev);
-            return { results: data.results, log: `Language: ${payload.language} · ${payload.code.length} bytes${payload.files?.length ? ` + ${payload.files.length} Java files` : ''}` };
+            return { results: data.results, log: `Language: ${displayedLanguage} · ${payload.code.length} bytes${payload.files?.length ? ` + ${payload.files.length} Java files` : ''}` };
         } catch (err) {
             throw new Error(`Failed to run tests: ${err instanceof Error ? err.message : String(err)}`);
         } finally {

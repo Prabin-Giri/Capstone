@@ -417,10 +417,13 @@ router.post('/:id/test', async (req, res, next) => {
     try {
         const { code, language, files, javaMainClass } = req.body;
         const assignmentId = req.params.id;
+        const requestedLang = normalizeRunLang(language);
+        const effectiveLanguage = inferRunLangFromPayload({ requestedLang, code, files });
 
         console.log('[Run Tests]', {
             assignmentId,
-            language: language || 'python',
+            requestedLanguage: language || 'python',
+            effectiveLanguage,
             codeLength: (code || '').length,
             javaFiles: Array.isArray(files) ? files.length : 0,
         });
@@ -469,9 +472,8 @@ router.post('/:id/test', async (req, res, next) => {
             return res.json({ results: [], summary: 'No test cases defined.' });
         }
 
-        const lang = normalizeRunLang(language);
         const supported = ['python', 'javascript', 'java', 'php'];
-        if (!supported.includes(lang)) {
+        if (!supported.includes(effectiveLanguage)) {
             return res.json({
                 results: testCases.map(tc => ({
                     id: tc.id,
@@ -482,7 +484,8 @@ router.post('/:id/test', async (req, res, next) => {
                     passed: false,
                     is_public: tc.is_public,
                     points: tc.points ?? 0
-                }))
+                })),
+                effectiveLanguage,
             });
         }
 
@@ -493,7 +496,7 @@ router.post('/:id/test', async (req, res, next) => {
             const pts = tc.points ?? 0;
             try {
                 const runResult = await runStudentProgramOnce({
-                    lang,
+                    lang: effectiveLanguage,
                     code: code || '',
                     stdin: tc.input || '',
                     timeoutMs,
@@ -536,7 +539,7 @@ router.post('/:id/test', async (req, res, next) => {
         const failed = results.length - passed;
         console.log('[Run Tests]', { assignmentId, total: results.length, passed, failed, results: results.map(r => ({ id: r.id, passed: r.passed, error: r.error || null })) });
 
-        res.json({ results, timeoutMs: timeoutMs });
+        res.json({ results, timeoutMs: timeoutMs, effectiveLanguage });
     } catch (err) {
         console.error('[Run Tests] error', { assignmentId: req.params.id, message: err.message });
         next(err);
@@ -550,10 +553,13 @@ router.post('/:id/run', async (req, res, next) => {
     try {
         const { code, language, stdin = '', files, javaMainClass } = req.body;
         const assignmentId = req.params.id;
+        const requestedLang = normalizeRunLang(language);
+        const effectiveLanguage = inferRunLangFromPayload({ requestedLang, code, files });
 
         console.log('[Run Custom Code]', {
             assignmentId,
-            language: language || 'python',
+            requestedLanguage: language || 'python',
+            effectiveLanguage,
             codeLength: (code || '').length,
             stdinLength: stdin.length,
             javaFiles: Array.isArray(files) ? files.length : 0,
@@ -563,10 +569,9 @@ router.post('/:id/run', async (req, res, next) => {
             return res.status(400).json({ error: 'Code is required' });
         }
 
-        const lang = normalizeRunLang(language);
         const supported = ['python', 'javascript', 'java', 'php'];
 
-        if (!supported.includes(lang)) {
+        if (!supported.includes(effectiveLanguage)) {
             return res.status(400).json({ error: `Unsupported language for execution: ${language}. Use python, javascript, java, or php.` });
         }
 
@@ -574,7 +579,7 @@ router.post('/:id/run', async (req, res, next) => {
             const timeoutMs = config.runTimeoutMs;
 
             const runResult = await runStudentProgramOnce({
-                lang,
+                lang: effectiveLanguage,
                 code: code || '',
                 stdin,
                 timeoutMs,
@@ -593,6 +598,7 @@ router.post('/:id/run', async (req, res, next) => {
                 exitCode: runResult.exitCode,
                 timedOut: runResult.timedOut,
                 timeoutMs,
+                effectiveLanguage,
             });
         } catch (runErr) {
             console.error('[Run Custom Code] execution failed', { assignmentId, error: runErr.message });

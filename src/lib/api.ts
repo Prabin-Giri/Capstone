@@ -1182,8 +1182,8 @@ export interface TestResult {
 export async function runTests(
     assignmentId: string,
     payload: AssignmentExecutionPayload
-): Promise<{ results: TestResult[]; timeoutMs?: number }> {
-    return apiFetch<{ results: TestResult[]; timeoutMs?: number }>(`/assignments/${assignmentId}/test`, {
+): Promise<{ results: TestResult[]; timeoutMs?: number; effectiveLanguage?: string }> {
+    return apiFetch<{ results: TestResult[]; timeoutMs?: number; effectiveLanguage?: string }>(`/assignments/${assignmentId}/test`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1195,9 +1195,9 @@ export async function runTests(
 export async function runCustomCode(
     assignmentId: string,
     payload: AssignmentExecutionPayload & { stdin?: string }
-): Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }> {
+): Promise<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number; effectiveLanguage?: string }> {
     const { stdin = '', ...rest } = payload;
-    return apiFetch<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number }>(
+    return apiFetch<{ stdout: string; stderr: string | null; exitCode: number; timedOut: boolean; timeoutMs?: number; effectiveLanguage?: string }>(
         `/assignments/${assignmentId}/run`,
         {
             method: 'POST',
